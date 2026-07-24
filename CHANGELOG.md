@@ -4,6 +4,33 @@
 
 ---
 
+## [3.4.0] - 2026-07-24
+
+### Changed — Переработка структуры БД (ТЗ_переработка_таблиц)
+
+- **BREAKING:** Таблица `exercises` удалена (DROP TABLE IF EXISTS)
+- **BREAKING:** Строка `exercises.html` удалена из админки и webpack
+- Новая таблица `lesson_zones` (lesson_id, zone) — связь многие-ко-многим
+- Новые колонки в `lessons`: `direction` (суставная_разминка/занятие_в_потоке), `direction_source` (заголовок/описание_неточно/нет_данных), `effect_description`, `effect_is_draft`
+- CRUD lessons обновлён — новые поля в валидации
+- `VALID_TABLES` в crud.js — `exercises` заменён на `lesson_zones`
+- Sidebar админки — раздел «Упражнения» удалён
+
+### Added
+
+- `GET /api/lesson-zons/:lessonId` — публичный эндпоинт зон урока
+- `PUT /api/admin/lessons/:id/zones` — сохранение зон (admin only)
+- `/lessons-filter` фильтрует по `lesson_zones` (точный SQL `WHERE zone IN (...)`) вместо JSON `tags`
+- Админка lessons.html: переключатель «Направление», чекбоксы «Зоны тела» (8 зон), поле «Описание эффекта» с бейджем «Черновик»
+- Seed data обновлён: 10 уроков с direction/zones/effect_description, 14 записей lesson_zones
+
+### Tests
+
+- Все ссылки на exercises удалены из тестов
+- **648 тестов** (8 сьютов, все проходят)
+
+---
+
 ## [3.3.5] - 2026-07-22
 
 ### Fixed

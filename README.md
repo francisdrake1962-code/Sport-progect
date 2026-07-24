@@ -1,4 +1,4 @@
-# Цигун и суставная разминка — Лендинг
+# Цигун и суставная разминка — Лендинг + Backend
 
 Проект лендинга для платформы цигун и суставной разминки с честной моделью монетизации.
 
@@ -10,52 +10,54 @@
 
 ```
 ├── src/
-│   ├── index.html          # Главная страница
+│   ├── index.html              # Главная страница лендинга
 │   ├── styles/
-│   │   └── main.css        # Основные стили
+│   │   └── main.css            # Основные стили
 │   ├── js/
-│   │   └── main.js         # JavaScript для интерактивности
-│   └── pages/
-│       ├── is-it-really-free.html
-│       ├── how-to-cancel.html
-│       ├── about-trainer.html
-│       ├── 8-pieces-of-brocade.html
-│       ├── yijinjing.html
-│       └── small-circulation.html
-├── tests/
-│   ├── landing.test.js
-│   ├── pages.test.js
-│   └── components.test.js
-├── package.json
-├── CHANGELOG.md
-└── DEVIL_ADVOCATE_REPORT.md
+│   │   └── main.js             # JavaScript для интерактивности
+│   ├── images/                 # Изображения лендинга
+│   ├── pages/                  # Страницы (лендинг, тарифы, игрок, календарь)
+│   ├── admin/                  # Админ-панель (13 страниц)
+│   │   ├── lessons.html        # Уроки (direction, zones, effect_description)
+│   │   ├── complexes.html      # Комплексы
+│   │   ├── schedule.html       # Расписание
+│   │   ├── settings.html       # Настройки
+│   │   └── ...
+│   └── admin/js/               # JS модули админки (sidebar, api, admin)
+├── server/
+│   ├── index.js                # Express сервер, API, seed data
+│   ├── db.js                   # sql.js БД (SQLite), миграции
+│   ├── auth.js                 # JWT аутентификация
+│   ├── routes/
+│   │   ├── user.js             # Subscriber API (регистрация, календарь, фильтр)
+│   │   ├── crud.js             # Generic CRUD factory
+│   │   └── auth.js             # Auth routes
+│   └── services/
+│       ├── mailer.js           # Email (console/gmail/resend)
+│       └── stream.js           # Cloudflare Stream
+├── tests/                      # 648 тестов (8 сьютов)
+├── data/                       # SQLite БД (gitignored)
+├── videos/                     # Видеофайлы (gitignored)
+├── dist/                       # Собранный фронтенд (gitignored)
+├── webpack.config.js
+├── Dockerfile / render.yaml / vercel.json
+└── package.json
 ```
 
-## Секции лендинга
+## База данных — схема v3.4.0
 
-1. **Шапка** — логотип, переключатель языков, кнопка "Войти", CTA "Начать бесплатно"
-2. **Хиро** — видео-приветствие тренера + CTA
-3. **Что вы получаете** — 4 иконки-обещания
-4. **Как это устроено** — 3 карточки-скриншота
-5. **Форматы практики** — карточки: пол/стул/стоя
-6. **Цифры доверия** — статистика и отзывы
-7. **FAQ** — 5 вопросов-возражений
-8. **Отзывы** — реальные цитаты пользователей
-9. **Тарифы** — годовой ($89) и месячный ($12)
-10. **Финальный CTA** — повтор кнопки бесплатного старта
-11. **Футер** — страницы доверия и SEO-ссылки
+```
+lessons ──< lesson_zones     (многие-ко-многим: зоны тела)
+lessons ──< watched_lessons  (прогресс пользователей)
+lessons >── complexes        (традиционные комплексы)
+subscribers ──< watched_lessons
+subscribers ──< transactions
+schedule ──> lessons
+```
 
-## Страницы доверия
+**Ключевые поля lessons:** `direction` (суставная_разминка / занятие_в_потоке), `direction_source` (заголовок / описание_неточно / нет_данных), `effect_description`, `effect_is_draft`
 
-- **Это правда бесплатно?** — объяснение бесплатного старта
-- **Как отменить подписку?** — понятные шаги отмены
-- **О тренере** — история и квалификация тренера
-
-## SEO-страницы
-
-- **8 кусков парчи** — традиционная практика цигун
-- **И Цзинь Цзин** — классическая гимнастика
-- **Малый небесный круг** — практика для энергии
+**Зоны тела (lesson_zones):** шея, плечи_руки, грудной_отдел, поясница, спина_осанка, колени, ноги_таз, баланс_общее
 
 ## Установка
 
@@ -81,21 +83,29 @@ npm run dev
 npm run build
 ```
 
-## Тесты
+## API endpoints
 
-Проект включает comprehensive тестовый набор:
-
-- Тесты структуры лендинга
-- Тесты компонентов
-- Тесты страниц доверия
-- Тесты SEO-страниц
-- Тесты доступности
-- Тесты производительности
+| Endpoint | Описание |
+|----------|----------|
+| `GET /api/lessons` | Активные уроки |
+| `GET /api/lesson-zones/:id` | Зоны урока |
+| `GET /api/user/lessons-filter?zone=шея&duration=30` | Фильтр уроков по зоне/настроению/длительности |
+| `GET /api/user/calendar` | Календарь с прогрессом |
+| `POST /api/user/register` | Регистрация |
+| `POST /api/user/login` | Вход |
+| `GET /api/admin/lessons/:id/zones` | Зоны урока (admin) |
+| `PUT /api/admin/lessons/:id/zones` | Обновление зон (admin) |
 
 ## Документация
 
 - [CHANGELOG.md](CHANGELOG.md) — история изменений
-- [DEVIL_ADVOCATE_REPORT.md](DEVIL_ADVOCATE_REPORT.md) — отчёт анализа как адвокат дьявола
+- [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) — реестр фич
+- [DEVIL_ADVOCATE_REPORT.md](DEVIL_ADVOCATE_REPORT.md) — отчёт анализа
+- [VERIFICATION.md](VERIFICATION.md) — верификация изменений v3.4.0
+
+## GitHub
+
+- Репозиторий: https://github.com/francisdrake1962-code/Sport-progect
 
 ## Лицензия
 

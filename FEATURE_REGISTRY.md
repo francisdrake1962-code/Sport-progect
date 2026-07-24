@@ -1,7 +1,7 @@
 # Feature Registry — Qigong Landing + Admin Panel
 
 > Canonical source of truth. Every feature with user story, implementation, tests, and status.
-> Last updated: v3.2.0
+> Last updated: v3.4.0
 
 ---
 
@@ -53,9 +53,8 @@
 | F32 | Login page | As admin I log in with email/password, get JWT | `src/admin/login.html` | `admin.test.js` | OK |
 | F33 | Auth guard | As admin I'm redirected to login if no token | All admin pages | `admin.test.js` | OK |
 | F34 | Dashboard | As admin I see stats: users, revenue, lessons, reviews | `src/admin/index.html` | `admin.test.js` | OK |
-| F35 | Lessons CRUD | As admin I create/edit/delete lessons with modal | `src/admin/lessons.html` | `admin.test.js` | OK |
+| F35 | Lessons CRUD | As admin I create/edit/delete lessons with direction, zones, effect_description | `src/admin/lessons.html` | `admin.test.js` | OK |
 | F36 | Complexes CRUD | As admin I create/edit/delete complexes with modal | `src/admin/complexes.html` | `admin.test.js` | OK |
-| F37 | Exercises CRUD | As admin I create/edit/delete exercises with modal | `src/admin/exercises.html` | `admin.test.js` | OK |
 | F38 | Schedule CRUD | As admin I create/edit/delete schedule with modal | `src/admin/schedule.html` | `admin.test.js` | OK |
 | F39 | Users (read-only) | As admin I view subscriber list with stats | `src/admin/users.html` | `admin.test.js` | OK |
 | F40 | Subscriptions (read-only) | As admin I view subscription stats and list | `src/admin/subscriptions.html` | `admin.test.js` | OK |
@@ -79,7 +78,7 @@
 | F53 | Auth middleware | As API I reject requests without valid JWT | `server/auth.js:10-22` | `backend.test.js` | OK |
 | F54 | Rate limiting | As API I limit login to 10 attempts/minute | `server/routes/auth.js:9-15` | — | NOT TESTED |
 | F55 | Input validation (login) | As API I require email+password on login | `server/routes/auth.js:18-20` | `backend.test.js` | OK |
-| F56 | CRUD factory | As API I provide generic CRUD for 9 tables | `server/routes/crud.js` | `backend.test.js` | OK |
+| F56 | CRUD factory | As API I provide generic CRUD for 12 tables | `server/routes/crud.js` | `backend.test.js` | OK |
 | F57 | Schedule custom routes | As API I handle schedule CRUD with custom fields | `server/index.js:44-97` | `backend.test.js` | OK |
 | F58 | Settings custom routes | As API I handle settings as key-value store | `server/index.js:100-142` | `backend.test.js` | OK |
 | F59 | Dashboard aggregation | As API I compute stats from multiple tables | `server/index.js:145-169` | `backend.test.js` | OK |
@@ -140,6 +139,10 @@
 | F102 | Dev Link Guard | As production user I don't see dev confirmation links | `src/pages/login.html:155` | — | NOT TESTED |
 | F103 | FREE_LIMIT Constant | As developer I use a single source of truth for free limit (7) | `server/routes/user.js:12` | `backend.test.js` | OK |
 | F104 | Gallery Init Refactor | As admin, trainer photos gallery loads correctly | `src/admin/settings.html:96` | — | NOT TESTED |
+| F105 | Lesson Zones API | As admin I can manage zones for each lesson | `server/index.js` (PUT /lessons/:id/zones) | `backend.test.js` | OK |
+| F106 | Lesson Direction Field | As admin I categorize lessons as суставная_разминка/занятие_в_потоке | `server/db.js`, `src/admin/lessons.html` | `backend.test.js` | OK |
+| F107 | Lesson Zones Filter | As subscriber I filter lessons by body zone via lesson_zones table | `server/routes/user.js` (GET /lessons-filter) | `backend.test.js` | OK |
+| F108 | Effect Description + Draft Badge | As admin I see effect descriptions with draft warning | `src/admin/lessons.html` | — | NOT TESTED |
 
 ---
 
@@ -151,11 +154,11 @@
 | `pages.test.js` | 54 | 6 sub-pages: structure, content, ARIA |
 | `components.test.js` | 70 | 5 footer pages: structure, content, ARIA |
 | `integrity.test.js` | 53 | CJK leaks, hardcoded tags, video fallback, typos |
-| `admin.test.js` | 178 | 14 admin pages: structure, modals, CRUD |
-| `build.test.js` | 24 | File existence, webpack, admin pages |
+| `admin.test.js` | 166 | 13 admin pages: structure, modals, CRUD |
+| `build.test.js` | 23 | File existence, webpack, admin pages |
 | `seo.test.js` | 42 | Meta tags, sitemap, robots.txt |
 | `backend.test.js` | 181 | File structure, db, auth, CRUD, user auth, progress, calendar, free enforcement, video security |
-| **Total** | **658** | |
+| **Total** | **648** | |
 
 ---
 

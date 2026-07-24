@@ -27,12 +27,11 @@
                 </div>
             </div>`;
         try {
-            const [dashboard, lessons, reviews, subscribers, exercises, complexes, schedule, promo] = await Promise.all([
+            const [dashboard, lessons, reviews, subscribers, complexes, schedule, promo] = await Promise.all([
                 window.api.get('/api/dashboard'),
                 window.api.get('/api/lessons'),
                 window.api.get('/api/reviews'),
                 window.api.get('/api/subscribers'),
-                window.api.get('/api/exercises'),
                 window.api.get('/api/complexes'),
                 window.api.get('/api/schedule'),
                 window.api.get('/api/promo-codes'),
@@ -41,7 +40,6 @@
 
             const allSubs = subscribers || [];
             const allLessons = lessons || [];
-            const allExercises = exercises || [];
             const allComplexes = complexes || [];
             const allSchedule = schedule || [];
             const allReviews = reviews || [];
@@ -52,7 +50,6 @@
                 <div class="stat-card"><div class="stat-card__label">Активных</div><div class="stat-card__value">${esc(dashboard.activeUsers)}</div></div>
                 <div class="stat-card"><div class="stat-card__label">Доход</div><div class="stat-card__value">$${esc(dashboard.monthlyRevenue)}</div></div>
                 <div class="stat-card"><div class="stat-card__label">Уроков</div><div class="stat-card__value">${esc(allLessons.length)}</div></div>
-                <div class="stat-card"><div class="stat-card__label">Упражнений</div><div class="stat-card__value">${esc(allExercises.length)}</div></div>
                 <div class="stat-card"><div class="stat-card__label">Комплексов</div><div class="stat-card__value">${esc(allComplexes.length)}</div></div>
                 <div class="stat-card"><div class="stat-card__label">Расписание</div><div class="stat-card__value">${esc(allSchedule.length)}</div></div>
                 <div class="stat-card"><div class="stat-card__label">Промо-кодов</div><div class="stat-card__value">${esc(allPromo.length)}</div></div>
@@ -68,11 +65,6 @@
                     <div class="card__header"><h2 class="card__title">Комплексы</h2><a href="complexes.html" class="btn btn--secondary btn--sm">Все</a></div>
                     <div class="table-wrapper"><table><caption>Список комплексов</caption><thead><tr><th>Название</th><th>Статус</th></tr></thead>
                     <tbody>${allComplexes.slice(0,5).map(c => `<tr><td>${esc(c.name)}</td><td>${statusBadge(c.status)}</td></tr>`).join('') || '<tr><td colspan="2">Нет данных</td></tr>'}</tbody></table></div>
-                </div>
-                <div class="card">
-                    <div class="card__header"><h2 class="card__title">Упражнения</h2><a href="exercises.html" class="btn btn--secondary btn--sm">Все</a></div>
-                    <div class="table-wrapper"><table><caption>Список упражнений</caption><thead><tr><th>Название</th><th>Зона</th><th>Сложность</th></tr></thead>
-                    <tbody>${allExercises.slice(0,5).map(e => `<tr><td>${esc(e.name)}</td><td>${esc(e.zone||'—')}</td><td>${esc(e.difficulty)}</td></tr>`).join('') || '<tr><td colspan="3">Нет данных</td></tr>'}</tbody></table></div>
                 </div>
                 <div class="card">
                     <div class="card__header"><h2 class="card__title">Расписание</h2><a href="schedule.html" class="btn btn--secondary btn--sm">Все</a></div>

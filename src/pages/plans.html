@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+    <title>Тарифы — Цигун и суставная разминка</title>
+    <meta name="description" content="Выберите план подписки на занятия цигун и суставной разминкой.">
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        .plans-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; padding:2rem 1rem; }
+        .plans-header { text-align:center; margin-bottom:2rem; }
+        .plans-header__back { color:#9fc5a8; text-decoration:none; font-size:0.95rem; display:inline-block; margin-bottom:1rem; }
+        .plans-header__back:hover { color:#fff; }
+        .plans-header h1 { color:#fff; font-size:1.8rem; font-weight:700; margin-bottom:0.5rem; }
+        .plans-header p { color:#7acc8a; font-size:1rem; }
+        .plans-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; max-width:960px; margin:0 auto; }
+        .plan-card { background:#111a14; border:1px solid #2a3a2e; border-radius:16px; padding:2rem; text-align:center; transition:transform .15s, box-shadow .15s; position:relative; }
+        .plan-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(26,94,42,0.15); }
+        .plan-card--popular { border-color:#1a5e2a; }
+        .plan-card--popular::before { content:'Популярный'; position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:#1a5e2a; color:#fff; font-size:0.75rem; font-weight:600; padding:0.2rem 0.8rem; border-radius:20px; }
+        .plan-card__name { color:#fff; font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; }
+        .plan-card__price { color:#7acc8a; font-size:2rem; font-weight:800; margin-bottom:0.25rem; }
+        .plan-card__period { color:#5a7a60; font-size:0.85rem; margin-bottom:1.5rem; }
+        .plan-card__features { list-style:none; padding:0; margin-bottom:1.5rem; text-align:left; }
+        .plan-card__features li { color:#9fc5a8; font-size:0.9rem; padding:0.4rem 0; border-bottom:1px solid #1e2e22; }
+        .plan-card__features li:last-child { border-bottom:none; }
+        .plan-card__features li::before { content:'✓ '; color:#1a5e2a; font-weight:700; }
+        .plan-btn { display:inline-block; padding:0.8rem 2rem; border-radius:8px; text-decoration:none; font-size:1rem; font-weight:600; cursor:pointer; border:none; width:100%; transition:background .15s; }
+        .plan-btn--primary { background:#1a5e2a; color:#fff; }
+        .plan-btn--primary:hover { background:#228b33; }
+        .plan-btn--outline { background:transparent; color:#7acc8a; border:2px solid #2a5a30; }
+        .plan-btn--outline:hover { background:#1a2a1e; }
+        .plans-note { text-align:center; color:#5a7a60; font-size:0.8rem; margin-top:2rem; }
+        .plans-back { text-align:center; margin-top:2rem; }
+        .plans-back a { color:#5a7a60; text-decoration:none; font-size:0.85rem; }
+        .plans-back a:hover { color:#9fc5a8; }
+        @media (max-width:768px) { .plans-grid { grid-template-columns:1fr; max-width:400px; } }
+    </style>
+</head>
+<body>
+    <div class="plans-page">
+        <div class="plans-header">
+            <a href="/" class="plans-header__back">← На главную</a>
+            <h1>Выберите план</h1>
+            <p>Начните с бесплатного периода — 7 занятий без оплаты</p>
+        </div>
+
+        <div class="plans-grid">
+            <div class="plan-card">
+                <div class="plan-card__name">Пробный период</div>
+                <div class="plan-card__price">Бесплатно</div>
+                <div class="plan-card__period">7 занятий • без привязки карты</div>
+                <ul class="plan-card__features">
+                    <li>7 первых занятий бесплатно</li>
+                    <li>Без привязки банковской карты</li>
+                    <li>Доступ к расписанию на неделю</li>
+                    <li>Календарь прогресса</li>
+                    <li>Подбор занятий по самочувствию</li>
+                    <li>Все форматы: на полу, на стуле, стоя</li>
+                </ul>
+                <div class="plan-btn plan-btn--outline" style="cursor:default;opacity:0.7;">Бесплатно — автоматически</div>
+            </div>
+            <div class="plan-card">
+                <div class="plan-card__name">Ежемесячная</div>
+                <div class="plan-card__price" id="price-monthly">$12</div>
+                <div class="plan-card__period">в месяц</div>
+                <ul class="plan-card__features">
+                    <li>Полный доступ ко всем 1160+ занятиям</li>
+                    <li>Все комплексы и программы</li>
+                    <li>Календарь на весь год</li>
+                    <li>Новые занятия каждый день</li>
+                    <li>Отмена подписки в один клик</li>
+                </ul>
+                <button class="plan-btn plan-btn--outline" onclick="handleSubscribe()">Выбрать</button>
+            </div>
+            <div class="plan-card plan-card--popular">
+                <div class="plan-card__name">Полная подписка</div>
+                <div class="plan-card__price" id="price-annual">$89</div>
+                <div class="plan-card__period">в год ≈ $7.4/мес • разовая оплата</div>
+                <ul class="plan-card__features">
+                    <li>Полный доступ ко всем 1160+ занятиям</li>
+                    <li>Все комплексы: 8 кусков парчи, И Цзинь Цзин, Малый небесный круг</li>
+                    <li>Календарь на весь год с 365 занятиями</li>
+                    <li>Новые занятия каждый день</li>
+                    <li>Трансляция на телевизор одним касанием</li>
+                    <li>Отмена подписки в один клик</li>
+                    <li>Приоритетная поддержка</li>
+                </ul>
+                <button class="plan-btn plan-btn--primary" onclick="handleSubscribe()">Оформить подписку</button>
+            </div>
+        </div>
+
+        <div class="plans-note">Оплата разовая. Продление — по подписке, отмена в один клик.</div>
+        <div class="plans-back"><a href="/">← На главную</a></div>
+    </div>
+    <script>
+    function handleSubscribe() {
+        var token = localStorage.getItem('user_token');
+        if (!token) { window.location.href = 'login.html'; return; }
+        var overlay = document.createElement('div');
+        overlay.className = 'plans-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = '<div style="background:#111a14;border:1px solid #2a3a2e;border-radius:16px;padding:2.5rem;max-width:400px;width:90%;text-align:center;">' +
+            '<div style="font-size:2rem;margin-bottom:1rem;">\uD83D\uDCB3</div>' +
+            '<h2 style="color:#fff;margin-bottom:0.5rem;">Оплата скоро</h2>' +
+            '<p style="color:#7a9a80;margin-bottom:1.5rem;">Система оплаты находится в разработке. Скоро вы сможете оформить подписку прямо здесь.</p>' +
+            '<a href="#" style="display:inline-block;padding:0.6rem 1.5rem;background:#1a5e2a;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;" onclick="document.querySelector(\'.plans-overlay\').remove();return false;">Понятно</a>' +
+            '</div>';
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+        document.body.appendChild(overlay);
+    }
+    </script>
+    <script>
+    fetch('/api/settings').then(function(r) { return r.json(); }).then(function(s) {
+        if (s.monthly_price) document.getElementById('price-monthly').textContent = '$' + s.monthly_price;
+        if (s.annual_price) document.getElementById('price-annual').textContent = '$' + s.annual_price;
+        if (s.annual_price && s.monthly_price) {
+            var yearly = (parseFloat(s.annual_price) / 12).toFixed(1);
+            var periodEl = document.querySelector('.plan-card--popular .plan-card__period');
+            if (periodEl) periodEl.textContent = 'в год ≈ $' + yearly + '/мес • разовая оплата';
+        }
+        if (s.trial_days) {
+            var trialPeriod = document.querySelector('.plan-card:first-child .plan-card__period');
+            if (trialPeriod) trialPeriod.textContent = s.trial_days + ' занятий • без привязки карты';
+        }
+    }).catch(function() {});
+    </script>
+</body>
+</html>

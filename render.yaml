@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: qigong-api
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGIN
+        sync: false
+        # IMPORTANT: Set this to your Vercel domain after first deploy
+        # Example: https://your-app.vercel.app
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: qigong-data
+      mountPath: /app/data
+      sizeGB: 1

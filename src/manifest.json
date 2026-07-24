@@ -1,0 +1,22 @@
+{
+  "name": "Цигун и суставная разминка",
+  "short_name": "Цигун",
+  "description": "Ежедневная практика цигун и суставной разминки. 6 занятий в неделю, 27-31 минута.",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a5e2a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "images/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle"],
+  "lang": "ru"
+}

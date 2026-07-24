@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 500" width="300" height="500">
+  <rect width="300" height="500" rx="20" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="2"/>
+  <rect x="20" y="20" width="260" height="460" rx="10" fill="#fff"/>
+  <text x="150" y="250" text-anchor="middle" font-family="system-ui" font-size="14" fill="#9ca3af">Подобрать занятие</text>
+  <rect x="60" y="160" width="180" height="30" rx="5" fill="#e5e7eb"/>
+  <rect x="60" y="200" width="180" height="30" rx="5" fill="#e5e7eb"/>
+  <rect x="60" y="240" width="180" height="30" rx="5" fill="#e5e7eb"/>
+</svg>

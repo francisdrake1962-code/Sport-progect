@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+    <title>Занятие — Цигун и суставная разминка</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.16" integrity="sha384-5E8B0pTlZZJMabWpC0fyYf6OUpe15jJij34BqBAh4NXoHAlLNOjCPRrwtOXOQFAn" crossorigin="anonymous"></script>
+    <style>
+        .player-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; display:flex; flex-direction:column; }
+        .player-header { background:#111a14; padding:0.75rem 1.5rem; display:flex; align-items:center; gap:1rem; border-bottom:1px solid #2a3a2e; }
+        .player-header__back { color:#9fc5a8; text-decoration:none; font-size:0.95rem; display:flex; align-items:center; gap:0.4rem; }
+        .player-header__back:hover { color:#fff; }
+        .player-header__title { color:#fff; font-size:1rem; font-weight:500; flex:1; text-align:center; }
+        .player-header__badge { background:#1a5e2a; color:#fff; padding:0.2rem 0.6rem; border-radius:999px; font-size:0.75rem; font-weight:600; }
+        .player-wrap { position:relative; width:100%; max-width:960px; margin:0 auto; background:#000; aspect-ratio:16/9; flex-shrink:0; }
+        .player-wrap video { width:100%; height:100%; display:block; }
+        .player-wrap__overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); cursor:pointer; transition:opacity .2s; }
+        .player-wrap__overlay.hidden { opacity:0; pointer-events:none; }
+        .player-wrap__play-btn { width:80px; height:80px; background:rgba(26,94,42,0.95); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .15s; box-shadow:0 4px 24px rgba(0,0,0,0.5); }
+        .player-wrap__play-btn:hover { transform:scale(1.1); }
+        .player-wrap__play-btn svg { fill:#fff; width:32px; height:32px; margin-left:4px; }
+        .player-controls { background:#111a14; padding:0.5rem 1.5rem; display:flex; align-items:center; gap:0.75rem; border-bottom:1px solid #1e2e22; }
+        .player-controls button { background:none; border:none; color:#9fc5a8; cursor:pointer; padding:0.3rem; display:flex; align-items:center; }
+        .player-controls button:hover { color:#fff; }
+        .player-controls button svg { width:22px; height:22px; fill:currentColor; }
+        .player-progress { flex:1; height:4px; background:#2a3a2e; border-radius:2px; cursor:pointer; position:relative; }
+        .player-progress__fill { height:100%; background:#1a5e2a; border-radius:2px; width:0%; transition:width .1s linear; }
+        .player-progress:hover { height:6px; }
+        .player-time { color:#7a9a80; font-size:0.8rem; min-width:90px; text-align:right; font-variant-numeric:tabular-nums; }
+        .player-info { max-width:960px; margin:0 auto; width:100%; padding:1.5rem; flex:1; overflow-y:auto; }
+        .player-info__meta { display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap; }
+        .player-info__meta .badge { background:#1a3a20; color:#7acc8a; padding:0.2rem 0.6rem; border-radius:4px; font-size:0.75rem; }
+        .player-info__title { font-size:1.5rem; font-weight:700; color:#fff; margin-bottom:0.5rem; }
+        .player-info__desc { color:#9fc5a8; line-height:1.6; margin-bottom:1.5rem; }
+        .player-info__exercises { margin-bottom:1.5rem; }
+        .player-info__exercises h3 { font-size:1rem; color:#7acc8a; margin-bottom:0.75rem; }
+        .exercise-list { list-style:none; padding:0; }
+        .exercise-list li { padding:0.6rem 0.8rem; border-bottom:1px solid #1e2e22; display:flex; align-items:center; gap:0.6rem; color:#ccc; font-size:0.9rem; }
+        .exercise-list li .ex-num { color:#5a7a60; font-weight:600; min-width:1.5rem; }
+        .exercise-list li .ex-zone { color:#7a9a80; font-size:0.8rem; margin-left:auto; }
+        .player-nav { display:flex; gap:0.75rem; margin-top:1.5rem; padding-top:1rem; border-top:1px solid #1e2e22; }
+        .player-nav a { flex:1; text-align:center; padding:0.7rem 1rem; border-radius:8px; text-decoration:none; font-weight:500; transition:all .15s; }
+        .player-nav__prev { background:#1a2a1e; color:#9fc5a8; }
+        .player-nav__prev:hover { background:#2a3a2e; color:#fff; }
+        .player-nav__next { background:#1a5e2a; color:#fff; }
+        .player-nav__next:hover { background:#228b33; }
+        .player-nav__list { background:#1a2a1e; color:#9fc5a8; flex:0.4; }
+        .player-nav__list:hover { background:#2a3a2e; color:#fff; }
+        .player-empty { text-align:center; padding:4rem 1rem; }
+        .player-empty__icon { font-size:3rem; margin-bottom:1rem; }
+        .player-empty__title { font-size:1.3rem; color:#fff; margin-bottom:0.5rem; }
+        .player-empty__text { color:#7a9a80; margin-bottom:1.5rem; }
+        .player-loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); z-index:5; }
+        .player-loading__spinner { width:40px; height:40px; border:3px solid #2a3a2e; border-top-color:#1a5e2a; border-radius:50%; animation:spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .player-error { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.8); z-index:6; color:#fff; text-align:center; padding:2rem; }
+        .player-error__icon { font-size:2.5rem; margin-bottom:1rem; }
+        .player-error__msg { color:#e55; font-size:0.9rem; margin-bottom:1rem; }
+        @media (max-width:768px) {
+            .player-header { padding:0.5rem 1rem; }
+            .player-controls { padding:0.5rem 1rem; }
+            .player-info { padding:1rem; }
+            .player-info__title { font-size:1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для просмотра видео необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <div class="player-page" id="player-root"></div>
+    <script>
+    (function() {
+        const root = document.getElementById('player-root');
+
+        function getParam(name) { return new URLSearchParams(window.location.search).get(name); }
+        function esc(s) { if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        function fmt(s) { if (!s && s!==0) return '0:00'; const m=Math.floor(s/60), sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
+        function localDateStr(d) { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+day; }
+
+        const lessonId = getParam('id');
+        const complexId = getParam('complex');
+        const dayParam = getParam('day');
+
+        async function api(path) {
+            const token = localStorage.getItem('user_token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            const res = await fetch(path, { headers });
+            if (!res.ok) throw new Error('API error ' + res.status);
+            return res.json();
+        }
+
+        async function load() {
+            try {
+                let lesson = null;
+                let allLessons = [];
+                let currentIndex = -1;
+                const userToken = localStorage.getItem('user_token');
+                let userData = null;
+                if (userToken) {
+                    try { userData = JSON.parse(localStorage.getItem('user_data')); } catch(e) {}
+                }
+
+                if (lessonId) {
+                    lesson = await api('/api/lessons/' + lessonId);
+                    allLessons = await api('/api/lessons');
+                    currentIndex = allLessons.findIndex(l => l.id == lessonId);
+                } else if (complexId) {
+                    allLessons = await api('/api/lessons');
+                    const complex = await api('/api/complexes/' + complexId);
+                    allLessons = allLessons.filter(l => l.complex_id == complexId);
+                    lesson = allLessons[0] || null;
+                    currentIndex = 0;
+                } else {
+                    const schedule = await api('/api/schedule');
+                    const today = new Date();
+                    const todayStr = localDateStr(today);
+                    let schedItem = schedule.find(s => s.date === todayStr);
+                    if (!schedItem && schedule.length) schedItem = schedule[0];
+                    if (schedItem && schedItem.lesson_id) {
+                        lesson = await api('/api/lessons/' + schedItem.lesson_id);
+                    }
+                    allLessons = await api('/api/lessons');
+                    if (lesson) currentIndex = allLessons.findIndex(l => l.id === lesson.id);
+                }
+
+                if (!lesson) {
+                    root.innerHTML = renderHeader() + renderEmpty();
+                    return;
+                }
+
+                const exercises = await api('/api/exercises');
+
+                let complexName = '';
+                if (lesson.complex_id) {
+                    try {
+                        const c = await api('/api/complexes/' + lesson.complex_id);
+                        complexName = c ? c.name : '';
+                    } catch(e) {}
+                }
+
+                const FREE_LIMIT = 7;
+                if (!userData) {
+                    root.innerHTML = renderHeader(lesson, complexName) +
+                        '<div class="player-empty"><div class="player-empty__icon">🔒</div>' +
+                        '<div class="player-empty__title">Войдите, чтобы смотреть</div>' +
+                        '<div class="player-empty__text">Бесплатно — 7 занятий без карты</div>' +
+                        '<a href="login.html" class="btn btn--primary" style="margin-right:0.5rem;">Войти</a>' +
+                        '<a href="login.html" class="btn btn--secondary">Регистрация</a></div>';
+                    return;
+                }
+
+                try {
+                    const access = await api('/api/user/can-watch/' + lesson.id);
+                    if (!access.allowed) {
+                        root.innerHTML = renderHeader(lesson, complexName) +
+                            '<div class="player-empty"><div class="player-empty__icon">⏰</div>' +
+                            '<div class="player-empty__title">Бесплатный период окончен</div>' +
+                            '<div class="player-empty__text">Вы просмотрели ' + access.freeUsed + ' из ' + access.freeLimit + ' бесплатных занятий. Оформите подписку для полного доступа.</div>' +
+                            '<a href="plans.html" class="btn btn--primary">Выбрать план</a></div>';
+                        return;
+                    }
+                } catch(e) {
+                    var errStatus = e.message ? e.message.match(/\d+/) : null;
+                    if (errStatus && parseInt(errStatus[0]) === 403) {
+                        root.innerHTML = renderHeader(lesson, complexName) +
+                            '<div class="player-empty"><div class="player-empty__icon">📧</div>' +
+                            '<div class="player-empty__title">Подтвердите email</div>' +
+                            '<div class="player-empty__text">Проверьте почту и перейдите по ссылке для подтверждения.</div>' +
+                            '<a href="login.html" class="btn btn--primary">На главную</a></div>';
+                        return;
+                    }
+                }
+
+                let streamUrl = null;
+                try {
+                    const tokenData = await api('/api/user/stream-token/' + lesson.id);
+                    if (tokenData && tokenData.streamUrl) streamUrl = tokenData.streamUrl;
+                } catch(_) {}
+
+                root.innerHTML = renderHeader(lesson, complexName) + renderPlayer(lesson) + renderInfo(lesson, exercises, complexName, allLessons, currentIndex);
+                bindControls(lesson, allLessons, currentIndex, streamUrl);
+            } catch(err) {
+                root.innerHTML = renderHeader() + '<div class="player-empty"><div class="player-empty__icon">⚠️</div><div class="player-empty__title">Ошибка загрузки</div><div class="player-empty__text">' + esc(err.message) + '</div><a href="/" class="btn btn--primary">На главную</a></div>';
+            }
+        }
+
+        function renderHeader(lesson, complexName) {
+            return '<div class="player-header">' +
+                '<a href="javascript:history.back()" class="player-header__back">← Назад</a>' +
+                '<div class="player-header__title">' + (lesson ? esc(lesson.title) : 'Занятие') + '</div>' +
+                (complexName ? '<span class="player-header__badge">' + esc(complexName) + '</span>' : '') +
+                '</div>';
+        }
+
+        function renderPlayer(lesson) {
+            const videoUrl = lesson.video_url || lesson.video || '';
+            const token = localStorage.getItem('user_token') || '';
+            const videoSrc = videoUrl ? (videoUrl + (videoUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token)) : '';
+            const posterUrl = lesson.poster_url || 'images/hero-poster.jpg';
+            return '<div class="player-wrap" id="player-wrap">' +
+                '<video id="video" preload="metadata" poster="' + esc(posterUrl) + '">' +
+                (videoSrc ? '<source src="' + esc(videoSrc) + '" type="video/mp4">' : '') +
+                '<p>Ваш браузер не поддерживает видео. <a href="' + esc(videoUrl) + '" style="color:#7acc8a;">Скачать видео</a></p>' +
+                '</video>' +
+                '<div class="player-loading" id="player-loading"><div class="player-loading__spinner"></div></div>' +
+                '<div class="player-error" id="player-error" style="display:none;">' +
+                '<div class="player-error__icon">⚠️</div>' +
+                '<div class="player-error__msg">Не удалось загрузить видео</div>' +
+                '<button onclick="document.getElementById(\'player-error\').style.display=\'none\';document.getElementById(\'overlay\').classList.remove(\'hidden\');" style="padding:0.5rem 1rem;background:#1a5e2a;color:#fff;border:none;border-radius:6px;cursor:pointer;">Повторить</button>' +
+                '</div>' +
+                '<div class="player-wrap__overlay" id="overlay">' +
+                '<button class="player-wrap__play-btn" aria-label="Воспроизвести">' +
+                '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="8,4 20,12 8,20" fill="#fff"/></svg>' +
+                '</button></div></div>' +
+                '<div class="player-controls">' +
+                '<button id="btn-play" aria-label="Пауза"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg></button>' +
+                '<div class="player-progress" id="progress"><div class="player-progress__fill" id="progress-fill"></div></div>' +
+                '<div class="player-time" id="time">0:00 / 0:00</div>' +
+                '<button id="btn-fullscreen" aria-label="Полный экран"><svg viewBox="0 0 24 24"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4h-4v2h6v-6h-2v4z"/></svg></button>' +
+                '</div>';
+        }
+
+        function renderInfo(lesson, exercises, complexName, allLessons, currentIndex) {
+            const lessonExercises = exercises.filter(e => {
+                if (lesson.exercise_ids) {
+                    const ids = lesson.exercise_ids.split(',').map(Number);
+                    return ids.includes(e.id);
+                }
+                return false;
+            });
+
+            let html = '<div class="player-info">';
+            html += '<div class="player-info__meta">';
+            if (lesson.duration) html += '<span class="badge">' + esc(lesson.duration) + '</span>';
+            if (complexName) html += '<span class="badge">' + esc(complexName) + '</span>';
+            if (lesson.status) html += '<span class="badge">' + esc(lesson.status) + '</span>';
+            html += '</div>';
+            html += '<h1 class="player-info__title">' + esc(lesson.title) + '</h1>';
+            if (lesson.description) html += '<p class="player-info__desc">' + esc(lesson.description) + '</p>';
+
+            if (lessonExercises.length) {
+                html += '<div class="player-info__exercises"><h3>Упражнения в этом занятии</h3>';
+                html += '<ul class="exercise-list">';
+                lessonExercises.forEach((ex, i) => {
+                    html += '<li><span class="ex-num">' + (i+1) + '.</span> ' + esc(ex.name) + '<span class="ex-zone">' + esc(ex.zone || '') + '</span></li>';
+                });
+                html += '</ul></div>';
+            }
+
+            const prev = currentIndex > 0 ? allLessons[currentIndex-1] : null;
+            const next = currentIndex < allLessons.length-1 ? allLessons[currentIndex+1] : null;
+
+            html += '<div class="player-nav">';
+            if (prev) html += '<a href="player.html?id=' + prev.id + '" class="player-nav__prev">← ' + esc(prev.title) + '</a>';
+            html += '<a href="lessons.html" class="player-nav__list">Все занятия</a>';
+            if (next) html += '<a href="player.html?id=' + next.id + '" class="player-nav__next">' + esc(next.title) + ' →</a>';
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderEmpty() {
+            return '<div class="player-empty">' +
+                '<div class="player-empty__icon">🧘</div>' +
+                '<div class="player-empty__title">Занятие не найдено</div>' +
+                '<div class="player-empty__text">Выберите занятие из каталога</div>' +
+                '<a href="lessons.html" class="btn btn--primary">Все занятия</a>' +
+                '</div>';
+        }
+
+        function bindControls(lesson, allLessons, currentIndex, streamUrl) {
+            const video = document.getElementById('video');
+            const overlay = document.getElementById('overlay');
+            const btnPlay = document.getElementById('btn-play');
+            const progress = document.getElementById('progress');
+            const progressFill = document.getElementById('progress-fill');
+            const timeDisplay = document.getElementById('time');
+            const btnFullscreen = document.getElementById('btn-fullscreen');
+            const playerLoading = document.getElementById('player-loading');
+            const playerError = document.getElementById('player-error');
+
+            if (!video) return;
+
+            video.addEventListener('waiting', function() { if (playerLoading) playerLoading.style.display = 'flex'; });
+            video.addEventListener('canplay', function() { if (playerLoading) playerLoading.style.display = 'none'; });
+            video.addEventListener('playing', function() { if (playerLoading) playerLoading.style.display = 'none'; });
+            video.addEventListener('error', function() {
+                if (playerLoading) playerLoading.style.display = 'none';
+                if (playerError) playerError.style.display = 'flex';
+            });
+
+            if (streamUrl) {
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = streamUrl;
+                } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    var hls = new Hls();
+                    hls.loadSource(streamUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                            if (playerLoading) playerLoading.style.display = 'none';
+                            if (playerError) playerError.style.display = 'flex';
+                        }
+                    });
+                } else {
+                    video.src = streamUrl;
+                }
+            }
+
+            const playIcon = '<svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>';
+            const pauseIcon = '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
+
+            function togglePlay() {
+                if (video.paused) { video.play(); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }
+                else { video.pause(); btnPlay.innerHTML = playIcon; overlay.classList.remove('hidden'); }
+            }
+
+            overlay.addEventListener('click', togglePlay);
+            btnPlay.addEventListener('click', togglePlay);
+
+            video.addEventListener('ended', function() {
+                if (video._progressSent) return;
+                video._progressSent = true;
+                btnPlay.innerHTML = playIcon;
+                overlay.classList.remove('hidden');
+                const userToken = localStorage.getItem('user_token');
+                if (userToken && lesson) {
+                    fetch('/api/user/watch-progress', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + userToken },
+                        body: JSON.stringify({ lesson_id: lesson.id, position_seconds: Math.floor(video.duration || 0), completed: true })
+                    }).then(function() {
+                        fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + userToken } })
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) { if (data.free_sessions_used !== undefined) { try { const ud = JSON.parse(localStorage.getItem('user_data')); if (ud) { ud.free_sessions_used = data.free_sessions_used; localStorage.setItem('user_data', JSON.stringify(ud)); } } catch(e) {} } })
+                            .catch(function() {});
+                    }).catch(function() {});
+                }
+                if (currentIndex < allLessons.length-1) {
+                    const next = allLessons[currentIndex+1];
+                    if (next && confirm('Перейти к следующему занятию: ' + next.title + '?')) {
+                        window.location.href = 'player.html?id=' + next.id;
+                    }
+                }
+            });
+
+            video.addEventListener('timeupdate', function() {
+                if (video.duration) {
+                    progressFill.style.width = (video.currentTime / video.duration * 100) + '%';
+                    timeDisplay.textContent = fmt(video.currentTime) + ' / ' + fmt(video.duration);
+                }
+            });
+
+            progress.addEventListener('click', function(e) {
+                if (video.duration) {
+                    const rect = progress.getBoundingClientRect();
+                    video.currentTime = ((e.clientX - rect.left) / rect.width) * video.duration;
+                }
+            });
+
+            btnFullscreen.addEventListener('click', function() {
+                const wrap = document.getElementById('player-wrap');
+                if (document.fullscreenElement) document.exitFullscreen();
+                else if (wrap.requestFullscreen) wrap.requestFullscreen();
+                else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+                if (e.code === 'ArrowLeft') { video.currentTime = Math.max(0, video.currentTime - 10); }
+                if (e.code === 'ArrowRight') { video.currentTime = Math.min(video.duration, video.currentTime + 10); }
+                if (e.code === 'KeyF') { btnFullscreen.click(); }
+            });
+        }
+
+        load();
+    })();
+    </script>
+</body>
+</html>

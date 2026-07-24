@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Настройки — Админ-панель</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+    <div class="admin-layout" id="app"></div>
+    <script src="js/sidebar.js"></script><script src="js/api.js"></script><script src="js/admin.js"></script>
+    <script>
+    function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    function showMsg(id, msg, isErr) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = isErr ? 'var(--admin-danger)' : 'var(--admin-success)';
+        el.style.display = 'block';
+        setTimeout(function() { el.style.display = 'none'; }, 3000);
+    }
+    var _settings = {};
+    async function load() {
+        if (!localStorage.getItem('admin_token')) { window.location.href = 'login.html'; return; }
+        try {
+            const data = await window.api.get('/api/settings');
+            if (data && typeof data === 'object') _settings = data;
+        } catch (e) { }
+        var s = _settings;
+        document.getElementById('app').innerHTML = getSidebar('settings.html') + '<div class="main-content">' + getTopbar('Настройки') + '<div class="page-content">' +
+            '<div class="card" style="max-width:720px;">' +
+                '<div class="card__header"><h2 class="card__title">Основные настройки</h2></div>' +
+                '<div style="padding:1rem;">' +
+                    '<div class="form-group"><label for="s-name">Название проекта</label><input type="text" class="form-control" id="s-name" value="' + esc(s.app_name || 'Цигун и суставная разминка') + '"></div>' +
+                    '<div class="form-group"><label for="s-email">Email поддержки</label><input type="email" class="form-control" id="s-email" value="' + esc(s.support_email || '') + '"></div>' +
+                    '<div class="form-group"><label for="s-telegram">Telegram</label><input type="text" class="form-control" id="s-telegram" value="' + esc(s.social_telegram || '') + '"></div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
+                        '<div class="form-group"><label for="s-trial">Пробный период (дней)</label><input type="number" class="form-control" id="s-trial" value="' + esc(s.trial_days || '3') + '"></div>' +
+                        '<div class="form-group"><label for="s-promo-discount">Промокод скидка (%)</label><input type="number" class="form-control" id="s-promo-discount" value="' + esc(s.promo_discount || '20') + '"></div>' +
+                    '</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
+                        '<div class="form-group"><label for="s-promo">Промокод</label><input type="text" class="form-control" id="s-promo" value="' + esc(s.promo_code || '') + '"></div>' +
+                        '<div class="form-group"><label for="s-promo-exp">Срок промокода (часы)</label><input type="number" class="form-control" id="s-promo-exp" value="' + esc(s.promo_expiry_hours || '72') + '"></div>' +
+                    '</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
+                        '<div class="form-group"><label for="s-price-annual">Цена годовой ($)</label><input type="number" class="form-control" id="s-price-annual" value="' + esc(s.annual_price || '89') + '" step="0.01"></div>' +
+                        '<div class="form-group"><label for="s-price-monthly">Цена месячной ($)</label><input type="number" class="form-control" id="s-price-monthly" value="' + esc(s.monthly_price || '12') + '" step="0.01"></div>' +
+                    '</div>' +
+                    '<button class="btn btn--primary" id="btn-save" style="margin-top:1rem;">Сохранить</button>' +
+                    '<div id="save-msg" style="margin-top:0.5rem;color:var(--admin-success);display:none;">Настройки сохранены</div>' +
+                    '<div id="save-err" style="margin-top:0.5rem;color:var(--admin-danger);display:none;"></div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card" style="max-width:720px;margin-top:1rem;">' +
+                '<div class="card__header"><h2 class="card__title">Настройки почты (SMTP)</h2></div>' +
+                '<div style="padding:1rem;">' +
+                    '<div class="form-group">' +
+                        '<label for="s-mail-provider">Провайдер</label>' +
+                        '<select class="form-control" id="s-mail-provider">' +
+                            '<option value="console" ' + ((s.mail_provider || 'console') === 'console' ? 'selected' : '') + '>Консоль (разработка)</option>' +
+                            '<option value="gmail" ' + (s.mail_provider === 'gmail' ? 'selected' : '') + '>Gmail SMTP</option>' +
+                            '<option value="resend" ' + (s.mail_provider === 'resend' ? 'selected' : '') + '>Resend API</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div id="gmail-fields" style="display:' + ((s.mail_provider || 'console') === 'gmail' ? 'block' : 'none') + ';">' +
+                        '<div class="form-group"><label for="s-gmail-user">Gmail адрес</label><input type="email" class="form-control" id="s-gmail-user" value="' + esc(s.gmail_user || '') + '" placeholder="your@gmail.com"></div>' +
+                        '<div class="form-group"><label for="s-gmail-pass">Пароль приложения</label><input type="password" class="form-control" id="s-gmail-pass" value="' + esc(s.gmail_app_password || '') + '" placeholder="xxxx-xxxx-xxxx-xxxx"><small style="color:#888;">Google Account → Безопасность → Пароли приложений</small></div>' +
+                    '</div>' +
+                    '<div id="resend-fields" style="display:' + (s.mail_provider === 'resend' ? 'block' : 'none') + ';">' +
+                        '<div class="form-group"><label for="s-resend-key">Resend API Key</label><input type="text" class="form-control" id="s-resend-key" value="' + esc(s.resend_api_key || '') + '" placeholder="re_..."></div>' +
+                        '<div class="form-group"><label for="s-email-from">Email отправителя</label><input type="email" class="form-control" id="s-email-from" value="' + esc(s.email_from || '') + '" placeholder="noreply@qigong.app"></div>' +
+                    '</div>' +
+                    '<button class="btn btn--primary" id="btn-save-email" style="margin-top:1rem;">Сохранить почту</button>' +
+                    '<button class="btn btn--secondary" id="btn-test-email" style="margin-top:1rem;margin-left:0.5rem;">Тестовое письмо</button>' +
+                    '<div id="email-msg" style="margin-top:0.5rem;color:var(--admin-success);display:none;"></div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card" style="max-width:720px;margin-top:1rem;">' +
+                '<div class="card__header"><h2 class="card__title">Cloudflare Stream (видео)</h2></div>' +
+                '<div style="padding:1rem;">' +
+                    '<div class="form-group"><label for="s-cf-key-id">Signing Key ID</label><input type="text" class="form-control" id="s-cf-key-id" value="' + esc(s.cf_stream_signing_key_id || '') + '" placeholder="abc123..."></div>' +
+                    '<div class="form-group"><label for="s-cf-key">Signing Key (приватный)</label><textarea class="form-control" id="s-cf-key" rows="3" placeholder="-----BEGIN EC PRIVATE KEY-----...">' + esc(s.cf_stream_signing_key || '') + '</textarea><small style="color:#888;">Cloudflare Dashboard → Stream → Signing Keys</small></div>' +
+                    '<div class="form-group"><label for="s-cf-code">Customer Code</label><input type="text" class="form-control" id="s-cf-code" value="' + esc(s.cf_stream_customer_code || '') + '" placeholder="abc123"><small style="color:#888;">Из URL: https://<code>abc123</code>.cloudflarestream.com</small></div>' +
+                    '<button class="btn btn--primary" id="btn-save-cf" style="margin-top:1rem;">Сохранить Cloudflare</button>' +
+                    '<button class="btn btn--secondary" id="btn-test-cf" style="margin-top:1rem;margin-left:0.5rem;">Проверить</button>' +
+                    '<div id="cf-msg" style="margin-top:0.5rem;color:var(--admin-success);display:none;"></div>' +
+                '</div>' +
+            '</div>' +
+                '<div style="padding:1rem;">' +
+                    '<div class="form-group">' +
+                        '<label for="s-photo-mode">Режим отображения</label>' +
+                        '<select class="form-control" id="s-photo-mode">' +
+                            '<option value="single" ' + (s.trainer_photo_mode === 'gallery' ? '' : 'selected') + '>Одно фото</option>' +
+                            '<option value="gallery" ' + (s.trainer_photo_mode === 'gallery' ? 'selected' : '') + '>Автосмена (галерея)</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div id="single-photo-section">' +
+                        '<div class="form-group"><label>Текущее фото</label><div id="current-photo-preview" style="margin-top:0.5rem;"></div></div>' +
+                        '<div class="form-group"><label for="photo-upload">Загрузить фото</label><input type="file" id="photo-upload" accept="image/*" class="form-control"></div>' +
+                        '<button class="btn btn--primary btn--sm" id="btn-upload-photo">Загрузить</button>' +
+                        '<div class="form-group" style="margin-top:1rem;"><label for="s-photo-url">Или вставьте URL</label><input type="text" class="form-control" id="s-photo-url" value="' + esc(s.trainer_photo_url || '') + '" placeholder="/images/trainers/trainer.jpg"></div>' +
+                    '</div>' +
+                    '<div id="gallery-section" style="display:none;">' +
+                        '<div class="form-group"><label>Коллекция фото</label><div id="gallery-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-top:0.5rem;"></div></div>' +
+                        '<div class="form-group"><label for="gallery-upload">Добавить фото</label><input type="file" id="gallery-upload" accept="image/*" class="form-control"></div>' +
+                        '<button class="btn btn--primary btn--sm" id="btn-upload-gallery">Добавить</button>' +
+                        '<div class="form-group" style="margin-top:1rem;"><label for="s-interval">Интервал смены (сек)</label><input type="number" class="form-control" id="s-interval" value="' + esc(s.trainer_photo_interval || '5') + '" min="1" max="60"></div>' +
+                    '</div>' +
+                    '<button class="btn btn--primary" id="btn-save-photos" style="margin-top:1rem;">Сохранить фото</button>' +
+                    '<div id="photo-msg" style="margin-top:0.5rem;color:var(--admin-success);display:none;"></div>' +
+                '</div>' +
+            '</div>' +
+        '</div></div>';
+
+        document.getElementById('btn-save').addEventListener('click', async function() {
+            try {
+                await window.api.put('/api/settings', {
+                    app_name: document.getElementById('s-name').value,
+                    support_email: document.getElementById('s-email').value,
+                    social_telegram: document.getElementById('s-telegram').value,
+                    trial_days: document.getElementById('s-trial').value,
+                    promo_discount: document.getElementById('s-promo-discount').value,
+                    promo_code: document.getElementById('s-promo').value,
+                    promo_expiry_hours: document.getElementById('s-promo-exp').value,
+                    annual_price: document.getElementById('s-price-annual').value,
+                    monthly_price: document.getElementById('s-price-monthly').value,
+                });
+                showMsg('save-msg', 'Настройки сохранены');
+            } catch (e) {
+                showMsg('save-err', 'Ошибка: ' + e.message, true);
+            }
+        });
+
+        var mailProvider = document.getElementById('s-mail-provider');
+        var gmailFields = document.getElementById('gmail-fields');
+        var resendFields = document.getElementById('resend-fields');
+        mailProvider.addEventListener('change', function() {
+            gmailFields.style.display = mailProvider.value === 'gmail' ? 'block' : 'none';
+            resendFields.style.display = mailProvider.value === 'resend' ? 'block' : 'none';
+        });
+
+        document.getElementById('btn-save-email').addEventListener('click', async function() {
+            try {
+                await window.api.put('/api/settings', {
+                    mail_provider: mailProvider.value,
+                    gmail_user: document.getElementById('s-gmail-user').value,
+                    gmail_app_password: document.getElementById('s-gmail-pass').value,
+                    resend_api_key: (document.getElementById('s-resend-key') || {}).value || '',
+                    email_from: (document.getElementById('s-email-from') || {}).value || '',
+                });
+                showMsg('email-msg', 'Настройки почты сохранены. Перезапустите сервер для применения.');
+            } catch (e) {
+                showMsg('email-msg', 'Ошибка: ' + e.message, true);
+            }
+        });
+
+        document.getElementById('btn-test-email').addEventListener('click', async function() {
+            try {
+                var email = prompt('Введите email для тестового письма:');
+                if (!email) return;
+                await window.api.post('/api/settings/test-email', { email: email });
+                showMsg('email-msg', 'Тестовое письмо отправлено на ' + email);
+            } catch (e) {
+                showMsg('email-msg', 'Ошибка: ' + e.message, true);
+            }
+        });
+
+        document.getElementById('btn-save-cf').addEventListener('click', async function() {
+            try {
+                await window.api.put('/api/settings', {
+                    cf_stream_signing_key_id: document.getElementById('s-cf-key-id').value,
+                    cf_stream_signing_key: document.getElementById('s-cf-key').value,
+                    cf_stream_customer_code: document.getElementById('s-cf-code').value,
+                });
+                showMsg('cf-msg', 'Настройки Cloudflare сохранены. Перезапустите сервер.');
+            } catch (e) {
+                showMsg('cf-msg', 'Ошибка: ' + e.message, true);
+            }
+        });
+
+        document.getElementById('btn-test-cf').addEventListener('click', async function() {
+            try {
+                var res = await window.api.post('/api/settings/test-stream', {});
+                showMsg('cf-msg', res.configured ? 'Cloudflare Stream настроен' : 'Cloudflare Stream НЕ настроен — проверьте ключи');
+            } catch (e) {
+                showMsg('cf-msg', 'Ошибка: ' + e.message, true);
+            }
+        });
+
+        initGallery(s);
+    }
+
+    function initGallery(s) {
+        var galleryPhotos = [];
+        try { galleryPhotos = JSON.parse(s.trainer_photos || '[]'); } catch(e) {}
+
+        var modeSelect = document.getElementById('s-photo-mode');
+        var singleSection = document.getElementById('single-photo-section');
+        var gallerySection = document.getElementById('gallery-section');
+        var preview = document.getElementById('current-photo-preview');
+        var photoUrl = document.getElementById('s-photo-url');
+        var grid = document.getElementById('gallery-grid');
+
+        function updateMode() {
+            if (modeSelect.value === 'gallery') {
+                singleSection.style.display = 'none';
+                gallerySection.style.display = 'block';
+            } else {
+                singleSection.style.display = 'block';
+                gallerySection.style.display = 'none';
+            }
+        }
+        modeSelect.addEventListener('change', updateMode);
+
+        if (photoUrl.value) {
+            preview.innerHTML = '<img src="' + esc(photoUrl.value) + '" style="max-width:200px;border-radius:8px;">';
+        }
+
+        function renderGallery() {
+            grid.innerHTML = galleryPhotos.map(function(url, i) {
+                return '<div style="position:relative;border-radius:6px;overflow:hidden;"><img src="' + esc(url) + '" style="width:100%;aspect-ratio:1;object-fit:cover;"><button onclick="window._removeGalleryPhoto(' + i + ')" style="position:absolute;top:4px;right:4px;background:red;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px;">&times;</button></div>';
+            }).join('');
+        }
+        window._removeGalleryPhoto = function(i) { galleryPhotos.splice(i, 1); renderGallery(); };
+        renderGallery();
+
+        async function uploadFile(inputId) {
+            var input = document.getElementById(inputId);
+            if (!input.files.length) return null;
+            var file = input.files[0];
+            return new Promise(function(resolve) {
+                var reader = new FileReader();
+                reader.onload = function() {
+                    var base64 = reader.result.split(',')[1];
+                    resolve({ filename: file.name, data: base64 });
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        document.getElementById('btn-upload-photo').addEventListener('click', async function() {
+            var fileData = await uploadFile('photo-upload');
+            if (!fileData) return;
+            try {
+                var res = await window.api.post('/api/upload-trainer-photo', fileData);
+                photoUrl.value = res.url;
+                preview.innerHTML = '<img src="' + esc(res.url) + '" style="max-width:200px;border-radius:8px;">';
+                showMsg('photo-msg', 'Фото загружено');
+            } catch(e) { showMsg('photo-msg', 'Ошибка: ' + e.message, true); }
+        });
+
+        document.getElementById('btn-upload-gallery').addEventListener('click', async function() {
+            var fileData = await uploadFile('gallery-upload');
+            if (!fileData) return;
+            try {
+                var res = await window.api.post('/api/upload-trainer-photo', fileData);
+                galleryPhotos.push(res.url);
+                renderGallery();
+                showMsg('photo-msg', 'Фото добавлено в галерею');
+            } catch(e) { showMsg('photo-msg', 'Ошибка: ' + e.message, true); }
+        });
+
+        document.getElementById('btn-save-photos').addEventListener('click', async function() {
+            try {
+                await window.api.put('/api/settings', {
+                    trainer_photo_mode: modeSelect.value,
+                    trainer_photo_url: photoUrl.value,
+                    trainer_photos: JSON.stringify(galleryPhotos),
+                    trainer_photo_interval: document.getElementById('s-interval').value,
+                });
+                showMsg('photo-msg', 'Настройки фото сохранены');
+            } catch(e) { showMsg('photo-msg', 'Ошибка: ' + e.message, true); }
+        });
+
+        updateMode();
+    }
+
+    load();
+    </script>
+</body>
+</html>

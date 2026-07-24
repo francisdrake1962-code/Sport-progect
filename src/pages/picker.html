@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+    <title>Подобрать занятие — Цигун</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        .filter-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; padding:1rem; }
+        .filter-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+        .filter-header__back { color:#9fc5a8; text-decoration:none; font-size:0.95rem; }
+        .filter-header__back:hover { color:#fff; }
+        .filter-header h1 { color:#fff; font-size:1.4rem; font-weight:700; margin:0; }
+        .filter-section { margin-bottom:1.5rem; }
+        .filter-section__title { color:#7acc8a; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.75rem; }
+        .filter-chips { display:flex; flex-wrap:wrap; gap:0.5rem; }
+        .filter-chip { padding:0.5rem 1rem; border-radius:20px; border:1px solid #2a3a2e; background:#111a14; color:#9fc5a8; font-size:0.85rem; cursor:pointer; transition:all .15s; }
+        .filter-chip:hover { border-color:#1a5e2a; color:#fff; }
+        .filter-chip--active { background:#1a5e2a; color:#fff; border-color:#1a5e2a; }
+        .lessons-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem; }
+        .lesson-card { background:#111a14; border:1px solid #2a3a2e; border-radius:12px; padding:1.25rem; transition:transform .15s, box-shadow .15s; cursor:pointer; }
+        .lesson-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(26,94,42,0.15); }
+        .lesson-card__title { color:#fff; font-size:1rem; font-weight:600; margin-bottom:0.5rem; }
+        .lesson-card__meta { color:#5a7a60; font-size:0.8rem; margin-bottom:0.75rem; }
+        .lesson-card__tags { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.75rem; }
+        .lesson-card__tag { padding:0.2rem 0.6rem; border-radius:12px; background:#1a2a1e; color:#7acc8a; font-size:0.7rem; }
+        .lesson-card__btn { display:inline-block; padding:0.5rem 1.2rem; border-radius:6px; font-size:0.85rem; font-weight:600; text-decoration:none; border:none; cursor:pointer; }
+        .lesson-card__btn--play { background:#1a5e2a; color:#fff; }
+        .lesson-card__btn--play:hover { background:#228b33; }
+        .lesson-card__btn--locked { background:#2a2a2a; color:#666; cursor:default; }
+        .lesson-card__free { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; background:#1a5e2a; color:#fff; font-size:0.7rem; font-weight:600; margin-left:0.5rem; }
+        .empty-state { text-align:center; padding:3rem 1rem; color:#5a7a60; }
+        .empty-state__icon { font-size:2rem; margin-bottom:0.5rem; }
+        .duration-slider { width:100%; accent-color:#1a5e2a; }
+        .duration-label { color:#9fc5a8; font-size:0.85rem; }
+        @media (max-width:768px) { .lessons-grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для подбора занятий необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <div class="filter-page" id="app">
+        <div class="filter-header">
+            <a href="lessons.html" class="filter-header__back">← Назад</a>
+            <h1>Подобрать занятие</h1>
+            <a href="profile.html" style="color:#7acc8a;text-decoration:none;font-size:.85rem;margin-left:auto">👤</a>
+        </div>
+        <div class="filter-section">
+            <div class="filter-section__title">Зона тела</div>
+            <div class="filter-chips" id="zone-chips"></div>
+        </div>
+        <div class="filter-section">
+            <div class="filter-section__title">Самочувствие</div>
+            <div class="filter-chips" id="mood-chips"></div>
+        </div>
+        <div class="filter-section">
+            <div class="filter-section__title">Длительность: до <span id="dur-val">60</span> мин</div>
+            <input type="range" class="duration-slider" id="dur-slider" min="10" max="60" value="60" step="5">
+        </div>
+        <div id="lessons-container"></div>
+    </div>
+    <script>
+    (function() {
+        var ZONES = [
+            { id: 'шея', label: 'Шея' },
+            { id: 'поясница', label: 'Поясница' },
+            { id: 'осанка', label: 'Осанка' },
+            { id: 'ноги', label: 'Ноги / Баланс' },
+            { id: 'дыхание', label: 'Дыхание' },
+        ];
+        var MOODS = [
+            { id: 'энергия', label: 'Взбодриться' },
+            { id: 'снятие стресса', label: 'Успокоиться' },
+            { id: 'баланс', label: 'Баланс' },
+            { id: 'поток', label: 'Поток / Ощущения' },
+        ];
+        var activeZones = {};
+        var activeMoods = {};
+        var allLessons = [];
+
+        function renderChips(containerId, items, activeMap) {
+            var el = document.getElementById(containerId);
+            el.innerHTML = items.map(function(item) {
+                var active = activeMap[item.id] ? ' filter-chip--active' : '';
+                return '<button class="filter-chip' + active + '" data-id="' + item.id + '">' + item.label + '</button>';
+            }).join('');
+            el.querySelectorAll('.filter-chip').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var id = btn.getAttribute('data-id');
+                    if (activeMap[id]) delete activeMap[id]; else activeMap[id] = true;
+                    renderChips(containerId, items, activeMap);
+                    applyFilters();
+                });
+            });
+        }
+
+        function renderLessons(lessons) {
+            var container = document.getElementById('lessons-container');
+            if (!lessons.length) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state__icon">🔍</div><div>Нет занятий по выбранным фильтрам</div></div>';
+                return;
+            }
+            container.innerHTML = '<div class="lessons-grid">' + lessons.map(function(l) {
+                var tagsHtml = (l.tags || []).map(function(t) { return '<span class="lesson-card__tag">' + esc(t) + '</span>'; }).join('');
+                var btnClass = l.accessible ? 'lesson-card__btn lesson-card__btn--play' : 'lesson-card__btn lesson-card__btn--locked';
+                var btnText = l.accessible ? 'Смотреть' : 'Подписка';
+                var freeBadge = l.is_free ? '<span class="lesson-card__free">Бесплатно</span>' : '';
+                return '<div class="lesson-card" data-id="' + l.id + '">' +
+                    '<div class="lesson-card__title">' + esc(l.title) + freeBadge + '</div>' +
+                    '<div class="lesson-card__meta">' + l.duration + ' мин</div>' +
+                    '<div class="lesson-card__tags">' + tagsHtml + '</div>' +
+                    '<button class="' + btnClass + '" data-lid="' + l.id + '">' + btnText + '</button>' +
+                '</div>';
+            }).join('') + '</div>';
+            container.querySelectorAll('.lesson-card__btn--play').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    window.location.href = 'player.html?id=' + btn.getAttribute('data-lid');
+                });
+            });
+        }
+
+        function applyFilters() {
+            var zoneStr = Object.keys(activeZones).join(',');
+            var moodStr = Object.keys(activeMoods).join(',');
+            var maxDur = parseInt(document.getElementById('dur-slider').value, 10);
+            var filtered = allLessons.filter(function(l) {
+                if (zoneStr) {
+                    var zoneTags = zoneStr.split(',');
+                    if (!l.tags.some(function(t) { return zoneTags.indexOf(t.toLowerCase()) >= 0; })) return false;
+                }
+                if (moodStr) {
+                    var moodTags = moodStr.split(',');
+                    if (!l.tags.some(function(t) { return moodTags.indexOf(t.toLowerCase()) >= 0; })) return false;
+                }
+                if (l.duration > maxDur) return false;
+                return true;
+            });
+            renderLessons(filtered);
+        }
+
+        function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+        renderChips('zone-chips', ZONES, activeZones);
+        renderChips('mood-chips', MOODS, activeMoods);
+
+        document.getElementById('dur-slider').addEventListener('input', function() {
+            document.getElementById('dur-val').textContent = this.value;
+            applyFilters();
+        });
+
+        var token = localStorage.getItem('user_token');
+        if (!token) { window.location.href = 'login.html'; return; }
+        fetch('/api/user/lessons-filter', { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function(r) { if (!r.ok) throw new Error('Auth'); return r.json(); })
+            .then(function(data) { allLessons = data; renderLessons(data); })
+            .catch(function() { window.location.href = 'login.html'; });
+    })();
+    </script>
+</body>
+</html>

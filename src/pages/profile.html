@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+    <title>Профиль — Цигун</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        .profile{min-height:100vh;background:#0a0f0c;color:#e0e0e0;padding:1rem}
+        .profile__header{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+        .profile__header a{color:#9fc5a8;text-decoration:none;font-size:.95rem}
+        .profile__header a:hover{color:#fff}
+        .profile__header h1{color:#fff;font-size:1.4rem;font-weight:700;margin:0}
+        .profile-card{background:#111a14;border:1px solid #2a3a2e;border-radius:12px;padding:1.5rem;margin-bottom:1rem}
+        .profile-card__title{color:#7acc8a;font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
+        .profile-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid #1a2a1e}
+        .profile-row:last-child{border-bottom:none}
+        .profile-row__label{color:#9fc5a8;font-size:.85rem}
+        .profile-row__value{color:#fff;font-size:.9rem}
+        .profile-row__value--active{color:#1a5e2a}
+        .profile-row__value--trial{color:#c5a82e}
+        .profile-row__value--expired{color:#a85e1a}
+        .form-group{margin-bottom:1rem}
+        .form-group label{display:block;color:#9fc5a8;font-size:.8rem;margin-bottom:.35rem}
+        .form-group input{width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box}
+        .form-group input:focus{border-color:#1a5e2a;outline:none}
+        .btn{display:inline-block;padding:.6rem 1.5rem;border-radius:6px;font-size:.85rem;font-weight:600;border:none;cursor:pointer}
+        .btn--primary{background:#1a5e2a;color:#fff}
+        .btn--primary:hover{background:#228b33}
+        .btn--danger{background:#5e1a1a;color:#fff}
+        .btn--danger:hover{background:#8b2222}
+        .btn--secondary{background:#2a3a2e;color:#9fc5a8}
+        .message{padding:.5rem .8rem;border-radius:6px;font-size:.8rem;margin-top:.5rem}
+        .message--success{background:#1a2a1e;color:#7acc8a}
+        .message--error{background:#2a1a1a;color:#e07070}
+        .progress-bar{width:100%;height:6px;background:#1a2a1e;border-radius:3px;margin-top:.35rem}
+        .progress-bar__fill{height:100%;background:#1a5e2a;border-radius:3px;transition:width .3s}
+    </style>
+</head>
+<body>
+    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы профиля необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <div class="profile" id="app">
+        <div class="profile__header">
+            <a href="lessons.html">← Назад</a>
+            <h1>Профиль</h1>
+        </div>
+        <div id="content">Загрузка...</div>
+    </div>
+    <script>
+    (function() {
+        var token = localStorage.getItem('user_token');
+        if (!token) { window.location.href = 'login.html'; return; }
+
+        function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+        function fmtDate(d) {
+            if (!d) return '—';
+            var dt = new Date(d);
+            return dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function planLabel(plan) {
+            var labels = { trial: 'Пробный период', annual: 'Годовая подписка', monthly: 'Месячная подписка', none: 'Нет подписки' };
+            return labels[plan] || plan;
+        }
+
+        function statusLabel(status) {
+            var labels = { active: 'Активна', trial: 'Пробный период', expired: 'Истекла', cancelled: 'Отменена' };
+            return labels[status] || status;
+        }
+
+        function statusClass(status) {
+            var cls = { active: 'profile-row__value--active', trial: 'profile-row__value--trial', expired: 'profile-row__value--expired' };
+            return cls[status] || '';
+        }
+
+        function renderProfile(user) {
+            var freeUsed = user.free_sessions_used || 0;
+            var freeLimit = 7;
+            var freePct = Math.min(100, Math.round((freeUsed / freeLimit) * 100));
+            var html = '<div class="profile-card">' +
+                '<div class="profile-card__title">Данные</div>' +
+                '<div class="profile-row"><span class="profile-row__label">Имя</span><span class="profile-row__value" id="p-name">' + esc(user.name) + '</span></div>' +
+                '<div class="profile-row"><span class="profile-row__label">Email</span><span class="profile-row__value">' + esc(user.email) + '</span></div>' +
+                '</div>' +
+                '<div class="profile-card">' +
+                '<div class="profile-card__title">Подписка</div>' +
+                '<div class="profile-row"><span class="profile-row__label">План</span><span class="profile-row__value ' + statusClass(user.status) + '">' + planLabel(user.plan) + '</span></div>' +
+                '<div class="profile-row"><span class="profile-row__label">Статус</span><span class="profile-row__value ' + statusClass(user.status) + '">' + statusLabel(user.status) + '</span></div>' +
+                '<div class="profile-row"><span class="profile-row__label">Начало</span><span class="profile-row__value">' + fmtDate(user.subscription_started_at) + '</span></div>' +
+                '<div class="profile-row"><span class="profile-row__label">Следующее списание</span><span class="profile-row__value">' + fmtDate(user.next_billing_date) + '</span></div>' +
+                '<div class="profile-row"><span class="profile-row__label">Бесплатных занятий</span><span class="profile-row__value">' + freeUsed + ' / ' + freeLimit + '</span></div>' +
+                '<div class="progress-bar"><div class="progress-bar__fill" style="width:' + freePct + '%"></div></div>' +
+                '</div>' +
+                '<div class="profile-card">' +
+                '<div class="profile-card__title">Сменить имя</div>' +
+                '<div class="form-group"><label for="new-name">Имя</label><input type="text" id="new-name" value="' + esc(user.name) + '"></div>' +
+                '<button class="btn btn--primary" id="save-name">Сохранить</button>' +
+                '<div id="name-msg"></div>' +
+                '</div>' +
+                '<div class="profile-card">' +
+                '<div class="profile-card__title">Сменить пароль</div>' +
+                '<div class="form-group"><label for="cur-pw">Текущий пароль</label><input type="password" id="cur-pw"></div>' +
+                '<div class="form-group"><label for="new-pw">Новый пароль (мин. 6 символов)</label><input type="password" id="new-pw"></div>' +
+                '<button class="btn btn--primary" id="save-pw">Обновить пароль</button>' +
+                '<div id="pw-msg"></div>' +
+                '</div>' +
+                '<div class="profile-card">' +
+                '<button class="btn btn--danger" id="logout-btn">Выйти</button>' +
+                '</div>';
+            document.getElementById('content').innerHTML = html;
+
+            document.getElementById('save-name').addEventListener('click', function() {
+                var newName = document.getElementById('new-name').value.trim();
+                if (!newName) return;
+                fetch('/api/user/me', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ name: newName })
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    if (d.error) {
+                        document.getElementById('name-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
+                    } else {
+                        document.getElementById('name-msg').innerHTML = '<div class="message message--success">Имя сохранено</div>';
+                        document.getElementById('p-name').textContent = d.name;
+                    }
+                }).catch(function() {
+                    document.getElementById('name-msg').innerHTML = '<div class="message message--error">Ошибка сети</div>';
+                });
+            });
+
+            document.getElementById('save-pw').addEventListener('click', function() {
+                var curPw = document.getElementById('cur-pw').value;
+                var newPw = document.getElementById('new-pw').value;
+                if (!curPw || !newPw) return;
+                fetch('/api/user/me', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ current_password: curPw, new_password: newPw })
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    if (d.error) {
+                        document.getElementById('pw-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
+                    } else {
+                        document.getElementById('pw-msg').innerHTML = '<div class="message message--success">Пароль обновлён</div>';
+                        document.getElementById('cur-pw').value = '';
+                        document.getElementById('new-pw').value = '';
+                    }
+                }).catch(function() {
+                    document.getElementById('pw-msg').innerHTML = '<div class="message message--error">Ошибка сети</div>';
+                });
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', function() {
+                localStorage.removeItem('user_token');
+                localStorage.removeItem('user_data');
+                window.location.href = 'login.html';
+            });
+        }
+
+        fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function(r) { if (!r.ok) throw new Error('Auth'); return r.json(); })
+            .then(renderProfile)
+            .catch(function() { window.location.href = 'login.html'; });
+    })();
+    </script>
+</body>
+</html>

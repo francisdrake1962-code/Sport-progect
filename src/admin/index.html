@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Дашборд — Админ-панель</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+    <div class="admin-layout" id="app"></div>
+    <script src="js/sidebar.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/admin.js"></script>
+    <script>
+    async function loadDashboard() {
+        if (!localStorage.getItem('admin_token')) { window.location.href = 'login.html'; return; }
+        const app = document.getElementById('app');
+        app.innerHTML = getSidebar('index.html') + `
+            <div class="main-content">
+                ${getTopbar('Дашборд')}
+                <div class="page-content">
+                    <div class="stats-grid" id="stats"><p>Загрузка...</p></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" id="tables-top"></div>
+                    <div id="tables-bottom" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem;"></div>
+                </div>
+            </div>`;
+        try {
+            const [dashboard, lessons, reviews, subscribers, exercises, complexes, schedule, promo] = await Promise.all([
+                window.api.get('/api/dashboard'),
+                window.api.get('/api/lessons'),
+                window.api.get('/api/reviews'),
+                window.api.get('/api/subscribers'),
+                window.api.get('/api/exercises'),
+                window.api.get('/api/complexes'),
+                window.api.get('/api/schedule'),
+                window.api.get('/api/promo-codes'),
+            ]);
+            if (!dashboard) return;
+
+            const allSubs = subscribers || [];
+            const allLessons = lessons || [];
+            const allExercises = exercises || [];
+            const allComplexes = complexes || [];
+            const allSchedule = schedule || [];
+            const allReviews = reviews || [];
+            const allPromo = promo || [];
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card"><div class="stat-card__label">Подписчиков</div><div class="stat-card__value">${esc(dashboard.totalUsers)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Активных</div><div class="stat-card__value">${esc(dashboard.activeUsers)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Доход</div><div class="stat-card__value">$${esc(dashboard.monthlyRevenue)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Уроков</div><div class="stat-card__value">${esc(allLessons.length)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Упражнений</div><div class="stat-card__value">${esc(allExercises.length)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Комплексов</div><div class="stat-card__value">${esc(allComplexes.length)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Расписание</div><div class="stat-card__value">${esc(allSchedule.length)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Промо-кодов</div><div class="stat-card__value">${esc(allPromo.length)}</div></div>
+                <div class="stat-card"><div class="stat-card__label">Конверсия</div><div class="stat-card__value">${esc(dashboard.conversionRate)}%</div></div>`;
+
+            document.getElementById('tables-top').innerHTML = `
+                <div class="card">
+                    <div class="card__header"><h2 class="card__title">Уроки</h2><a href="lessons.html" class="btn btn--secondary btn--sm">Все</a></div>
+                    <div class="table-wrapper"><table><caption>Последние уроки</caption><thead><tr><th>Название</th><th>Длительность</th><th>Статус</th></tr></thead>
+                    <tbody>${allLessons.slice(0,5).map(l => `<tr><td>${esc(l.title)}</td><td>${esc(l.duration||'—')}</td><td>${statusBadge(l.status)}</td></tr>`).join('') || '<tr><td colspan="3">Нет данных</td></tr>'}</tbody></table></div>
+                </div>
+                <div class="card">
+                    <div class="card__header"><h2 class="card__title">Комплексы</h2><a href="complexes.html" class="btn btn--secondary btn--sm">Все</a></div>
+                    <div class="table-wrapper"><table><caption>Список комплексов</caption><thead><tr><th>Название</th><th>Статус</th></tr></thead>
+                    <tbody>${allComplexes.slice(0,5).map(c => `<tr><td>${esc(c.name)}</td><td>${statusBadge(c.status)}</td></tr>`).join('') || '<tr><td colspan="2">Нет данных</td></tr>'}</tbody></table></div>
+                </div>
+                <div class="card">
+                    <div class="card__header"><h2 class="card__title">Упражнения</h2><a href="exercises.html" class="btn btn--secondary btn--sm">Все</a></div>
+                    <div class="table-wrapper"><table><caption>Список упражнений</caption><thead><tr><th>Название</th><th>Зона</th><th>Сложность</th></tr></thead>
+                    <tbody>${allExercises.slice(0,5).map(e => `<tr><td>${esc(e.name)}</td><td>${esc(e.zone||'—')}</td><td>${esc(e.difficulty)}</td></tr>`).join('') || '<tr><td colspan="3">Нет данных</td></tr>'}</tbody></table></div>
+                </div>
+                <div class="card">
+                    <div class="card__header"><h2 class="card__title">Расписание</h2><a href="schedule.html" class="btn btn--secondary btn--sm">Все</a></div>
+                    <div class="table-wrapper"><table><caption>Расписание занятий</caption><thead><tr><th>Дата</th><th>Тема</th></tr></thead>
+                    <tbody>${allSchedule.slice(0,5).map(s => `<tr><td>${esc(s.date)}</td><td>${esc(s.theme||'—')}</td></tr>`).join('') || '<tr><td colspan="2">Нет данных</td></tr>'}</tbody></table></div>
+                </div>`;
+
+            document.getElementById('tables-bottom').innerHTML = `
+                <div class="card">
+                    <div class="card__header"><h2 class="card__title">Подписчики</h2><a href="subscriptions.html" class="btn btn--secondary btn--sm">Все</a></div>
+                    <div class="table-wrapper"><table><caption>Последние регистрации</caption><thead><tr><th>Имя</th><th>План</th><th>Статус</th></tr></thead>
+                    <tbody>${allSubs.slice(0,5).map(s => `<tr><td>${esc(s.name)}</td><td>${esc(s.plan)}</td><td>${statusBadge(s.status)}</td></tr>`).join('') || '<tr><td colspan="3">Нет данных</td></tr>'}</tbody></table></div>
+                </div>
+                <div class="card">
+                    <div class="card__header"><h2 class="card__title">Отзывы</h2><a href="reviews.html" class="btn btn--secondary btn--sm">Все</a></div>
+                    <div class="table-wrapper"><table><caption>Последние отзывы</caption><thead><tr><th>Автор</th><th>Текст</th><th>Статус</th></tr></thead>
+                    <tbody>${allReviews.slice(0,5).map(r => `<tr><td>${esc(r.author)}</td><td>${esc((r.text||'').substring(0,40))}</td><td>${statusBadge(r.status)}</td></tr>`).join('') || '<tr><td colspan="3">Нет данных</td></tr>'}</tbody></table></div>
+                </div>`;
+        } catch (err) {
+            document.getElementById('stats').innerHTML = `<p style="color:var(--admin-danger)">Ошибка загрузки: ${esc(err.message)}</p>`;
+        }
+    }
+    loadDashboard();
+    </script>
+</body>
+</html>

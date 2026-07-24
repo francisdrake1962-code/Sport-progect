@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Пользователи — Админ-панель</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+    <div class="admin-layout" id="app"></div>
+    <script src="js/sidebar.js"></script><script src="js/api.js"></script><script src="js/admin.js"></script>
+    <script>
+    async function load() {
+        if (!localStorage.getItem('admin_token')) { window.location.href = 'login.html'; return; }
+        try {
+            const items = await window.api.get('/api/subscribers');
+            if (!items) return;
+            const active = items.filter(i => i.status === 'active').length;
+            const trial = items.filter(i => i.status === 'trial').length;
+            document.getElementById('app').innerHTML = getSidebar('users.html') + `<div class="main-content">${getTopbar('Пользователи')}<div class="page-content">
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-card__label">Всего</div><div class="stat-card__value">${esc(items.length)}</div></div>
+                    <div class="stat-card"><div class="stat-card__label">Активных</div><div class="stat-card__value">${esc(active)}</div></div>
+                    <div class="stat-card"><div class="stat-card__label">На пробном</div><div class="stat-card__value">${esc(trial)}</div></div>
+                </div>
+                <div class="card"><div class="card__header"><h2 class="card__title">Пользователи</h2></div>
+                <div class="table-wrapper"><table><caption>Список пользователей</caption><thead><tr><th>ID</th><th>Имя</th><th>Email</th><th>План</th><th>Статус</th><th>Регистрация</th></tr></thead>
+                <tbody>${items.map(i => `<tr><td>${esc(i.id)}</td><td>${esc(i.name)}</td><td>${esc(i.email)}</td><td>${esc(i.plan)}</td><td>${statusBadge(i.status)}</td><td>${formatDate(i.joined_at)}</td></tr>`).join('')}</tbody></table></div></div>
+            </div></div>`;
+        } catch (err) {
+            document.getElementById('app').innerHTML = `<p style="color:var(--admin-danger);padding:1rem;">Ошибка: ${esc(err.message)}</p>`;
+        }
+    }
+    load();
+    </script>
+</body>
+</html>

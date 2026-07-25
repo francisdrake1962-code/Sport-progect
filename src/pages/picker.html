@@ -44,7 +44,7 @@
         <div class="filter-header">
             <a href="lessons.html" class="filter-header__back">← Назад</a>
             <h1>Подобрать занятие</h1>
-            <a href="profile.html" style="color:#7acc8a;text-decoration:none;font-size:.85rem;margin-left:auto">👤</a>
+            <a href="profile.html" id="profile-link" style="color:#7acc8a;text-decoration:none;display:flex;align-items:center;gap:0.35rem;margin-left:auto"><span style="font-size:1.5rem;line-height:1;">👤</span></a>
         </div>
         <div class="filter-section">
             <div class="filter-section__title">Зона тела</div>
@@ -62,6 +62,13 @@
     </div>
     <script>
     (function() {
+        try {
+            var ud = JSON.parse(localStorage.getItem('user_data'));
+            if (ud && ud.name) {
+                var pl = document.getElementById('profile-link');
+                if (pl) pl.innerHTML = '<span style="font-size:1.5rem;line-height:1;">👤</span><span style="font-size:0.8rem;font-weight:600;">' + ud.name.split(' ')[0] + '</span>';
+            }
+        } catch(e) {}
         var ZONES = [
             { id: 'шея', label: 'Шея' },
             { id: 'поясница', label: 'Поясница' },

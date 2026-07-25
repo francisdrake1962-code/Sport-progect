@@ -23,6 +23,8 @@ const pages = [
   'plans',
   'picker',
   'profile',
+  'onboarding',
+  'dashboard',
 ];
 
 const adminPages = [
@@ -34,6 +36,7 @@ const adminPages = [
   'users',
   'subscriptions',
   'reviews',
+  'feedback',
   'faq',
   'promo',
   'finance',
@@ -81,7 +84,7 @@ module.exports = {
       chunks: [],
     })),
     new MiniCssExtractPlugin({
-      filename: 'css/[name].[contenthash].css',
+      filename: 'styles/main.css',
     }),
     new CopyWebpackPlugin({
       patterns: [

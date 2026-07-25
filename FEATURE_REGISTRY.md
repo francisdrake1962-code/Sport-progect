@@ -1,7 +1,7 @@
 # Feature Registry — Qigong Landing + Admin Panel
 
 > Canonical source of truth. Every feature with user story, implementation, tests, and status.
-> Last updated: v3.4.0
+> Last updated: v3.5.0
 
 ---
 
@@ -24,7 +24,7 @@
 | F13 | Mobile hamburger menu | As a mobile user I toggle nav with hamburger button | `src/js/main.js:27-51` + CSS | `pages.test.js` | OK |
 | F14 | FAQ accordion (JS) | As a user clicking FAQ closes others automatically | `src/js/main.js:5-16` | — | NOT TESTED |
 | F15 | Video error handling | As a user, broken video hides gracefully | `src/js/main.js:19-24` | — | NOT TESTED |
-| F16 | Service worker registration | As a user the SW registers for offline caching | `src/js/main.js:54-56` | — | NOT TESTED |
+| F16 | Service worker disabled | Service worker was unregistered to prevent cached stale pages | `src/js/main.js:54-56` (unregisters SW) | — | DISABLED |
 | F17 | CSS Responsive Design | As a mobile user the layout adapts to small screens | `src/styles/main.css:736-790` | — | NOT TESTED |
 | F18 | Skip-to-content link | As a screen reader user I can skip to main content | `src/index.html:17` | `integrity.test.js` | OK |
 | F19 | PWA manifest | As a mobile user I can install the app | `src/manifest.json` | — | NOT TESTED |
@@ -78,7 +78,7 @@
 | F53 | Auth middleware | As API I reject requests without valid JWT | `server/auth.js:10-22` | `backend.test.js` | OK |
 | F54 | Rate limiting | As API I limit login to 10 attempts/minute | `server/routes/auth.js:9-15` | — | NOT TESTED |
 | F55 | Input validation (login) | As API I require email+password on login | `server/routes/auth.js:18-20` | `backend.test.js` | OK |
-| F56 | CRUD factory | As API I provide generic CRUD for 12 tables | `server/routes/crud.js` | `backend.test.js` | OK |
+| F56 | CRUD factory | As API I provide generic CRUD for 13 tables | `server/routes/crud.js` | `backend.test.js` | OK |
 | F57 | Schedule custom routes | As API I handle schedule CRUD with custom fields | `server/index.js:44-97` | `backend.test.js` | OK |
 | F58 | Settings custom routes | As API I handle settings as key-value store | `server/index.js:100-142` | `backend.test.js` | OK |
 | F59 | Dashboard aggregation | As API I compute stats from multiple tables | `server/index.js:145-169` | `backend.test.js` | OK |
@@ -146,19 +146,40 @@
 
 ---
 
+## Subscriber Pages (v3.5.0)
+
+| ID | Feature | User Story | Implementation | Tests | Status |
+|----|---------|-----------|----------------|-------|--------|
+| F109 | Dashboard | As subscriber I see greeting, stats, continue watching, today's lesson, zones, schedule, quick links | `src/pages/dashboard.html` + `GET /api/user/dashboard` | `integrity.test.js` | OK |
+| F110 | Onboarding (5-step wizard) | As new subscriber I set experience, goals, duration, time, zones | `src/pages/onboarding.html` + `GET/POST /api/user/onboarding` | `integrity.test.js` | OK |
+| F111 | Lesson Picker | As subscriber I filter lessons by zone, duration, mood | `src/pages/picker.html` + `GET /api/user/categories` | `integrity.test.js` | OK |
+| F112 | Profile + Mood Calendar | As subscriber I see my info and 7-day mood history | `src/pages/profile.html` + `GET /api/user/workout-feedback` | `integrity.test.js` | OK |
+| F113 | Post-Workout Feedback | As subscriber I rate my mood after completing a lesson (6 emoji) | `src/pages/player.html` (completion overlay) + `POST /api/user/workout-feedback` | — | NOT TESTED |
+| F114 | Cast to TV | As subscriber I can cast video to TV via Presentation API / screen mirroring | `src/pages/player.html` (cast button + menu) | — | NOT TESTED |
+| F115 | Feelings Section (Landing) | As visitor I see "Как вы хотите себя чувствовать?" with 8 goals | `src/index.html` (feelings grid with JS toggle) | `landing.test.js` | OK |
+| F116 | Popular Badge | As visitor I see "⭐ Популярное" badge on first format card | `src/index.html` (format-card__badge) | `landing.test.js` | OK |
+| F117 | User Stats Endpoint | As API I return subscriber stats (lessons watched, streak) | `server/routes/user.js` (GET /api/user/stats) | `backend.test.js` | OK |
+| F118 | User Preferences Table | As backend I store subscriber onboarding preferences | `server/db.js` (user_preferences table) | — | NOT TESTED |
+| F119 | Workout Feedback Table | As backend I store post-workout mood ratings | `server/db.js` (workout_feedback table) | — | NOT TESTED |
+| F120 | Feedback/Ticket System | As subscriber I create support tickets; as admin I reply | `server/routes/user.js` (feedback routes) + `src/admin/feedback.html` | — | NOT TESTED |
+
+> **Note:** Line numbers in this registry may drift as code evolves. Refer to file names and feature descriptions for exact locations.
+
+---
+
 ## Test Suites Summary
 
 | Suite | Tests | Coverage |
 |-------|-------|----------|
-| `landing.test.js` | 56 | All landing page sections |
-| `pages.test.js` | 54 | 6 sub-pages: structure, content, ARIA |
-| `components.test.js` | 70 | 5 footer pages: structure, content, ARIA |
-| `integrity.test.js` | 53 | CJK leaks, hardcoded tags, video fallback, typos |
-| `admin.test.js` | 166 | 13 admin pages: structure, modals, CRUD |
-| `build.test.js` | 23 | File existence, webpack, admin pages |
-| `seo.test.js` | 42 | Meta tags, sitemap, robots.txt |
-| `backend.test.js` | 181 | File structure, db, auth, CRUD, user auth, progress, calendar, free enforcement, video security |
-| **Total** | **648** | |
+| `landing.test.js` | 53 | All landing page sections |
+| `pages.test.js` | 100 | Subscriber pages: structure, content, ARIA |
+| `components.test.js` | 80 | Trust + SEO + Legal pages: structure, content, ARIA |
+| `integrity.test.js` | 126 | CJK leaks, hardcoded tags, video fallback, typos, skip-links |
+| `admin.test.js` | 164 | 14 admin pages: structure, modals, CRUD |
+| `build.test.js` | 13 | File existence, webpack, admin pages |
+| `seo.test.js` | 11 | Meta tags, sitemap, robots.txt |
+| `backend.test.js` | 109 | File structure, db, auth, CRUD, user auth, progress, calendar, free enforcement, video security |
+| **Total** | **656** | |
 
 ---
 

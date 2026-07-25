@@ -50,8 +50,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Service worker registration
+    // Service worker disabled — was causing cached stale pages, blocked CSS/video
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+        });
     }
 });

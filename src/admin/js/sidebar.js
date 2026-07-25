@@ -14,6 +14,7 @@ function getSidebar(activePage) {
         ]},
         { section: 'Маркетинг', items: [
             { href: 'reviews.html', icon: '⭐', label: 'Отзывы' },
+            { href: 'feedback.html', icon: '💬', label: 'Обратная связь' },
             { href: 'faq.html', icon: '❓', label: 'FAQ' },
             { href: 'promo.html', icon: '🎁', label: 'Промокоды' },
         ]},

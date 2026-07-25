@@ -33,7 +33,7 @@
 | `server/db.js:72-81` | `CREATE TABLE IF NOT EXISTS exercises` | Таблица оставлена для обратной совместимости (не DROP, т.к. sql.js не поддерживает DROP в migrate) |
 | `server/routes/crud.js:3` | `VALID_TABLES` | `exercises` удалён из Set |
 | `server/index.js:158` | CRUD route | `api.use('/exercises', ...)` удалён |
-| `server/index.js:111-120` | Public route | `GET /api/exercises` заменён на `GET /api/lesson-zons/:lessonId` |
+| `server/index.js:111-120` | Public route | `GET /api/exercises` заменён на `GET /api/lesson-zones/:lessonId` |
 | `src/admin/js/sidebar.js:9` | Sidebar link | Ссылка «Упражнения» удалена из меню |
 | `src/admin/exercises.html` | — | Файл удалён |
 | `webpack.config.js:33` | `adminPages` | `'exercises'` удалён из массива |
@@ -103,7 +103,7 @@ lessons = lessons.filter(l => matchingIds.has(l.id));
 | `tests/build.test.js:91` | Убран `exercises.html` из проверки admin pages |
 | `tests/backend.test.js:287` | Убран `exercises` из endpoints |
 
-**Результат:** 648/648 тестов пройдены
+**Результат:** 656/656 тестов пройдены
 
 ---
 
@@ -154,7 +154,7 @@ curl -H "Authorization: Bearer <token>" "http://localhost:3001/api/user/lessons-
 
 ```bash
 npm test
-# Ожидаемый результат: 648 passed, 8 suites
+# Ожидаемый результат: 656 passed, 8 suites
 ```
 
 ---

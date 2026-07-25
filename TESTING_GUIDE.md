@@ -7,7 +7,7 @@
 ## Запуск
 
 ```bash
-cd "C:\Users\Francis\Documents\Default Project"
+cd "C:\Users\admin\Documents\Default Project"
 npm install
 npx webpack --mode production
 node server/index.js
@@ -31,7 +31,7 @@ API at http://localhost:3001/api/
 | 1.2 | Список уроков | `http://localhost:3001/api/lessons` | JSON-массив уроков |
 | 1.3 | Один урок | `http://localhost:3001/api/lessons/1` | JSON-объект урока |
 | 1.4 | Комплексы | `http://localhost:3001/api/complexes` | JSON-массив комплексов |
-| 1.5 | Упражнения | `http://localhost:3001/api/exercises` | JSON-массив упражнений |
+| 1.5 | Зоны урока | `http://localhost:3001/api/lesson-zones/1` | JSON-массив зон |
 | 1.6 | Расписание | `http://localhost:3001/api/schedule` | JSON-массив расписания |
 | 1.7 | Отзывы | `http://localhost:3001/api/reviews` | JSON-массив отзывов |
 | 1.8 | Настройки | `http://localhost:3001/api/settings` | JSON объект настроек |
@@ -186,11 +186,11 @@ curl http://localhost:3001/api/user/can-watch/8 \
 |---|--------|--------|----------|----------------|----------|
 | 6.3.1 | Уроки | `/admin/lessons.html` | «+ Новый урок» | «Редактировать» | «Удалить» |
 | 6.3.2 | Комплексы | `/admin/complexes.html` | «+ Новый» | «Редактировать» | «Удалить» |
-| 6.3.3 | Упражнения | `/admin/exercises.html` | «+ Новое» | «Редактировать» | «Удалить» |
-| 6.3.4 | Расписание | `/admin/schedule.html` | «+ Новое» | «Редактировать» | «Удалить» |
-| 6.3.5 | FAQ | `/admin/faq.html` | «+ Новый» | «Редактировать» | «Удалить» |
-| 6.3.6 | Промокоды | `/admin/promo.html` | «+ Новый» | «Редактировать» | «Удалить» |
-| 6.3.7 | Отзывы | `/admin/reviews.html` | — | Одобрение/Удаление | — |
+| 6.3.3 | Расписание | `/admin/schedule.html` | «+ Новое» | «Редактировать» | «Удалить» |
+| 6.3.4 | FAQ | `/admin/faq.html` | «+ Новый» | «Редактировать» | «Удалить» |
+| 6.3.5 | Промокоды | `/admin/promo.html` | «+ Новый» | «Редактировать» | «Удалить» |
+| 6.3.6 | Отзывы | `/admin/reviews.html` | — | Одобрение/Удаление | — |
+| 6.3.7 | Обратная связь | `/admin/feedback.html` | — | Ответ на тикет | — |
 | 6.3.8 | Подписчики | `/admin/subscriptions.html` | — | Просмотр | — |
 | 6.3.9 | Пользователи | `/admin/users.html` | — | Просмотр | — |
 | 6.3.10 | Уведомления | `/admin/notifications.html` | «+ Новое» | — | — |
@@ -263,7 +263,7 @@ CLOUDFLARE_STREAM_CUSTOMER_CODE=...
 ## 9. Тесты
 
 ```bash
-# Все тесты (должно быть 658/658)
+# Все тесты (должно быть 656/656)
 npx jest --forceExit
 
 # Только backend тесты
@@ -304,4 +304,4 @@ npx jest tests/integrity.test.js --forceExit
 
 ---
 
-*Последнее обновление: 2026-07-22 | Сервер: Express 5.2.1 | База: sql.js 1.14.1 | Тесты: 658/658*
+*Последнее обновление: 2026-07-25 | Сервер: Express 5.2.1 | База: sql.js 1.14.1 | Тесты: 656/656*

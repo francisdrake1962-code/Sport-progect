@@ -206,6 +206,60 @@ async function getDb() {
       )
     `);
 
+    db.run(`
+      CREATE TABLE IF NOT EXISTS tickets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subscriber_id INTEGER NOT NULL,
+        category TEXT NOT NULL CHECK(category IN ('trainer','technical','admin')),
+        subject TEXT NOT NULL,
+        status TEXT DEFAULT 'open' CHECK(status IN ('open','in_progress','resolved')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS ticket_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id INTEGER NOT NULL,
+        sender_type TEXT NOT NULL CHECK(sender_type IN ('subscriber','admin','trainer')),
+        sender_id INTEGER,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (ticket_id) REFERENCES tickets(id)
+      )
+    `);
+
+    try { db.run(`ALTER TABLE tickets ADD COLUMN assigned_to TEXT`); } catch (_) {}
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS workout_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subscriber_id INTEGER NOT NULL,
+        lesson_id INTEGER NOT NULL,
+        mood TEXT NOT NULL CHECK(mood IN ('happy','energized','calm','neutral','tired','disappointed')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id),
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id),
+        UNIQUE(subscriber_id, lesson_id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        subscriber_id INTEGER PRIMARY KEY,
+        experience TEXT DEFAULT 'beginner',
+        goals TEXT DEFAULT '[]',
+        preferred_duration INTEGER DEFAULT 15,
+        preferred_time TEXT DEFAULT 'anytime',
+        focus_zones TEXT DEFAULT '[]',
+        onboarding_completed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+      )
+    `);
+
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('admin123', 10);
     db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,

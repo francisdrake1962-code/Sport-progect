@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+    <title>Настройка — Цигун</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        .ob-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; display:flex; flex-direction:column; align-items:center; padding:2rem 1rem; }
+        .ob-card { width:100%; max-width:520px; }
+        .ob-progress { display:flex; gap:6px; margin-bottom:2rem; }
+        .ob-progress__dot { flex:1; height:4px; border-radius:2px; background:#1e2e22; transition:background .3s; }
+        .ob-progress__dot.active { background:#1a5e2a; }
+        .ob-progress__dot.done { background:#228b33; }
+        .ob-step { display:none; animation:obFadeIn .3s ease; }
+        .ob-step.active { display:block; }
+        @keyframes obFadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .ob-step__icon { font-size:2.5rem; margin-bottom:0.75rem; text-align:center; }
+        .ob-step__title { font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:0.5rem; text-align:center; }
+        .ob-step__subtitle { color:#7a9a80; font-size:0.95rem; margin-bottom:1.5rem; text-align:center; line-height:1.5; }
+        .ob-options { display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1.5rem; }
+        .ob-options--grid { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; }
+        .ob-option { display:flex; align-items:center; gap:0.75rem; padding:0.85rem 1rem; background:#111a14; border:2px solid #1e2e22; border-radius:10px; cursor:pointer; transition:all .15s; }
+        .ob-option:hover { border-color:#2a4a30; background:#1a2a1e; }
+        .ob-option.selected { border-color:#1a5e2a; background:#1a3a20; }
+        .ob-option__icon { font-size:1.3rem; flex-shrink:0; }
+        .ob-option__text { flex:1; }
+        .ob-option__label { font-weight:600; color:#e0e0e0; font-size:0.95rem; }
+        .ob-option__desc { color:#7a9a80; font-size:0.8rem; margin-top:0.15rem; }
+        .ob-option__check { width:22px; height:22px; border:2px solid #3a4a3e; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .15s; }
+        .ob-option.selected .ob-option__check { background:#1a5e2a; border-color:#1a5e2a; }
+        .ob-option.selected .ob-option__check::after { content:'✓'; color:#fff; font-size:0.75rem; font-weight:700; }
+        .ob-btns { display:flex; gap:0.75rem; }
+        .ob-btns button { flex:1; padding:0.85rem 1rem; border:none; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer; transition:all .15s; }
+        .ob-btn--next { background:#1a5e2a; color:#fff; }
+        .ob-btn--next:hover { background:#228b33; }
+        .ob-btn--next:disabled { background:#1e2e22; color:#5a6a60; cursor:not-allowed; }
+        .ob-btn--back { background:#1e2e22; color:#9fc5a8; flex:0.4; }
+        .ob-btn--back:hover { background:#2a3a2e; color:#fff; }
+        .ob-error { color:#e55; font-size:0.85rem; text-align:center; margin-top:0.5rem; display:none; }
+        .ob-skip { display:block; text-align:center; color:#5a7a60; font-size:0.85rem; text-decoration:none; margin-top:1rem; transition:color .15s; }
+        .ob-skip:hover { color:#9fc5a8; }
+        .ob-complete { text-align:center; padding:2rem 0; }
+        .ob-complete__icon { font-size:4rem; margin-bottom:1rem; }
+        .ob-complete__title { font-size:1.5rem; font-weight:700; color:#fff; margin-bottom:0.5rem; }
+        .ob-complete__text { color:#7a9a80; margin-bottom:1.5rem; line-height:1.5; }
+        .ob-complete__btn { display:inline-block; padding:0.85rem 2rem; background:#1a5e2a; color:#fff; border:none; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer; transition:background .15s; text-decoration:none; }
+        .ob-complete__btn:hover { background:#228b33; }
+        @media (max-width:480px) {
+            .ob-page { padding:1rem 0.75rem; }
+            .ob-options--grid { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Перейти к содержимому</a>
+    <div class="ob-page" id="main-content"></div>
+    <script>
+    (function() {
+        var root = document.getElementById('main-content');
+
+        var STEPS = [
+            {
+                icon: '🧘',
+                title: 'Добро пожаловать!',
+                subtitle: 'Расскажите о себе, чтобы мы подобрали идеальную программу для вас',
+                type: 'single',
+                key: 'experience',
+                options: [
+                    { value: 'beginner', icon: '🌱', label: 'Новичок', desc: 'Только начинаю заниматься цигун' },
+                    { value: 'intermediate', icon: '🌿', label: 'Продолжающий', desc: 'Занимаюсь несколько месяцев' },
+                    { value: 'advanced', icon: '🌳', label: 'Продвинутый', desc: 'Занимаюсь более года' }
+                ]
+            },
+            {
+                icon: '🎯',
+                title: 'Ваши цели',
+                subtitle: 'Что для вас важно? (можно выбрать несколько)',
+                type: 'multi',
+                key: 'goals',
+                options: [
+                    { value: 'stress_relief', icon: '😌', label: 'Снятие стресса', desc: 'Расслабление и спокойствие' },
+                    { value: 'flexibility', icon: '🤸', label: 'Гибкость', desc: 'Развитие подвижности суставов' },
+                    { value: 'energy', icon: '⚡', label: 'Энергия', desc: 'Бодрость и тонус' },
+                    { value: 'sleep', icon: '😴', label: 'Сон', desc: 'Улучшение качества сна' },
+                    { value: 'joint_health', icon: '🦴', label: 'Здоровье суставов', desc: 'Профилактика и восстановление' },
+                    { value: 'breathing', icon: '🌬️', label: 'Дыхание', desc: 'Дыхательные практики' },
+                    { value: 'meditation', icon: '🧠', label: 'Медитация', desc: 'Осознанность и концентрация' },
+                    { value: 'general_health', icon: '💚', label: 'Общее здоровье', desc: 'Поддержание формы' }
+                ]
+            },
+            {
+                icon: '⏱️',
+                title: 'Длительность занятий',
+                subtitle: 'Сколько времени вы готовы уделять практике?',
+                type: 'single',
+                key: 'preferred_duration',
+                options: [
+                    { value: 10, icon: '⚡', label: '10 минут', desc: 'Быстрая разминка' },
+                    { value: 15, icon: '🌿', label: '15 минут', desc: 'Оптимально для начала' },
+                    { value: 20, icon: '🌳', label: '20 минут', desc: 'Полноценное занятие' },
+                    { value: 30, icon: '🏔️', label: '30 минут', desc: 'Углублённая практика' }
+                ]
+            },
+            {
+                icon: '🌅',
+                title: 'Когда удобно заниматься?',
+                subtitle: 'Мы подберём расписание для вас',
+                type: 'single',
+                key: 'preferred_time',
+                options: [
+                    { value: 'morning', icon: '🌅', label: 'Утро', desc: 'Зарядка для начала дня' },
+                    { value: 'afternoon', icon: '☀️', label: 'День', desc: 'Перезагрузка в середине дня' },
+                    { value: 'evening', icon: '🌙', label: 'Вечер', desc: 'Расслабление после работы' },
+                    { value: 'anytime', icon: '🔄', label: 'Любое время', desc: 'Подстроюсь под расписание' }
+                ]
+            },
+            {
+                icon: '🫀',
+                title: 'Проблемные зоны',
+                subtitle: 'Какие области тела беспокоят больше всего?',
+                type: 'multi',
+                key: 'focus_zones',
+                options: [
+                    { value: 'шея', icon: '🦢', label: 'Шея', desc: 'Зажимы и напряжение' },
+                    { value: 'плечи_руки', icon: '💪', label: 'Плечи и руки', desc: 'Скованность плечевого пояса' },
+                    { value: 'грудной_отдел', icon: '🫁', label: 'Грудной отдел', desc: 'Осанка и дыхание' },
+                    { value: 'поясница', icon: '🔙', label: 'Поясница', desc: 'Боли внизу спины' },
+                    { value: 'спина_осанка', icon: '🧍', label: 'Спина и осанка', desc: 'Искривления и слабость' },
+                    { value: 'колени', icon: '🦵', label: 'Колени', desc: 'Укрепление и гибкость' },
+                    { value: 'ноги_таз', icon: '🚶', label: 'Ноги и таз', desc: 'Координация и равновесие' },
+                    { value: 'баланс_общее', icon: '⚖️', label: 'Баланс', desc: 'Общее равновесие' }
+                ]
+            }
+        ];
+
+        var state = { step: 0, data: {} };
+        STEPS.forEach(function(s) { state.data[s.key] = s.type === 'multi' ? [] : null; });
+
+        function api(path, opts) {
+            var token = localStorage.getItem('user_token');
+            var headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            return fetch(path, Object.assign({ headers: headers }, opts || {})).then(function(res) {
+                if (!res.ok) throw new Error('API error ' + res.status);
+                return res.json();
+            });
+        }
+
+        async function checkOnboarding() {
+            try {
+                var data = await api('/api/user/onboarding');
+                if (data.completed) {
+                    window.location.href = 'lessons.html';
+                    return;
+                }
+            } catch(e) {}
+            render();
+        }
+
+        function render() {
+            var html = renderProgress();
+            STEPS.forEach(function(step, i) {
+                html += '<div class="ob-step' + (i === state.step ? ' active' : '') + '" id="step-' + i + '">';
+                html += '<div class="ob-step__icon">' + step.icon + '</div>';
+                html += '<div class="ob-step__title">' + step.title + '</div>';
+                html += '<div class="ob-step__subtitle">' + step.subtitle + '</div>';
+                html += '<div class="ob-options' + (step.options.length > 4 ? ' ob-options--grid' : '') + '">';
+                step.options.forEach(function(opt) {
+                    var selected = step.type === 'multi'
+                        ? (state.data[step.key] || []).indexOf(opt.value) !== -1
+                        : state.data[step.key] === opt.value;
+                    html += '<div class="ob-option' + (selected ? ' selected' : '') + '" data-step="' + i + '" data-value="' + opt.value + '">';
+                    html += '<span class="ob-option__icon">' + opt.icon + '</span>';
+                    html += '<div class="ob-option__text"><div class="ob-option__label">' + opt.label + '</div>';
+                    if (opt.desc) html += '<div class="ob-option__desc">' + opt.desc + '</div>';
+                    html += '</div>';
+                    html += '<div class="ob-option__check"></div></div>';
+                });
+                html += '</div>';
+                html += '<div class="ob-error" id="ob-error-' + i + '">Выберите хотя бы один вариант</div>';
+                html += '<div class="ob-btns">';
+                if (i > 0) html += '<button class="ob-btn--back" onclick="window._obBack()">← Назад</button>';
+                if (i < STEPS.length - 1) {
+                    html += '<button class="ob-btn--next" onclick="window._obNext()">Далее →</button>';
+                } else {
+                    html += '<button class="ob-btn--next" onclick="window._obFinish()">Начать! 🎉</button>';
+                }
+                html += '</div></div>';
+            });
+            html += '<a href="lessons.html" class="ob-skip">Пропустить настройку</a>';
+            root.innerHTML = html;
+            bindOptions();
+        }
+
+        function renderProgress() {
+            var html = '<div class="ob-card"><div class="ob-progress">';
+            STEPS.forEach(function(_, i) {
+                var cls = i < state.step ? 'done' : (i === state.step ? 'active' : '');
+                html += '<div class="ob-progress__dot ' + cls + '"></div>';
+            });
+            html += '</div>';
+            return html;
+        }
+
+        function bindOptions() {
+            document.querySelectorAll('.ob-option').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    var stepIdx = parseInt(el.dataset.step);
+                    var value = el.dataset.value;
+                    var step = STEPS[stepIdx];
+                    if (step.type === 'multi') {
+                        var arr = state.data[step.key] || [];
+                        var idx = arr.indexOf(step.value !== undefined ? step.value : value);
+                        if (idx === -1) {
+                            arr.push(value);
+                        } else {
+                            arr.splice(idx, 1);
+                        }
+                        state.data[step.key] = arr;
+                        el.classList.toggle('selected');
+                    } else {
+                        state.data[step.key] = value;
+                        document.querySelectorAll('.ob-option[data-step="' + stepIdx + '"]').forEach(function(o) {
+                            o.classList.remove('selected');
+                        });
+                        el.classList.add('selected');
+                    }
+                    var errEl = document.getElementById('ob-error-' + stepIdx);
+                    if (errEl) errEl.style.display = 'none';
+                });
+            });
+        }
+
+        function validate() {
+            var step = STEPS[state.step];
+            var val = state.data[step.key];
+            if (step.type === 'multi') {
+                return Array.isArray(val) && val.length > 0;
+            }
+            return val !== null && val !== undefined;
+        }
+
+        window._obNext = function() {
+            if (!validate()) {
+                var errEl = document.getElementById('ob-error-' + state.step);
+                if (errEl) errEl.style.display = 'block';
+                return;
+            }
+            if (state.step < STEPS.length - 1) {
+                state.step++;
+                render();
+            }
+        };
+
+        window._obBack = function() {
+            if (state.step > 0) {
+                state.step--;
+                render();
+            }
+        };
+
+        window._obFinish = function() {
+            if (!validate()) {
+                var errEl = document.getElementById('ob-error-' + state.step);
+                if (errEl) errEl.style.display = 'block';
+                return;
+            }
+            var payload = {
+                experience: state.data.experience || 'beginner',
+                goals: state.data.goals || [],
+                preferred_duration: state.data.preferred_duration || 15,
+                preferred_time: state.data.preferred_time || 'anytime',
+                focus_zones: state.data.focus_zones || []
+            };
+            api('/api/user/onboarding', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            }).then(function() {
+                root.innerHTML = '<div class="ob-card"><div class="ob-complete">' +
+                    '<div class="ob-complete__icon">🎉</div>' +
+                    '<div class="ob-complete__title">Всё готово!</div>' +
+                    '<div class="ob-complete__text">Мы подобрали для вас идеальную программу.<br>Начните с первого занятия или просмотрите каталог.</div>' +
+                    '<a href="lessons.html" class="ob-complete__btn">Перейти к занятиям</a>' +
+                    '</div></div>';
+            }).catch(function() {
+                window.location.href = 'lessons.html';
+            });
+        };
+
+        checkOnboarding();
+    })();
+    </script>
+</body>
+</html>

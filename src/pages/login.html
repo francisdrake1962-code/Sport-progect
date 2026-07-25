@@ -112,7 +112,12 @@
                 if (!res.ok) throw new Error(responseData.error || 'Login failed');
                 localStorage.setItem('user_token', responseData.token);
                 localStorage.setItem('user_data', JSON.stringify(responseData.user));
-                window.location.href = 'lessons.html';
+                try {
+                    const obRes = await fetch('/api/user/onboarding', { headers: { 'Authorization': 'Bearer ' + responseData.token } });
+                    const obData = await obRes.json();
+                    if (!obData.completed) { window.location.href = 'onboarding.html'; return; }
+                } catch(_) {}
+                window.location.href = 'dashboard.html';
             } catch(err) {
                 if (err.message === 'EMAIL_NOT_CONFIRMED') {
                     let html = 'Email не подтверждён. Проверьте почту. <button id="resend-btn" style="background:none;border:none;color:#7acc8a;cursor:pointer;text-decoration:underline;font-size:0.85rem;">Отправить письмо повторно</button>';

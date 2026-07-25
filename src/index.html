@@ -57,6 +57,7 @@
                 </div>
                 
                 <a href="login.html" class="header__login">Войти</a>
+                <a href="login.html?tab=register" class="btn btn--primary btn--small header__cta">Начать бесплатно</a>
             </nav>
         </div>
     </header>
@@ -163,12 +164,78 @@
             </div>
         </section>
 
+        <section class="feelings" id="feelings">
+            <div class="container">
+                <h2 class="section-title">Как вы хотите себя чувствовать?</h2>
+                <p class="feelings__subtitle">Выберите, что важно для вас сейчас</p>
+
+                <div class="feelings__grid">
+                    <button class="feeling-btn" data-feeling="energize" aria-pressed="false">
+                        <span class="feeling-btn__icon">⚡</span>
+                        <span class="feeling-btn__text">Взбодриться</span>
+                    </button>
+
+                    <button class="feeling-btn" data-feeling="calm" aria-pressed="false">
+                        <span class="feeling-btn__icon">🧘</span>
+                        <span class="feeling-btn__text">Успокоиться</span>
+                    </button>
+
+                    <button class="feeling-btn" data-feeling="sleep" aria-pressed="false">
+                        <span class="feeling-btn__icon">🌙</span>
+                        <span class="feeling-btn__text">Лучше спать</span>
+                    </button>
+
+                    <button class="feeling-btn" data-feeling="tension" aria-pressed="false">
+                        <span class="feeling-btn__icon">💆</span>
+                        <span class="feeling-btn__text">Снять напряжение</span>
+                    </button>
+
+                    <button class="feeling-btn" data-feeling="posture" aria-pressed="false">
+                        <span class="feeling-btn__icon">🧍</span>
+                        <span class="feeling-btn__text">Улучшить осанку</span>
+                    </button>
+
+                    <button class="feeling-btn" data-feeling="flexibility" aria-pressed="false">
+                        <span class="feeling-btn__icon">🤸</span>
+                        <span class="feeling-btn__text">Увеличить гибкость</span>
+                    </button>
+
+                    <button class="feeling-btn" data-feeling="strength" aria-pressed="false">
+                        <span class="feeling-btn__icon">💪</span>
+                        <span class="feeling-btn__text">Укрепить тело</span>
+                    </button>
+
+                    <button class="feeling-btn" data-feeling="mind" aria-pressed="false">
+                        <span class="feeling-btn__icon">🧠</span>
+                        <span class="feeling-btn__text">Привести мысли в порядок</span>
+                    </button>
+                </div>
+
+                <div class="feelings__cta">
+                    <a href="login.html?tab=register" class="btn btn--primary btn--large">Подобрать программу</a>
+                    <p class="feelings__cta-note">Займёт 2 минуты</p>
+                </div>
+            </div>
+        </section>
+        <script>
+        (function() {
+            var btns = document.querySelectorAll('.feeling-btn');
+            btns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var pressed = btn.getAttribute('aria-pressed') === 'true';
+                    btn.setAttribute('aria-pressed', String(!pressed));
+                });
+            });
+        })();
+        </script>
+
         <section class="formats" id="formats">
             <div class="container">
                 <h2 class="section-title">Форматы практики</h2>
                 
                 <div class="formats__grid">
-                    <div class="format-card">
+                    <div class="format-card format-card--popular">
+                        <span class="format-card__badge">⭐ Популярное</span>
                         <div class="format-card__icon" role="img" aria-label="На полу">🧘‍♀️</div>
                         <h3 class="format-card__title">На полу</h3>
                         <p class="format-card__text">
@@ -335,6 +402,49 @@
         })();
         </script>
 
+        <section class="pricing" id="pricing">
+            <div class="container">
+                <h2 class="section-title">Тарифы</h2>
+
+                <div class="pricing__content">
+                    <div class="pricing-card pricing-card--annual">
+                        <h3 class="pricing-card__title">Годовая</h3>
+                        <div><span class="pricing-card__amount">89&nbsp;₽</span> <span class="pricing-card__period">/ год</span></div>
+                        <p class="pricing__note">≈ 7,4&nbsp;₽ в месяц</p>
+                        <ul class="pricing-card__features">
+                            <li>Все занятия без ограничений</li>
+                            <li>Новое занятие каждый день</li>
+                            <li>Подбор по зоне и самочувствию</li>
+                            <li>Календарь прогресса на год</li>
+                        </ul>
+                        <a href="login.html?tab=register" class="btn btn--primary btn--large">Начать бесплатно</a>
+                    </div>
+
+                    <div class="pricing-card pricing-card__monthly">
+                        <h3 class="pricing-card__title">Месячная</h3>
+                        <div><span class="pricing-card__amount">12&nbsp;₽</span> <span class="pricing-card__period">/ месяц</span></div>
+                        <p class="pricing__note">Без обязательств</p>
+                        <ul class="pricing-card__features">
+                            <li>Все занятия без ограничений</li>
+                            <li>Новое занятие каждый день</li>
+                            <li>Подбор по зоне и самочувствию</li>
+                            <li>Отмена в один клик</li>
+                        </ul>
+                        <a href="login.html?tab=register" class="btn btn--primary btn--large">Начать бесплатно</a>
+                    </div>
+                </div>
+
+                <p class="pricing__note">Спишется один раз при оформлении. Отменить — в один клик в профиле в любой момент.</p>
+            </div>
+        </section>
+
+        <section class="final-cta" id="cta-final">
+            <div class="container">
+                <h2>Попробуйте первые 7 занятий бесплатно</h2>
+                <p>Без карты, без обязательств. Просто зарегистрируйтесь и начните заниматься.</p>
+                <a href="login.html?tab=register" class="btn btn--primary btn--large">Начать бесплатно</a>
+            </div>
+        </section>
 
     </main>
 

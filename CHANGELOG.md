@@ -4,6 +4,33 @@
 
 ---
 
+## [3.5.0] - 2026-07-25
+
+### Added
+
+- **Dashboard подписчика** (`/dashboard.html`) — приветствие, статистика, «Продолжить», сегодняшний урок, зоны, расписание, быстрые ссылки
+- **Onboarding** (`/onboarding.html`) — 5-шаговый визард настроек (опыт, цели, длительность, время, зоны)
+- **Picker уроков** (`/picker.html`) — фильтрация по зоне, длительности, настроению
+- **Профиль** (`/profile.html`) — информация о подписке + календарь настроения (7 дней)
+- **Обратная связь по уроку** — emoji-оценка после завершения (6 настроений: 😊⚡🧘😐😴😞), сохранение в `workout_feedback`
+- **Cast to TV** — кнопка 📺 в плеере: Presentation API (Chrome Cast), Screen Mirroring (navigator.share), fallback (открыть URL)
+- **Раздел «Как вы хотите себя чувствовать?»** на лендинге — 8 целей с emoji (Взбодриться/Успокоиться/Лучше спать и т.д.)
+- **Бейдж «⭐ Популярное»** на карточке формата «На полу»
+- **API обратной связи** — `POST /api/user/workout-feedback`, `GET /api/user/workout-feedback`, `GET /api/user/workout-feedback/:lessonId`
+- **API настроек пользователя** — `GET/POST /api/user/onboarding`
+- **API дашборда** — `GET /api/user/dashboard`, `GET /api/user/categories`
+- **Таблица `workout_feedback`** — оценки настроений после занятий
+- **Таблица `user_preferences`** — настройки подписчиков из onboarding
+- **Skip-to-content ссылки** на dashboard.html и onboarding.html (accessibility)
+
+### Changed
+
+- `package.json` version → 3.5.0
+- Тесты: **656/656** (8 сьютов)
+- `jest.config.js` — исключена папка `references/` из тестов
+
+---
+
 ## [3.4.0] - 2026-07-24
 
 ### Changed — Переработка структуры БД (ТЗ_переработка_таблиц)
@@ -18,16 +45,11 @@
 
 ### Added
 
-- `GET /api/lesson-zons/:lessonId` — публичный эндпоинт зон урока
+- `GET /api/lesson-zones/:lessonId` — публичный эндпоинт зон урока
 - `PUT /api/admin/lessons/:id/zones` — сохранение зон (admin only)
 - `/lessons-filter` фильтрует по `lesson_zones` (точный SQL `WHERE zone IN (...)`) вместо JSON `tags`
 - Админка lessons.html: переключатель «Направление», чекбоксы «Зоны тела» (8 зон), поле «Описание эффекта» с бейджем «Черновик»
 - Seed data обновлён: 10 уроков с direction/zones/effect_description, 14 записей lesson_zones
-
-### Tests
-
-- Все ссылки на exercises удалены из тестов
-- **648 тестов** (8 сьютов, все проходят)
 
 ---
 
@@ -228,7 +250,6 @@
 
 ## Известные проблемы
 - Нет оплаты (Stripe интеграция — по ТЗ P2)
-- CSP отключён в Express (нужно вынести inline JS)
+- CSP настроен с `unsafe-inline` (нужно вынести inline JS в bundle)
 - Нет пагинации на CRUD эндпоинтах
-- Нет `<noscript>` fallback
 - JWT_SECRET генерируется случайно при каждом рестарте

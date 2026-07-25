@@ -177,7 +177,7 @@ async function sendViaResend(toEmail, subject, html) {
 }
 
 async function sendConfirmationEmail(toEmail, token) {
-  const confirmUrl = `${baseUrl}/confirm/${token}`;
+  const confirmUrl = `${baseUrl}/api/user/confirm/${token}`;
   return await sendGenericEmail(toEmail, 'Подтвердите email — Цигун', CONFIRM_HTML(confirmUrl));
 }
 
@@ -200,5 +200,6 @@ module.exports = {
   sendSubscriptionExpiredEmail,
   sendGenericEmail,
   resetMailConfig,
+  resolveProvider,
   _getProvider: () => resolvedProvider || 'console',
 };

@@ -32,10 +32,11 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       mediaSrc: ["'self'", "blob:", "data:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
@@ -52,6 +53,8 @@ app.use(express.static(path.join(__dirname, '..', 'dist'), {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
   }
 }));
@@ -391,6 +394,7 @@ api.get('/dashboard', async (req, res) => {
     const lessons = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM lessons`));
     const reviews = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM reviews`));
     const revenue = queryToObjects(db.exec(`SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'success'`));
+    const openTickets = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM tickets WHERE status != 'resolved'`));
     const subCount = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM subscribers WHERE status = 'active' OR status = 'trial'`));
     const paidCount = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM subscribers WHERE (plan = 'annual' OR plan = 'monthly') AND status = 'active'`));
     const revenueNum = revenue[0]?.total || 0;
@@ -403,6 +407,7 @@ api.get('/dashboard', async (req, res) => {
       activeUsers: active[0]?.count || 0,
       totalLessons: lessons[0]?.count || 0,
       totalReviews: reviews[0]?.count || 0,
+      openTickets: openTickets[0]?.count || 0,
       monthlyRevenue: revenueNum,
       conversionRate,
     });
@@ -431,6 +436,153 @@ api.post('/upload-trainer-photo', (req, res) => {
     res.json({ success: true, url: '/images/trainers/' + safeName });
   } catch (err) {
     res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+// === TICKETS (FEEDBACK) ===
+
+const feedbackRouter = express.Router();
+feedbackRouter.use(authMiddleware);
+
+// Subscriber: create ticket
+feedbackRouter.post('/', async (req, res) => {
+  try {
+    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const { category, subject, message } = req.body;
+    if (!category || !subject || !message) return res.status(400).json({ error: 'category, subject, message required' });
+    if (!['trainer', 'technical', 'admin'].includes(category)) return res.status(400).json({ error: 'Invalid category' });
+    const db = await getDb();
+    db.run(`INSERT INTO tickets (subscriber_id, category, subject) VALUES (?, ?, ?)`, [req.user.id, category, subject]);
+    const idResult = db.exec(`SELECT last_insert_rowid()`);
+    const ticketId = idResult[0].values[0][0];
+    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [ticketId, req.user.id, message]);
+    saveDb();
+    res.json({ success: true, ticketId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Subscriber: list my tickets
+feedbackRouter.get('/', async (req, res) => {
+  try {
+    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const db = await getDb();
+    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE subscriber_id = ? ORDER BY created_at DESC`, [req.user.id]));
+    res.json(tickets);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Subscriber: get ticket with messages
+feedbackRouter.get('/:id', async (req, res) => {
+  try {
+    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const db = await getDb();
+    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE id = ? AND subscriber_id = ?`, [req.params.id, req.user.id]));
+    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
+    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [req.params.id]));
+    res.json({ ...tickets[0], messages });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Subscriber: reply to ticket
+feedbackRouter.post('/:id/reply', async (req, res) => {
+  try {
+    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+    const db = await getDb();
+    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ? AND subscriber_id = ?`, [req.params.id, req.user.id]));
+    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
+    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [req.params.id, req.user.id, message]);
+    db.run(`UPDATE tickets SET status = 'open' WHERE id = ? AND status = 'resolved'`, [req.params.id]);
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.use('/api/feedback', feedbackRouter);
+
+// Admin: list all tickets (with filters)
+api.get('/admin/feedback', async (req, res) => {
+  try {
+    const { category, status } = req.query;
+    const db = await getDb();
+    let sql = `SELECT t.*, s.name as subscriber_name, s.email as subscriber_email,
+      (SELECT message FROM ticket_messages WHERE ticket_id = t.id ORDER BY created_at DESC LIMIT 1) as last_message,
+      (SELECT COUNT(*) FROM ticket_messages WHERE ticket_id = t.id) as message_count
+      FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id WHERE 1=1`;
+    const params = [];
+    if (category) { sql += ` AND t.category = ?`; params.push(category); }
+    if (status) { sql += ` AND t.status = ?`; params.push(status); }
+    sql += ` ORDER BY t.created_at DESC`;
+    const tickets = queryToObjects(db.exec(sql, params));
+    res.json(tickets);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: get ticket with messages
+api.get('/admin/feedback/:id', async (req, res) => {
+  try {
+    const db = await getDb();
+    const tickets = queryToObjects(db.exec(`SELECT t.*, s.name as subscriber_name, s.email as subscriber_email FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id WHERE t.id = ?`, [req.params.id]));
+    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
+    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [req.params.id]));
+    res.json({ ...tickets[0], messages });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: update ticket status/assign
+api.put('/admin/feedback/:id', async (req, res) => {
+  try {
+    const { status, assigned_to } = req.body;
+    const db = await getDb();
+    if (status) {
+      if (!['open', 'in_progress', 'resolved'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+      db.run(`UPDATE tickets SET status = ? WHERE id = ?`, [status, req.params.id]);
+    }
+    if (assigned_to !== undefined) {
+      db.run(`UPDATE tickets SET assigned_to = ? WHERE id = ?`, [assigned_to, req.params.id]);
+    }
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: reply to ticket
+api.post('/admin/feedback/:id/reply', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+    const db = await getDb();
+    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ?`, [req.params.id]));
+    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
+    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'admin', ?, ?)`, [req.params.id, req.user.id, message]);
+    db.run(`UPDATE tickets SET status = 'in_progress' WHERE id = ? AND status = 'open'`, [req.params.id]);
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -515,16 +667,22 @@ app.get('/videos/{*splat}', async (req, res) => {
     res.writeHead(200, {
       'Content-Length': fileSize,
       'Content-Type': 'video/mp4',
+      'Accept-Ranges': 'bytes',
     });
     fs.createReadStream(filePath).pipe(res);
   }
 });
 
 app.get('/admin/{*splat}', (req, res) => {
+  const urlPath = req.params.splat || '';
+  if (urlPath.endsWith('.html') || urlPath.endsWith('.js') || urlPath.endsWith('.css') || urlPath.endsWith('.svg') || urlPath.endsWith('.png') || urlPath.endsWith('.json')) {
+    const filePath = path.join(__dirname, '..', 'dist', 'admin', urlPath);
+    if (fs.existsSync(filePath)) return res.sendFile(filePath);
+  }
   res.sendFile(path.join(__dirname, '..', 'dist', 'admin', 'index.html'));
 });
 
-const CLEAN_URL_ROUTES = { plans: 'plans.html', lessons: 'lessons.html', login: 'login.html', calendar: 'calendar.html', faq: 'faq.html', contact: 'contact.html', 'is-it-really-free': 'is-it-really-free.html', 'how-to-cancel': 'how-to-cancel.html', 'about-trainer': 'about-trainer.html', '8-pieces-of-brocade': '8-pieces-of-brocade.html', yijinjing: 'yijinjing.html', 'small-circulation': 'small-circulation.html', terms: 'terms.html', refund: 'refund.html', privacy: 'privacy.html', player: 'player.html', picker: 'picker.html', profile: 'profile.html' };
+const CLEAN_URL_ROUTES = { plans: 'plans.html', lessons: 'lessons.html', login: 'login.html', calendar: 'calendar.html', faq: 'faq.html', contact: 'contact.html', 'is-it-really-free': 'is-it-really-free.html', 'how-to-cancel': 'how-to-cancel.html', 'about-trainer': 'about-trainer.html', '8-pieces-of-brocade': '8-pieces-of-brocade.html', yijinjing: 'yijinjing.html', 'small-circulation': 'small-circulation.html', terms: 'terms.html', refund: 'refund.html', privacy: 'privacy.html', player: 'player.html', picker: 'picker.html', profile: 'profile.html', dashboard: 'dashboard.html', onboarding: 'onboarding.html' };
 Object.entries(CLEAN_URL_ROUTES).forEach(([route, file]) => {
   app.get('/' + route, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', file));

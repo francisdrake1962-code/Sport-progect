@@ -8,7 +8,7 @@
     <title>Профиль — Цигун</title>
     <link rel="stylesheet" href="styles/main.css">
     <style>
-        .profile{min-height:100vh;background:#0a0f0c;color:#e0e0e0;padding:1rem}
+        .profile{min-height:100vh;background:#0a0f0c;color:#e0e0e0;padding:1rem;max-width:600px;margin:0 auto}
         .profile__header{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
         .profile__header a{color:#9fc5a8;text-decoration:none;font-size:.95rem}
         .profile__header a:hover{color:#fff}
@@ -37,6 +37,17 @@
         .message--error{background:#2a1a1a;color:#e07070}
         .progress-bar{width:100%;height:6px;background:#1a2a1e;border-radius:3px;margin-top:.35rem}
         .progress-bar__fill{height:100%;background:#1a5e2a;border-radius:3px;transition:width .3s}
+        .profile-card textarea{width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit}
+        .profile-card textarea:focus{border-color:#1a5e2a;outline:none}
+        .mood-week{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;margin-bottom:.75rem}
+        .mood-day{text-align:center;padding:.5rem .25rem;border-radius:8px;background:#0d1510;border:1px solid #1a2a1e}
+        .mood-day__date{font-size:.65rem;color:#5a7a60;margin-bottom:.25rem}
+        .mood-day__emoji{font-size:1.5rem;line-height:1}
+        .mood-day__label{font-size:.6rem;color:#7a9a80;margin-top:.15rem}
+        .mood-day--empty{opacity:.3}
+        .mood-day--today{border-color:#1a5e2a}
+        .mood-legend{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.5rem}
+        .mood-legend span{font-size:.7rem;color:#7a9a80}
     </style>
 </head>
 <body>
@@ -95,6 +106,14 @@
                 '<div class="progress-bar"><div class="progress-bar__fill" style="width:' + freePct + '%"></div></div>' +
                 '</div>' +
                 '<div class="profile-card">' +
+                '<div class="profile-card__title">Моё самочувствие</div>' +
+                '<div id="mood-calendar"><p style="color:#9fc5a8;font-size:.85rem;">Загрузка...</p></div>' +
+                '</div>' +
+                '<div class="profile-card">' +
+                '<div class="profile-card__title">Обратная связь</div>' +
+                '<div id="feedback-section"><p style="color:#9fc5a8;font-size:.85rem;">Загрузка...</p></div>' +
+                '</div>' +
+                '<div class="profile-card">' +
                 '<div class="profile-card__title">Сменить имя</div>' +
                 '<div class="form-group"><label for="new-name">Имя</label><input type="text" id="new-name" value="' + esc(user.name) + '"></div>' +
                 '<button class="btn btn--primary" id="save-name">Сохранить</button>' +
@@ -111,6 +130,9 @@
                 '<button class="btn btn--danger" id="logout-btn">Выйти</button>' +
                 '</div>';
             document.getElementById('content').innerHTML = html;
+
+            loadFeedbackSection();
+            loadMoodCalendar();
 
             document.getElementById('save-name').addEventListener('click', function() {
                 var newName = document.getElementById('new-name').value.trim();
@@ -157,6 +179,207 @@
                 localStorage.removeItem('user_data');
                 window.location.href = 'login.html';
             });
+        }
+
+        var MOOD_EMOJI = { happy:'😊', energized:'⚡', calm:'🧘', neutral:'😐', tired:'😴', disappointed:'😞' };
+        var MOOD_LABEL = { happy:'Великолепно', energized:'Бодрость', calm:'Спокойствие', neutral:'Нормально', tired:'Усталость', disappointed:'Сложно' };
+
+        function loadMoodCalendar() {
+            fetch('/api/user/workout-feedback?days=7', { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function(r) { return r.json(); })
+                .then(function(items) {
+                    var section = document.getElementById('mood-calendar');
+                    var today = new Date();
+                    var days = [];
+                    for (var i = 6; i >= 0; i--) {
+                        var d = new Date(today);
+                        d.setDate(d.getDate() - i);
+                        var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                        var dayNames = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+                        var monthNames = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+                        var feedback = items.find(function(item) {
+                            return item.created_at && item.created_at.slice(0,10) === dateStr;
+                        });
+                        days.push({
+                            date: dateStr,
+                            dayName: dayNames[d.getDay()],
+                            dayNum: d.getDate(),
+                            month: monthNames[d.getMonth()],
+                            mood: feedback ? feedback.mood : null,
+                            title: feedback ? feedback.title : null,
+                            isToday: i === 0
+                        });
+                    }
+                    var html = '<div class="mood-week">';
+                    days.forEach(function(day) {
+                        var cls = 'mood-day' + (day.isToday ? ' mood-day--today' : '') + (!day.mood ? ' mood-day--empty' : '');
+                        html += '<div class="' + cls + '" title="' + esc(day.title || day.dayName) + '">';
+                        html += '<div class="mood-day__date">' + day.dayName + ' ' + day.dayNum + '</div>';
+                        html += '<div class="mood-day__emoji">' + (day.mood ? MOOD_EMOJI[day.mood] : '—') + '</div>';
+                        if (day.mood) html += '<div class="mood-day__label">' + MOOD_LABEL[day.mood] + '</div>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    html += '<div class="mood-legend">';
+                    Object.keys(MOOD_EMOJI).forEach(function(key) {
+                        html += '<span>' + MOOD_EMOJI[key] + ' ' + MOOD_LABEL[key] + '</span>';
+                    });
+                    html += '</div>';
+                    if (!items.length) {
+                        html = '<p style="color:#9fc5a8;font-size:.85rem;">Пока нет оценок. Завершите занятие и оцените самочувствие!</p>';
+                    }
+                    section.innerHTML = html;
+                })
+                .catch(function() {
+                    document.getElementById('mood-calendar').innerHTML = '<p style="color:#e07070;font-size:.85rem;">Ошибка загрузки</p>';
+                });
+        }
+
+        var CATEGORY_LABELS = { trainer: 'Тренеру', technical: 'Техподдержка', admin: 'Администрация' };
+        var STATUS_LABELS = { open: 'Открыт', in_progress: 'В работе', resolved: 'Решён' };
+        var currentView = 'list';
+
+        function loadFeedbackSection() {
+            fetch('/api/feedback', { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function(r) { return r.json(); })
+                .then(function(tickets) {
+                    var section = document.getElementById('feedback-section');
+                    section.innerHTML =
+                        '<button class="btn btn--primary" id="new-ticket-btn" style="margin-bottom:0.75rem;width:100%;">Задать вопрос</button>' +
+                        '<div id="feedback-list"></div>' +
+                        '<div id="feedback-detail" style="display:none;"></div>';
+                    renderTicketList(tickets);
+                    document.getElementById('new-ticket-btn').addEventListener('click', showNewTicketForm);
+                })
+                .catch(function() {
+                    document.getElementById('feedback-section').innerHTML = '<p style="color:#e07070;font-size:.85rem;">Ошибка загрузки</p>';
+                });
+        }
+
+        function renderTicketList(tickets) {
+            var list = document.getElementById('feedback-list');
+            if (!tickets.length) {
+                list.innerHTML = '<p style="color:#9fc5a8;font-size:.85rem;">Вы пока не задавали вопросов</p>';
+                return;
+            }
+            list.innerHTML = tickets.map(function(t) {
+                var statusCls = { open: 'profile-row__value--expired', in_progress: 'profile-row__value--trial', resolved: 'profile-row__value--active' };
+                return '<div style="padding:.6rem 0;border-bottom:1px solid #1a2a1e;cursor:pointer;" onclick="openTicket(' + t.id + ')">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="color:#fff;font-size:.9rem;font-weight:600;">' + esc(t.subject) + '</span>' +
+                    '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + (CATEGORY_LABELS[t.category] || t.category) + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex;gap:.75rem;margin-top:.25rem;">' +
+                    '<span style="font-size:.75rem;" class="' + (statusCls[t.status] || '') + '">' + (STATUS_LABELS[t.status] || t.status) + '</span>' +
+                    '<span style="font-size:.75rem;color:#9fc5a8;">' + fmtDate(t.created_at) + '</span>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        function showNewTicketForm() {
+            document.getElementById('feedback-list').style.display = 'none';
+            document.getElementById('new-ticket-btn').style.display = 'none';
+            var detail = document.getElementById('feedback-detail');
+            detail.style.display = 'block';
+            detail.innerHTML =
+                '<div style="margin-bottom:.75rem;"><button style="background:none;border:none;color:#9fc5a8;cursor:pointer;font-size:.85rem;" onclick="cancelNewTicket()">← Назад</button></div>' +
+                '<div style="color:#7acc8a;font-size:.85rem;font-weight:600;margin-bottom:.75rem;">Кому направить вопрос:</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:1rem;" id="category-picker">' +
+                '<div class="cat-option" data-cat="trainer" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#111a14;border:2px solid #2a3a2e;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">🧘</div><div style="font-size:.8rem;color:#9fc5a8;margin-top:.25rem;">Тренеру</div></div>' +
+                '<div class="cat-option" data-cat="technical" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#111a14;border:2px solid #2a3a2e;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">💻</div><div style="font-size:.8rem;color:#9fc5a8;margin-top:.25rem;">Техподдержка</div></div>' +
+                '<div class="cat-option" data-cat="admin" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#111a14;border:2px solid #2a3a2e;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">📋</div><div style="font-size:.8rem;color:#9fc5a8;margin-top:.25rem;">Администрация</div></div>' +
+                '</div>' +
+                '<div class="form-group"><label>Тема</label><input type="text" id="ticket-subject" placeholder="Кратко опишите вопрос"></div>' +
+                '<div class="form-group"><label>Сообщение</label><textarea id="ticket-message" rows="4" style="width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit;" placeholder="Опишите подробнее..."></textarea></div>' +
+                '<button class="btn btn--primary" id="submit-ticket-btn" onclick="submitTicket()" disabled>Отправить</button>' +
+                '<div id="ticket-msg" style="margin-top:.5rem;"></div>';
+        }
+
+        var selectedCategory = '';
+        window.pickCategory = function(el) {
+            document.querySelectorAll('.cat-option').forEach(function(e) { e.style.borderColor = '#2a3a2e'; });
+            el.style.borderColor = '#1a5e2a';
+            selectedCategory = el.dataset.cat;
+            var btn = document.getElementById('submit-ticket-btn');
+            if (btn) btn.disabled = false;
+        }
+
+        window.cancelNewTicket = function() {
+            document.getElementById('feedback-list').style.display = 'block';
+            document.getElementById('new-ticket-btn').style.display = 'block';
+            document.getElementById('feedback-detail').style.display = 'none';
+            selectedCategory = '';
+        }
+
+        window.submitTicket = function() {
+            var subject = document.getElementById('ticket-subject').value.trim();
+            var message = document.getElementById('ticket-message').value.trim();
+            if (!selectedCategory || !subject || !message) return;
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ category: selectedCategory, subject: subject, message: message })
+            }).then(function(r) { return r.json(); }).then(function(d) {
+                if (d.error) {
+                    document.getElementById('ticket-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
+                } else {
+                    document.getElementById('ticket-msg').innerHTML = '<div class="message message--success">Вопрос отправлен!</div>';
+                    setTimeout(function() { loadFeedbackSection(); }, 1000);
+                }
+            }).catch(function() {
+                document.getElementById('ticket-msg').innerHTML = '<div class="message message--error">Ошибка сети</div>';
+            });
+        }
+
+        window.openTicket = function(id) {
+            document.getElementById('feedback-list').style.display = 'none';
+            document.getElementById('new-ticket-btn').style.display = 'none';
+            var detail = document.getElementById('feedback-detail');
+            detail.style.display = 'block';
+            detail.innerHTML = '<p style="color:#9fc5a8;">Загрузка...</p>';
+            fetch('/api/feedback/' + id, { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function(r) { return r.json(); })
+                .then(function(ticket) {
+                    var statusCls = { open: 'profile-row__value--expired', in_progress: 'profile-row__value--trial', resolved: 'profile-row__value--active' };
+                    detail.innerHTML =
+                        '<div style="margin-bottom:.75rem;"><button style="background:none;border:none;color:#9fc5a8;cursor:pointer;font-size:.85rem;" onclick="cancelNewTicket()">← Назад</button></div>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;">' +
+                        '<div><span style="color:#fff;font-size:1rem;font-weight:600;">' + esc(ticket.subject) + '</span> ' +
+                        '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + (CATEGORY_LABELS[ticket.category] || ticket.category) + '</span></div>' +
+                        '<span style="font-size:.8rem;" class="' + (statusCls[ticket.status] || '') + '">' + (STATUS_LABELS[ticket.status] || ticket.status) + '</span>' +
+                        '</div>' +
+                        '<div style="max-height:40vh;overflow-y:auto;margin-bottom:.75rem;">' +
+                        (ticket.messages || []).map(function(m) {
+                            var isMe = m.sender_type === 'subscriber';
+                            return '<div style="margin-bottom:.5rem;padding:.6rem .8rem;border-radius:8px;max-width:85%;' + (isMe ? 'margin-left:auto;background:#1a2a1e;' : 'background:#111a14;border:1px solid #2a3a2e;') + '">' +
+                                '<div style="font-size:.7rem;font-weight:600;color:#7acc8a;margin-bottom:.2rem;">' + (isMe ? 'Вы' : (m.sender_type === 'admin' ? 'Администратор' : 'Тренер')) + '</div>' +
+                                '<div style="font-size:.85rem;color:#e0e0e0;white-space:pre-wrap;">' + esc(m.message) + '</div>' +
+                                '<div style="font-size:.65rem;color:#9fc5a8;margin-top:.2rem;">' + fmtDate(m.created_at) + '</div>' +
+                                '</div>';
+                        }).join('') +
+                        '</div>' +
+                        (ticket.status !== 'resolved' ?
+                            '<div><textarea id="reply-text" rows="3" style="width:100%;padding:.6rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit;" placeholder="Ответ..."></textarea>' +
+                            '<button class="btn btn--primary" style="margin-top:.5rem;" onclick="sendReply(' + ticket.id + ')">Отправить</button></div>' :
+                            '<p style="color:#7acc8a;font-size:.8rem;">Тикет закрыт</p>');
+                })
+                .catch(function() {
+                    detail.innerHTML = '<p style="color:#e07070;">Ошибка загрузки</p>';
+                });
+        }
+
+        window.sendReply = function(id) {
+            var textarea = document.getElementById('reply-text');
+            var message = textarea.value.trim();
+            if (!message) return;
+            fetch('/api/feedback/' + id + '/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ message: message })
+            }).then(function(r) { return r.json(); }).then(function(d) {
+                if (d.error) { alert(d.error); return; }
+                openTicket(id);
+            }).catch(function() { alert('Ошибка сети'); });
         }
 
         fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } })

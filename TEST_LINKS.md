@@ -92,7 +92,7 @@ GET http://localhost:3001/api/user/can-watch/1          → проверка д�
 cd "C:\Users\admin\Documents\Default Project"
 npm test
 ```
-Ожидаемое: **648 passed, 0 failed**
+Ожидаемое: **656 passed, 0 failed**
 
 ---
 
@@ -116,6 +116,6 @@ npm test
 ### В API
 
 1. `GET /api/lessons` — direction, effect_description присутствуют
-2. `GET /api/lesson-zons/:id` — возвращает массив зон
+2. `GET /api/lesson-zones/:id` — возвращает массив зон
 3. Фильтр по зоне работает через SQL, а не JSON
 4. `GET /api/exercises` — не существует (404/403)

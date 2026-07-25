@@ -141,9 +141,18 @@
 
         function renderHeader() {
             var token = localStorage.getItem('user_token');
-            var profileLink = token ? '<a href="profile.html" style="color:#7acc8a;text-decoration:none;font-size:.85rem;margin-left:0.75rem">👤</a>' : '';
+            var profileLink = '';
+            if (token) {
+                try {
+                    var ud = JSON.parse(localStorage.getItem('user_data'));
+                    var uname = ud && ud.name ? ud.name.split(' ')[0] : 'Профиль';
+                    profileLink = '<a href="profile.html" style="color:#7acc8a;text-decoration:none;display:flex;align-items:center;gap:0.35rem;margin-left:0.75rem"><span style="font-size:1.5rem;line-height:1;">👤</span><span style="font-size:0.8rem;font-weight:600;">' + esc(uname) + '</span></a>';
+                } catch(e) {
+                    profileLink = '<a href="profile.html" style="color:#7acc8a;text-decoration:none;font-size:1.2rem;margin-left:0.75rem">👤</a>';
+                }
+            }
             return '<div class="lessons-header">' +
-                '<a href="/" class="lessons-header__back">← На главную</a>' +
+                '<a href="dashboard.html" class="lessons-header__back">← Моя главная</a>' +
                 '<div class="lessons-header__title">Занятия</div>' +
                 '<a href="calendar.html" style="color:#7acc8a;text-decoration:none;font-size:.85rem;margin-left:auto">📅 Календарь</a>' +
                 '<a href="picker.html" style="color:#7acc8a;text-decoration:none;font-size:.85rem;margin-left:0.75rem">🔍 Подобрать</a>' +
@@ -164,14 +173,14 @@
             const options = { weekday: 'long', day: 'numeric', month: 'long' };
             const dayName = today.toLocaleDateString('ru-RU', options);
             return '<div class="lessons-today">' +
-                '<div class="lessons-today__card" onclick="window.location.href=\'player.html?id=' + lesson.id + '\'">' +
+                '<div class="lessons-today__card">' +
                 '<div class="lessons-today__label">Сегодня — ' + esc(dayName) + '</div>' +
                 '<div class="lessons-today__name">' + esc(lesson.title) + '</div>' +
                 '<div class="lessons-today__meta">' +
                 (lesson.duration ? '<span>⏱ ' + esc(lesson.duration) + '</span>' : '') +
                 '<span>📅 По расписанию</span>' +
                 '</div>' +
-                '<button class="lessons-today__play"><svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg> Начать занятие</button>' +
+                '<button class="lessons-today__play" onclick="window.location.href=\'player.html?id=' + lesson.id + '\'"><svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg> Начать занятие</button>' +
                 '</div></div>';
         }
 

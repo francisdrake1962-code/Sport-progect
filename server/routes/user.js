@@ -67,6 +67,8 @@ router.post('/register', authLimiter, async (req, res) => {
     }
     const hash = await bcrypt.hash(password, 10);
     const confirmToken = crypto.randomBytes(32).toString('hex');
+    const { resolveProvider } = require('../services/mailer');
+    await resolveProvider();
     const { _getProvider } = require('../services/mailer');
     const mailProvider = _getProvider();
     const isConsole = mailProvider === 'console';
@@ -290,6 +292,29 @@ router.get('/progress', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/progress/:lessonId', authMiddleware, async (req, res) => {
+  try {
+    const lessonId = Number(req.params.lessonId);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      return res.status(400).json({ error: 'Invalid lesson ID' });
+    }
+    const db = await getDb();
+    const result = db.exec(
+      `SELECT wl.position_seconds, wl.completed, wl.watched_at, l.duration
+       FROM watched_lessons wl JOIN lessons l ON wl.lesson_id = l.id
+       WHERE wl.subscriber_id = ? AND wl.lesson_id = ?`,
+      [req.user.id, lessonId]
+    );
+    if (!result.length || !result[0].values.length) {
+      return res.json({ position_seconds: 0, completed: false, duration: null });
+    }
+    const r = result[0].values[0];
+    res.json({ position_seconds: r[0], completed: r[1], watched_at: r[2], duration: r[3] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load progress' });
+  }
+});
+
 // Hybrid free access model (intentional decision):
 // 1. is_free lessons: unlimited access for all registered+confirmed users
 // 2. Trial: up to 7 paid lessons from the archive (tracked by free_sessions_used)
@@ -466,6 +491,226 @@ router.get('/lessons-filter', authMiddleware, async (req, res) => {
     res.json(lessons);
   } catch (err) {
     res.status(500).json({ error: 'Failed to filter lessons' });
+  }
+});
+
+router.get('/onboarding', authMiddleware, async (req, res) => {
+  try {
+    const db = await getDb();
+    const result = db.exec(
+      `SELECT experience, goals, preferred_duration, preferred_time, focus_zones, onboarding_completed
+       FROM user_preferences WHERE subscriber_id = ?`,
+      [req.user.id]
+    );
+    if (!result.length || !result[0].values.length) {
+      return res.json({ completed: false });
+    }
+    const r = result[0].values[0];
+    res.json({
+      completed: r[5] === 1,
+      experience: r[0],
+      goals: JSON.parse(r[1] || '[]'),
+      preferred_duration: r[2],
+      preferred_time: r[3],
+      focus_zones: JSON.parse(r[4] || '[]')
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load preferences' });
+  }
+});
+
+router.post('/onboarding', authMiddleware, async (req, res) => {
+  try {
+    const { experience, goals, preferred_duration, preferred_time, focus_zones } = req.body;
+    const validExperiences = ['beginner', 'intermediate', 'advanced'];
+    const validTimes = ['morning', 'afternoon', 'evening', 'anytime'];
+    const validDurations = [10, 15, 20, 30];
+    const allGoals = ['stress_relief', 'flexibility', 'energy', 'sleep', 'joint_health', 'general_health', 'breathing', 'meditation'];
+    const allZones = ['шея', 'плечи_руки', 'грудной_отдел', 'поясница', 'спина_осанка', 'колени', 'ноги_таз', 'баланс_общее'];
+
+    const safeExperience = validExperiences.includes(experience) ? experience : 'beginner';
+    const safeGoals = Array.isArray(goals) ? goals.filter(g => allGoals.includes(g)) : [];
+    const safeDuration = validDurations.includes(preferred_duration) ? preferred_duration : 15;
+    const safeTime = validTimes.includes(preferred_time) ? preferred_time : 'anytime';
+    const safeZones = Array.isArray(focus_zones) ? focus_zones.filter(z => allZones.includes(z)) : [];
+
+    const db = await getDb();
+    db.run(
+      `INSERT INTO user_preferences (subscriber_id, experience, goals, preferred_duration, preferred_time, focus_zones, onboarding_completed, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+       ON CONFLICT(subscriber_id) DO UPDATE SET
+         experience=?, goals=?, preferred_duration=?, preferred_time=?, focus_zones=?, onboarding_completed=1, updated_at=CURRENT_TIMESTAMP`,
+      [req.user.id, safeExperience, JSON.stringify(safeGoals), safeDuration, safeTime, JSON.stringify(safeZones),
+       safeExperience, JSON.stringify(safeGoals), safeDuration, safeTime, JSON.stringify(safeZones)]
+    );
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save preferences' });
+  }
+});
+
+router.get('/categories', authMiddleware, async (req, res) => {
+  try {
+    const db = await getDb();
+    const zoneCounts = db.exec(
+      `SELECT lz.zone, COUNT(DISTINCT lz.lesson_id) as cnt
+       FROM lesson_zones lz
+       JOIN lessons l ON lz.lesson_id = l.id AND l.status = 'active'
+       GROUP BY lz.zone ORDER BY cnt DESC`
+    );
+    const zones = zoneCounts.length ? zoneCounts[0].values.map(r => ({
+      zone: r[0], count: r[1],
+      label: { шея:'Шея', плечи_руки:'Плечи и руки', грудной_отдел:'Грудной отдел',
+        поясница:'Поясница', спина_осанка:'Спина и осанка', колени:'Колени',
+        ноги_таз:'Ноги и таз', баланс_общее:'Баланс' }[r[0]] || r[0]
+    })) : [];
+    const directionCounts = db.exec(
+      `SELECT direction, COUNT(*) as cnt FROM lessons
+       WHERE status='active' AND direction IS NOT NULL
+       GROUP BY direction ORDER BY cnt DESC`
+    );
+    const directions = directionCounts.length ? directionCounts[0].values.map(r => ({
+      direction: r[0], count: r[1],
+      label: r[0] === 'суставная_разминка' ? 'Суставная разминка' : 'Занятие в потоке'
+    })) : [];
+    res.json({ zones, directions });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load categories' });
+  }
+});
+
+router.post('/workout-feedback', authMiddleware, async (req, res) => {
+  try {
+    const { lesson_id, mood } = req.body;
+    const lessonId = Number(lesson_id);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      return res.status(400).json({ error: 'Invalid lesson_id' });
+    }
+    const validMoods = ['happy', 'energized', 'calm', 'neutral', 'tired', 'disappointed'];
+    if (!validMoods.includes(mood)) {
+      return res.status(400).json({ error: 'Invalid mood. Must be one of: ' + validMoods.join(', ') });
+    }
+    const db = await getDb();
+    db.run(
+      `INSERT INTO workout_feedback (subscriber_id, lesson_id, mood) VALUES (?, ?, ?)
+       ON CONFLICT(subscriber_id, lesson_id) DO UPDATE SET mood=?, created_at=CURRENT_TIMESTAMP`,
+      [req.user.id, lessonId, mood, mood]
+    );
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save feedback' });
+  }
+});
+
+router.get('/workout-feedback', authMiddleware, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { days } = req.query;
+    const numDays = Math.min(Math.max(parseInt(days, 10) || 7, 1), 90);
+    const since = new Date();
+    since.setDate(since.getDate() - numDays);
+    const sinceStr = since.toISOString().slice(0, 10);
+    const result = db.exec(
+      `SELECT wf.lesson_id, wf.mood, wf.created_at, l.title
+       FROM workout_feedback wf
+       JOIN lessons l ON wf.lesson_id = l.id
+       WHERE wf.subscriber_id = ? AND wf.created_at >= ?
+       ORDER BY wf.created_at DESC`,
+      [req.user.id, sinceStr]
+    );
+    const items = result.length ? result[0].values.map(r => ({
+      lesson_id: r[0], mood: r[1], created_at: r[2], title: r[3]
+    })) : [];
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load feedback' });
+  }
+});
+
+router.get('/workout-feedback/:lessonId', authMiddleware, async (req, res) => {
+  try {
+    const lessonId = Number(req.params.lessonId);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      return res.status(400).json({ error: 'Invalid lesson ID' });
+    }
+    const db = await getDb();
+    const result = db.exec(
+      `SELECT mood, created_at FROM workout_feedback WHERE subscriber_id = ? AND lesson_id = ?`,
+      [req.user.id, lessonId]
+    );
+    if (!result.length || !result[0].values.length) {
+      return res.json({ mood: null });
+    }
+    res.json({ mood: result[0].values[0][0], created_at: result[0].values[0][1] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load feedback' });
+  }
+});
+
+router.get('/dashboard', authMiddleware, async (req, res) => {
+  try {
+    const db = await getDb();
+    const userResult = db.exec(
+      `SELECT name, plan, status, free_sessions_used FROM subscribers WHERE id = ?`, [req.user.id]
+    );
+    const user = userResult.length && userResult[0].values.length ? {
+      name: userResult[0].values[0][0],
+      plan: userResult[0].values[0][1],
+      status: userResult[0].values[0][2],
+      free_sessions_used: userResult[0].values[0][3] || 0,
+    } : null;
+
+    const progressResult = db.exec(
+      `SELECT wl.lesson_id, wl.position_seconds, wl.completed, wl.watched_at, l.title, l.duration, l.video_url
+       FROM watched_lessons wl JOIN lessons l ON wl.lesson_id = l.id
+       WHERE wl.subscriber_id = ? ORDER BY wl.watched_at DESC`, [req.user.id]
+    );
+    const progress = progressResult.length ? progressResult[0].values.map(r => ({
+      lesson_id: r[0], position_seconds: r[1], completed: r[2],
+      watched_at: r[3], title: r[4], duration: r[5], video_url: r[6],
+    })) : [];
+
+    const lastWatched = progress.find(p => p.position_seconds > 0 && !p.completed) || null;
+    const completedCount = progress.filter(p => p.completed).length;
+
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const scheduleResult = db.exec(
+      `SELECT s.date, s.theme, s.lesson_id, l.title, l.duration, l.is_free
+       FROM schedule s LEFT JOIN lessons l ON s.lesson_id = l.id
+       WHERE s.date >= ? ORDER BY s.date LIMIT 7`, [todayStr]
+    );
+    const schedule = scheduleResult.length ? scheduleResult[0].values.map(r => ({
+      date: r[0], theme: r[1], lesson_id: r[2], title: r[3], duration: r[4], is_free: r[5],
+    })) : [];
+    const todaySchedule = schedule.find(s => s.date === todayStr) || null;
+
+    const lessonsResult = db.exec(
+      `SELECT id, title, duration, is_free, tags, direction FROM lessons WHERE status='active' ORDER BY date DESC`
+    );
+    const lessonCount = lessonsResult.length ? lessonsResult[0].values.length : 0;
+
+    const zoneCounts = db.exec(
+      `SELECT lz.zone, COUNT(DISTINCT lz.lesson_id) as cnt
+       FROM lesson_zones lz JOIN lessons l ON lz.lesson_id = l.id AND l.status='active'
+       GROUP BY lz.zone ORDER BY cnt DESC`
+    );
+    const zoneCount = zoneCounts.length ? zoneCounts[0].values.length : 0;
+
+    const programsResult = db.exec(
+      `SELECT c.id, c.name, c.description, COUNT(DISTINCT l.id) as lesson_count
+       FROM complexes c LEFT JOIN lessons l ON l.complex_id = c.id AND l.status = 'active'
+       GROUP BY c.id ORDER BY lesson_count DESC`
+    );
+    const programs = programsResult.length ? programsResult[0].values.map(r => ({
+      id: r[0], name: r[1], description: r[2], lesson_count: r[3],
+    })) : [];
+
+    res.json({ user, lastWatched, completedCount, todaySchedule, schedule, lessonCount, zoneCount, programs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load dashboard' });
   }
 });
 

@@ -33,7 +33,7 @@ describe('Content Integrity', () => {
   });
 
   describe('No hardcoded CSS/JS resource tags', () => {
-    const standalonePages = ['lessons.html', 'player.html', 'login.html', 'calendar.html', 'plans.html', 'picker.html', 'profile.html'];
+    const standalonePages = ['lessons.html', 'player.html', 'login.html', 'calendar.html', 'plans.html', 'picker.html', 'profile.html', 'dashboard.html', 'onboarding.html'];
     const files = getAllHTMLFiles().filter(f => !standalonePages.includes(path.basename(f)));
 
     files.forEach(file => {
@@ -147,7 +147,7 @@ describe('Content Integrity', () => {
   });
 
   describe('Round 2 — Logo paths in sub-pages', () => {
-    const subPages = fs.readdirSync(pagesDir).filter(f => f.endsWith('.html') && !['lessons.html', 'player.html', 'login.html', 'calendar.html', 'plans.html', 'picker.html', 'profile.html'].includes(f));
+    const subPages = fs.readdirSync(pagesDir).filter(f => f.endsWith('.html') && !['lessons.html', 'player.html', 'login.html', 'calendar.html', 'plans.html', 'picker.html', 'profile.html', 'dashboard.html', 'onboarding.html'].includes(f));
 
     subPages.forEach(file => {
       test(`${file} logo img should use images/logo.svg (not ../images/logo.svg)`, () => {

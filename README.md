@@ -16,8 +16,8 @@
 │   ├── js/
 │   │   └── main.js             # JavaScript для интерактивности
 │   ├── images/                 # Изображения лендинга
-│   ├── pages/                  # Страницы (лендинг, тарифы, игрок, календарь)
-│   ├── admin/                  # Админ-панель (13 страниц)
+│   ├── pages/                  # Страницы подписчика (dashboard, picker, onboarding, profile, lessons, player, календарь)
+│   ├── admin/                  # Админ-панель (14 страниц)
 │   │   ├── lessons.html        # Уроки (direction, zones, effect_description)
 │   │   ├── complexes.html      # Комплексы
 │   │   ├── schedule.html       # Расписание
@@ -35,7 +35,7 @@
 │   └── services/
 │       ├── mailer.js           # Email (console/gmail/resend)
 │       └── stream.js           # Cloudflare Stream
-├── tests/                      # 648 тестов (8 сьютов)
+├── tests/                      # 656 тестов (8 сьютов)
 ├── data/                       # SQLite БД (gitignored)
 ├── videos/                     # Видеофайлы (gitignored)
 ├── dist/                       # Собранный фронтенд (gitignored)
@@ -52,7 +52,10 @@ lessons ──< watched_lessons  (прогресс пользователей)
 lessons >── complexes        (традиционные комплексы)
 subscribers ──< watched_lessons
 subscribers ──< transactions
+subscribers ──< user_preferences (настройки из onboarding)
+subscribers ──< workout_feedback (оценки настроений после занятий)
 schedule ──> lessons
+tickets ──< ticket_messages (обратная связь подписчик-админ)
 ```
 
 **Ключевые поля lessons:** `direction` (суставная_разминка / занятие_в_потоке), `direction_source` (заголовок / описание_неточно / нет_данных), `effect_description`, `effect_is_draft`
@@ -93,7 +96,6 @@ npm run build
 | `GET /api/user/calendar` | Календарь с прогрессом |
 | `POST /api/user/register` | Регистрация |
 | `POST /api/user/login` | Вход |
-| `GET /api/admin/lessons/:id/zones` | Зоны урока (admin) |
 | `PUT /api/admin/lessons/:id/zones` | Обновление зон (admin) |
 
 ## Документация

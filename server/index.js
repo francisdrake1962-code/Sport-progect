@@ -103,6 +103,26 @@ app.get('/api/lessons', async (req, res) => {
   }
 });
 
+app.get('/api/lessons/:id/complex', async (req, res) => {
+  try {
+    const db = await getDb();
+    const lessonId = Number(req.params.id);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      return res.status(400).json({ error: 'Invalid lesson ID' });
+    }
+    const result = db.exec(
+      `SELECT c.id, c.name, c.description, cl.position
+       FROM complex_lessons cl JOIN complexes c ON cl.complex_id = c.id
+       WHERE cl.lesson_id = ? ORDER BY cl.position LIMIT 1`, [lessonId]
+    );
+    const items = queryToObjects(result);
+    res.json(items.length > 0 ? items[0] : null);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/lessons/featured', async (req, res) => {
   try {
     const db = await getDb();

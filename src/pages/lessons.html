@@ -118,12 +118,20 @@
 
                 const groupedLessons = {};
                 complexes.forEach(c => { groupedLessons[c.id] = { complex: c, lessons: [] }; });
-                lessons.forEach(l => {
-                    if (l.complex_id && groupedLessons[l.complex_id]) {
-                        groupedLessons[l.complex_id].lessons.push(l);
+                const complexIdsSet = new Set();
+                for (const c of complexes) {
+                    const cdata = await api('/api/complexes/' + c.id);
+                    if (cdata && cdata.lessons) {
+                        cdata.lessons.forEach(cl => {
+                            const lesson = lessons.find(l => l.id === cl.id);
+                            if (lesson && groupedLessons[c.id]) {
+                                groupedLessons[c.id].lessons.push(lesson);
+                                complexIdsSet.add(lesson.id);
+                            }
+                        });
                     }
-                });
-                const orphans = lessons.filter(l => !l.complex_id || !groupedLessons[l.complex_id]);
+                }
+                const orphans = lessons.filter(l => !complexIdsSet.has(l.id));
 
                 let html = renderHeader();
                 html += renderHero();
@@ -216,11 +224,10 @@
         function renderOrphans(orphans, complexes) {
             let html = '<div class="all-lessons"><div class="all-lessons__title">Другие занятия</div>';
             orphans.forEach((l, i) => {
-                const complex = complexes.find(c => c.id == l.complex_id);
                 html += '<a href="player.html?id=' + l.id + '" class="lesson-row">' +
                     '<span class="lesson-row__num">' + (i+1) + '</span>' +
                     '<div class="lesson-row__info"><div class="lesson-row__name">' + esc(l.title) + '</div>' +
-                    '<div class="lesson-row__meta">' + (complex ? esc(complex.name) : '') + (l.duration ? ' · ' + esc(l.duration) : '') + '</div></div>' +
+                    '<div class="lesson-row__meta">' + (l.duration ? esc(l.duration) : '') + '</div></div>' +
                     '<span class="lesson-row__play">▶</span></a>';
             });
             html += '</div>';
@@ -230,11 +237,10 @@
         function renderAllLessons(lessons, complexes) {
             let html = '<div class="all-lessons"><div class="all-lessons__title">Все занятия (' + lessons.length + ')</div>';
             lessons.forEach((l, i) => {
-                const complex = complexes.find(c => c.id == l.complex_id);
                 html += '<a href="player.html?id=' + l.id + '" class="lesson-row">' +
                     '<span class="lesson-row__num">' + (i+1) + '</span>' +
                     '<div class="lesson-row__info"><div class="lesson-row__name">' + esc(l.title) + '</div>' +
-                    '<div class="lesson-row__meta">' + (complex ? esc(complex.name) : 'Без комплекса') + (l.duration ? ' · ' + esc(l.duration) : '') + '</div></div>' +
+                    '<div class="lesson-row__meta">' + (l.duration ? esc(l.duration) : '') + '</div></div>' +
                     '<span class="lesson-row__play">▶</span></a>';
             });
             html += '</div>';

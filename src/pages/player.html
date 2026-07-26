@@ -270,11 +270,12 @@
                     allLessons = await api('/api/lessons');
                     currentIndex = allLessons.findIndex(function(l) { return l.id == lessonId; });
                 } else if (complexId) {
-                    allLessons = await api('/api/lessons');
                     var complex = await api('/api/complexes/' + complexId);
-                    allLessons = allLessons.filter(function(l) { return l.complex_id == complexId; });
-                    lesson = allLessons[0] || null;
-                    currentIndex = 0;
+                    if (complex && complex.lessons && complex.lessons.length) {
+                        allLessons = complex.lessons;
+                        lesson = allLessons[0] || null;
+                        currentIndex = 0;
+                    }
                 } else {
                     var schedule = await api('/api/schedule');
                     var today = new Date();
@@ -297,13 +298,13 @@
                 currentLessonIndex = currentIndex;
 
                 var complexName = '';
-                if (lesson.complex_id) {
-                    try {
-                        var c = await api('/api/complexes/' + lesson.complex_id);
-                        complexName = c ? c.name : '';
+                try {
+                    var c = await api('/api/lessons/' + lesson.id + '/complex');
+                    if (c) {
+                        complexName = c.name;
                         lesson.complex_name = complexName;
-                    } catch(e) {}
-                }
+                    }
+                } catch(e) {}
 
                 var FREE_LIMIT = 7;
                 if (!userData) {

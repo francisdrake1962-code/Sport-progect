@@ -14,8 +14,10 @@ const userRoutes = require('./routes/user');
 const { FREE_LIMIT } = userRoutes;
 const { resetMailConfig, sendConfirmationEmail } = require('./services/mailer');
 const { resetStreamConfig, isStreamConfigured: checkStreamConfigured } = require('./services/stream');
+const jwt = require('jsonwebtoken');
 
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -50,6 +52,15 @@ app.use(helmet({
 }));
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
+
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/api/auth') || req.path.startsWith('/api/user'),
+});
+app.use('/api', globalLimiter);
 
 app.use(express.static(path.join(__dirname, '..', 'dist'), {
   setHeaders: (res, filePath) => {
@@ -350,17 +361,6 @@ api.put('/lessons/:id/zones', async (req, res) => {
 });
 
 const VALID_SCHEDULE_FIELDS = ['date', 'theme', 'complex_id', 'lesson_id'];
-
-api.get('/schedule', async (req, res) => {
-  try {
-    const db = await getDb();
-    const result = db.exec(`SELECT * FROM schedule ORDER BY id`);
-    res.json(queryToObjects(result));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
 
 api.post('/schedule', async (req, res) => {
   try {
@@ -796,12 +796,12 @@ app.get('/videos/{*splat}', async (req, res) => {
   }
 
   try {
-    const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, JWT_SECRET);
 
     if (decoded.role === 'subscriber') {
       const db = await getDb();
-      const lessonResult = db.exec(`SELECT id, is_free FROM lessons WHERE video_url LIKE ?`, ['%' + filename + '%']);
+      const escapedFilename = filename.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const lessonResult = db.exec(`SELECT id, is_free FROM lessons WHERE video_url LIKE ? ESCAPE '\\'`, ['%' + escapedFilename + '%']);
       if (!lessonResult.length || !lessonResult[0].values.length) {
         return res.status(403).json({ error: 'Access denied: video not linked to any lesson' });
       }
@@ -1108,10 +1108,11 @@ function seedData(db) {
 
 const NOTIFIED_KEY_PREFIX = 'notified_';
 
+const { sendTrialExpiringEmail, sendSubscriptionExpiringEmail, sendSubscriptionExpiredEmail } = require('./services/mailer');
+const { getSetting } = require('./db');
+
 async function checkSubscriptions() {
   try {
-    const { sendTrialExpiringEmail, sendSubscriptionExpiringEmail, sendSubscriptionExpiredEmail } = require('./services/mailer');
-    const { getSetting } = require('./db');
     const db = await getDb();
     const now = new Date();
 

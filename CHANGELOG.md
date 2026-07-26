@@ -6,7 +6,7 @@
 
 ## [4.1.0] - 2026-07-26
 
-### Fixed — Адвокат дьявола, Раунд 1 (28 исправлений)
+### Fixed — Адвокат дьявола, Раунд 1+2 (33 исправления)
 
 - **CRITICAL:** Исправлены 8 сломанных тестов (FAQ переключён на динамическую загрузку через `/api/faq`, тесты проверяли статический HTML)
 - **HIGH:** Multer directory injection — `req.query.type` санитизируется (только `[a-zA-Z0-9_-]`), предотвращает запись файлов за пределы uploads/
@@ -21,6 +21,13 @@
 - **LOW:** `require()` внутри request handlers вынесен на верхний уровень модуля (`index.js`, `routes/auth.js`)
 - **LOW:** Добавлен graceful shutdown (SIGTERM/SIGINT) — `saveDb()` перед выходом
 - **LOW:** Subscriber ticket reply — `message` проверяется на `trim()` (пустые сообщения отклоняются)
+
+### Fixed — Раунд 2 (5 дополнительных исправлений)
+- **MEDIUM:** `require('jsonwebtoken')` внутри video handler вынесен на верхний уровень модуля
+- **MEDIUM:** SQL LIKE wildcard injection — экранирование `%` и `_` в filename при проверке video URL
+- **MEDIUM:** Дублирующийся `GET /api/schedule` (admin) удалён — уже есть публичный эндпоинт
+- **LOW:** `require()` внутри `checkSubscriptions()` вынесен на верхний уровень модуля
+- **MEDIUM:** Добавлен глобальный rate limiter (200 req/min) на все `/api/*` кроме auth/user
 
 ### Changed
 

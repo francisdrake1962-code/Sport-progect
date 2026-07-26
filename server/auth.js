@@ -32,7 +32,7 @@ function authMiddleware(req, res, next) {
 
 function generateToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role: user.role, jti: crypto.randomUUID() },
     JWT_SECRET,
     { expiresIn: '24h' }
   );

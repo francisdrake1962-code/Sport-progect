@@ -4,6 +4,27 @@
 
 ---
 
+## [5.1.1] - 2026-07-26
+
+### Fixed — Security Tests Strengthening + Error Handler Bug + JWT Uniqueness
+
+#### Server Fixes
+- **CRITICAL:** JWT `generateToken()` теперь добавляет `jti` (random UUID) в payload — предотвращает генерацию идентичных токенов для одного пользователя в ту же секунду (ранее токены с одинаковым `iat` получали одинаковый хеш и ломали token revocation)
+- **HIGH:** Error handler теперь корректно возвращает 413 для oversized bodies (PayloadTooLargeError) вместо generic 500
+
+#### Security Tests (38 tests, all specific assertions)
+- **Переписан `tests/security.test.js`**: все 11 "no-op" тестов с catch-all assertions заменены на конкретные проверки
+- Добавлены тесты: SQL injection in CRUD (parameterized queries), request size limits (413), Content-Type validation (JSON), admin panel accessibility
+- Исправлен `confirmation_token` property name (snake_case)
+- Все тесты теперь проверяют конкретные HTTP статусы
+- CRUD Authorization тесты используют свежий токен для каждого запроса (fresh login)
+
+### Stats
+- 715/715 tests passing (was 710)
+- Версия: 5.0.0 → 5.1.1
+
+---
+
 ## [5.0.0] - 2026-07-26
 
 ### Added — Phase 1 Stabilization (Technical Specification Compliance)

@@ -954,6 +954,12 @@ app.use((req, res) => {
 
 app.use((err, req, res, _next) => {
   console.error('Unhandled error:', err);
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body too large' });
+  }
+  if (err.status && err.status < 500) {
+    return res.status(err.status).json({ error: err.message || 'Bad request' });
+  }
   res.status(500).json({ error: 'Internal server error' });
 });
 

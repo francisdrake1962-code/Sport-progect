@@ -1,6 +1,6 @@
 {
   "name": "qigong-landing",
-  "version": "5.0.0",
+  "version": "5.2.0",
   "description": "Лендинг для цигун и суставной разминки",
   "main": "server/index.js",
   "engines": {

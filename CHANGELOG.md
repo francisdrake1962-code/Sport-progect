@@ -4,6 +4,44 @@
 
 ---
 
+## [5.2.0] - 2026-07-26
+
+### Added — Phase 3 Refactoring (Foundation)
+
+#### Unified Error Model
+- Классы ошибок: `AppError`, `ValidationError`, `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ConflictError`, `RateLimitError`, `PayloadTooLargeError`
+- `formatSuccess(res, data)` и `formatError(res, error, requestId)` — единый формат API-ответов
+- Глобальный error handler использует unified error model
+
+#### Request ID Middleware
+- `X-Request-Id` header автоматически генерируется для каждого запроса
+- Каждый ответ содержит `X-Request-Id` header
+
+#### Structured Logging
+- `createLogger(component)` — JSON логирование с level, timestamp, component, meta
+- `requestLogger` middleware — автоматически логирует method, url, status, duration
+- Supports `LOG_LEVEL` env var (error/warn/info/debug)
+
+#### Service Layer
+- `auth.service.js` — loginAdmin, loginSubscriber, registerSubscriber, changeAdminPassword, revokeCurrentToken
+- `progress.service.js` — recordWatchProgress, getProgress, getWorkoutFeedback, recordWorkoutFeedback, getSubscriberProfile, updateSubscriberProfile
+- `schedule.service.js` — getSchedule, getPersonalTimeline
+- `feedback.service.js` — createTicket, getSubscriberTickets, replyToTicket, closeTicket
+- Все сервисы бросают AppError subclasses
+
+#### Repository Layer
+- `BaseRepository` — generic CRUD: findAll, findById, create, update, delete, count, raw
+- `SubscriberRepository` — findByEmail, getPublicProfile, confirmEmail
+- `LessonRepository` — findByStatus, getZones, setZones
+- `UserRepository` — findByEmail
+- `FaqRepository`, `ReviewRepository`, `ComplexRepository`, `SettingsRepository`
+
+### Stats
+- 715/715 tests passing
+- Версия: 5.1.1 → 5.2.0
+
+---
+
 ## [5.1.1] - 2026-07-26
 
 ### Fixed — Security Tests Strengthening + Error Handler Bug + JWT Uniqueness

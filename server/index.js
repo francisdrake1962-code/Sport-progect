@@ -15,6 +15,9 @@ const { FREE_LIMIT } = userRoutes;
 const { resetMailConfig, sendConfirmationEmail } = require('./services/mailer');
 const { resetStreamConfig, isStreamConfigured: checkStreamConfigured } = require('./services/stream');
 const { parsePagination } = require('./helpers/pagination');
+const { requestIdMiddleware } = require('./middleware/requestId');
+const { requestLogger, createLogger } = require('./helpers/logger');
+const { formatError, AppError, ValidationError, NotFoundError, ForbiddenError, PayloadTooLargeError } = require('./helpers/errors');
 const jwt = require('jsonwebtoken');
 
 const multer = require('multer');
@@ -53,6 +56,8 @@ app.use(helmet({
 }));
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
+app.use(requestIdMiddleware);
+app.use(requestLogger);
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -953,14 +958,18 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, _next) => {
-  console.error('Unhandled error:', err);
+  const logger = createLogger('error');
+  logger.error('Unhandled error', { error: err.message, stack: err.stack, requestId: req.requestId });
   if (err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Request body too large' });
+    return formatError(res, new PayloadTooLargeError(), req.requestId);
+  }
+  if (err instanceof AppError) {
+    return formatError(res, err, req.requestId);
   }
   if (err.status && err.status < 500) {
-    return res.status(err.status).json({ error: err.message || 'Bad request' });
+    return formatError(res, new AppError('BAD_REQUEST', err.message || 'Bad request', err.status), req.requestId);
   }
-  res.status(500).json({ error: 'Internal server error' });
+  formatError(res, new AppError('INTERNAL_ERROR', 'Internal server error', 500), req.requestId);
 });
 
 async function start() {

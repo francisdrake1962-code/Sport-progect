@@ -1,0 +1,88 @@
+class AppError extends Error {
+  constructor(code, message, statusCode = 500, details = null) {
+    super(message);
+    this.name = 'AppError';
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
+  }
+}
+
+class ValidationError extends AppError {
+  constructor(message, details = null) {
+    super('VALIDATION_ERROR', message, 400, details);
+    this.name = 'ValidationError';
+  }
+}
+
+class NotFoundError extends AppError {
+  constructor(resource = 'Resource') {
+    super('NOT_FOUND', `${resource} not found`, 404);
+    this.name = 'NotFoundError';
+  }
+}
+
+class UnauthorizedError extends AppError {
+  constructor(message = 'Authentication required') {
+    super('UNAUTHORIZED', message, 401);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+class ForbiddenError extends AppError {
+  constructor(message = 'Admin access required') {
+    super('FORBIDDEN', message, 403);
+    this.name = 'ForbiddenError';
+  }
+}
+
+class ConflictError extends AppError {
+  constructor(message = 'Resource already exists') {
+    super('CONFLICT', message, 409);
+    this.name = 'ConflictError';
+  }
+}
+
+class RateLimitError extends AppError {
+  constructor(message = 'Too many requests') {
+    super('RATE_LIMITED', message, 429);
+    this.name = 'RateLimitError';
+  }
+}
+
+class PayloadTooLargeError extends AppError {
+  constructor(message = 'Request body too large') {
+    super('PAYLOAD_TOO_LARGE', message, 413);
+    this.name = 'PayloadTooLargeError';
+  }
+}
+
+function formatSuccess(res, data, statusCode = 200) {
+  return res.status(statusCode).json({ success: true, data });
+}
+
+function formatError(res, error, requestId = null) {
+  const body = {
+    success: false,
+    error: {
+      code: error.code || 'INTERNAL_ERROR',
+      message: error.message || 'Internal server error',
+    },
+  };
+  if (error.details) body.error.details = error.details;
+  if (requestId) body.error.requestId = requestId;
+  return res.status(error.statusCode || 500).json(body);
+}
+
+module.exports = {
+  AppError,
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  ForbiddenError,
+  ConflictError,
+  RateLimitError,
+  PayloadTooLargeError,
+  formatSuccess,
+  formatError,
+};

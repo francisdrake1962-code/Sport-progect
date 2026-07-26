@@ -1,10 +1,15 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { isTokenRevoked } = require('./db');
 
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 if (!process.env.JWT_SECRET) {
   console.warn('WARNING: JWT_SECRET not set. Using random secret. Tokens will not survive server restarts.');
+}
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function authMiddleware(req, res, next) {
@@ -14,7 +19,11 @@ function authMiddleware(req, res, next) {
   }
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    if (isTokenRevoked(hashToken(token))) {
+      return res.status(401).json({ error: 'Token has been revoked' });
+    }
     req.user = decoded;
+    req.token = token;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });
@@ -29,4 +38,4 @@ function generateToken(user) {
   );
 }
 
-module.exports = { authMiddleware, generateToken, JWT_SECRET };
+module.exports = { authMiddleware, generateToken, JWT_SECRET, hashToken };

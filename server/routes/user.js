@@ -3,13 +3,25 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { getDb, saveDb } = require('../db');
-const { generateToken, authMiddleware } = require('../auth');
+const { generateToken, authMiddleware, JWT_SECRET, hashToken } = require('../auth');
 const { sendConfirmationEmail } = require('../services/mailer');
 const { isStreamConfigured, generateSignedToken, getStreamUrl } = require('../services/stream');
+const { parsePagination } = require('../helpers/pagination');
+const jwt = require('jsonwebtoken');
+const { revokeToken } = require('../db');
 
 const router = express.Router();
 
 const FREE_LIMIT = 7;
+
+function revokeCurrentToken(token) {
+  if (!token) return;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const expiresAt = new Date(decoded.exp * 1000).toISOString();
+    revokeToken(hashToken(token), expiresAt);
+  } catch (_) {}
+}
 
 router.get('/stats', async (req, res) => {
   try {
@@ -160,6 +172,7 @@ router.put('/me', authMiddleware, async (req, res) => {
       }
       const hash = await bcrypt.hash(new_password, 10);
       db.run(`UPDATE subscribers SET password = ? WHERE id = ?`, [hash, req.user.id]);
+      revokeCurrentToken(req.token);
     }
     if (name && name.trim()) {
       db.run(`UPDATE subscribers SET name = ? WHERE id = ?`, [name.trim(), req.user.id]);
@@ -171,6 +184,11 @@ router.put('/me', authMiddleware, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to update profile' });
   }
+});
+
+router.post('/logout', authMiddleware, (req, res) => {
+  revokeCurrentToken(req.token);
+  res.json({ success: true });
 });
 
 router.post('/confirm/resend', resendLimiter, async (req, res) => {
@@ -277,17 +295,24 @@ router.post('/watch-progress', authMiddleware, async (req, res) => {
 
 router.get('/progress', authMiddleware, async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM watched_lessons WHERE subscriber_id = ?`, [req.user.id]);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
     const result = db.exec(
       `SELECT wl.lesson_id, wl.position_seconds, wl.completed, wl.watched_at, l.title, l.duration
        FROM watched_lessons wl JOIN lessons l ON wl.lesson_id = l.id
-       WHERE wl.subscriber_id = ? ORDER BY wl.watched_at DESC`,
-      [req.user.id]
+       WHERE wl.subscriber_id = ? ORDER BY wl.watched_at DESC LIMIT ? OFFSET ?`,
+      [req.user.id, limit, offset]
     );
     const items = result.length > 0 ? result[0].values.map(r => ({
       lesson_id: r[0], position_seconds: r[1], completed: r[2], watched_at: r[3], title: r[4], duration: r[5]
     })) : [];
-    res.json(items);
+    res.json({
+      data: items,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load progress' });
   }
@@ -498,12 +523,13 @@ router.get('/calendar', authMiddleware, async (req, res) => {
 
 router.get('/lessons-filter', authMiddleware, async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
     const { zone, mood, duration } = req.query;
     let query = `SELECT l.id, l.title, l.duration, l.description, l.video_url, l.cf_video_uid, l.is_free, l.tags, l.direction, l.effect_description FROM lessons l WHERE l.status = 'active'`;
     const params = [];
     const result = db.exec(query, params);
-    if (!result.length) return res.json([]);
+    if (!result.length) return res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
     let lessons = result[0].values.map(row => ({
       id: row[0], title: row[1], duration: row[2], description: row[3],
       video_url: row[4], cf_video_uid: row[5], is_free: row[6],
@@ -539,7 +565,13 @@ router.get('/lessons-filter', authMiddleware, async (req, res) => {
       let accessible = l.is_free || plan === 'annual' || plan === 'monthly' || freeUsed < FREE_LIMIT;
       return { ...l, accessible };
     });
-    res.json(lessons);
+    const total = lessons.length;
+    const offset = (page - 1) * limit;
+    const paged = lessons.slice(offset, offset + limit);
+    res.json({
+      data: paged,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to filter lessons' });
   }
@@ -657,24 +689,34 @@ router.post('/workout-feedback', authMiddleware, async (req, res) => {
 
 router.get('/workout-feedback', authMiddleware, async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
     const { days } = req.query;
     const numDays = Math.min(Math.max(parseInt(days, 10) || 7, 1), 90);
     const since = new Date();
     since.setDate(since.getDate() - numDays);
     const sinceStr = since.toISOString().slice(0, 10);
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(
+      `SELECT COUNT(*) FROM workout_feedback WHERE subscriber_id = ? AND created_at >= ?`,
+      [req.user.id, sinceStr]
+    );
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
     const result = db.exec(
       `SELECT wf.lesson_id, wf.mood, wf.created_at, l.title
        FROM workout_feedback wf
        JOIN lessons l ON wf.lesson_id = l.id
        WHERE wf.subscriber_id = ? AND wf.created_at >= ?
-       ORDER BY wf.created_at DESC`,
-      [req.user.id, sinceStr]
+       ORDER BY wf.created_at DESC LIMIT ? OFFSET ?`,
+      [req.user.id, sinceStr, limit, offset]
     );
     const items = result.length ? result[0].values.map(r => ({
       lesson_id: r[0], mood: r[1], created_at: r[2], title: r[3]
     })) : [];
-    res.json(items);
+    res.json({
+      data: items,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load feedback' });
   }

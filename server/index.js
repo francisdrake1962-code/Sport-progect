@@ -6,7 +6,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
-const { getDb, saveDb } = require('./db');
+const { getDb, saveDb, transaction } = require('./db');
 const { authMiddleware, JWT_SECRET } = require('./auth');
 const { createCrudRoutes, queryToObjects } = require('./routes/crud');
 const authRoutes = require('./routes/auth');
@@ -14,6 +14,7 @@ const userRoutes = require('./routes/user');
 const { FREE_LIMIT } = userRoutes;
 const { resetMailConfig, sendConfirmationEmail } = require('./services/mailer');
 const { resetStreamConfig, isStreamConfigured: checkStreamConfigured } = require('./services/stream');
+const { parsePagination } = require('./helpers/pagination');
 const jwt = require('jsonwebtoken');
 
 const multer = require('multer');
@@ -113,9 +114,19 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/api/lessons', async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
-    const result = db.exec(`SELECT id, title, duration, status, description, video_url, cf_video_uid, image_url, is_free, free_order, date, tags, direction, effect_description FROM lessons WHERE status = 'active' ORDER BY date DESC`);
-    res.json(queryToObjects(result));
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM lessons WHERE status = 'active'`);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    const result = db.exec(
+      `SELECT id, title, duration, status, description, video_url, cf_video_uid, image_url, is_free, free_order, date, tags, direction, effect_description FROM lessons WHERE status = 'active' ORDER BY date DESC LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+    res.json({
+      data: queryToObjects(result),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -173,13 +184,20 @@ app.get('/api/lessons/:id', async (req, res) => {
 
 app.get('/api/complexes', async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM complexes`);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
     const result = db.exec(
       `SELECT c.id, c.name, c.description, c.image_url, c.status, COUNT(cl.lesson_id) as lesson_count
        FROM complexes c LEFT JOIN complex_lessons cl ON cl.complex_id = c.id
-       GROUP BY c.id ORDER BY c.id`
+       GROUP BY c.id ORDER BY c.id LIMIT ? OFFSET ?`, [limit, offset]
     );
-    res.json(queryToObjects(result));
+    res.json({
+      data: queryToObjects(result),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -223,9 +241,16 @@ app.get('/api/lesson-zones/:lessonId', async (req, res) => {
 
 app.get('/api/schedule', async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
-    const result = db.exec(`SELECT * FROM schedule ORDER BY id`);
-    res.json(queryToObjects(result));
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM schedule`);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    const result = db.exec(`SELECT * FROM schedule ORDER BY id LIMIT ? OFFSET ?`, [limit, offset]);
+    res.json({
+      data: queryToObjects(result),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -234,9 +259,16 @@ app.get('/api/schedule', async (req, res) => {
 
 app.get('/api/reviews', async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
-    const result = db.exec(`SELECT * FROM reviews ORDER BY id DESC`);
-    res.json(queryToObjects(result));
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM reviews`);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    const result = db.exec(`SELECT * FROM reviews ORDER BY id DESC LIMIT ? OFFSET ?`, [limit, offset]);
+    res.json({
+      data: queryToObjects(result),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -245,9 +277,16 @@ app.get('/api/reviews', async (req, res) => {
 
 app.get('/api/faq', async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
-    const result = db.exec(`SELECT id, question, answer, sort_order FROM faq ORDER BY sort_order ASC, id ASC`);
-    res.json(queryToObjects(result));
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM faq`);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    const result = db.exec(`SELECT id, question, answer, sort_order FROM faq ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?`, [limit, offset]);
+    res.json({
+      data: queryToObjects(result),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -272,9 +311,16 @@ api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'ima
 // complex_lessons — custom routes (composite PK)
 api.get('/complex-lessons', async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
-    const result = db.exec(`SELECT complex_id, lesson_id, position FROM complex_lessons ORDER BY complex_id, position`);
-    res.json(queryToObjects(result));
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM complex_lessons`);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    const result = db.exec(`SELECT complex_id, lesson_id, position FROM complex_lessons ORDER BY complex_id, position LIMIT ? OFFSET ?`, [limit, offset]);
+    res.json({
+      data: queryToObjects(result),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -345,12 +391,14 @@ api.put('/lessons/:id/zones', async (req, res) => {
     if (!check.length || !check[0].values.length) {
       return res.status(404).json({ error: 'Lesson not found' });
     }
-    db.run(`DELETE FROM lesson_zones WHERE lesson_id = ?`, [id]);
     const VALID_ZONES = ['шея', 'поясница', 'грудной_отдел', 'колени', 'ноги_таз', 'спина_осанка', 'плечи_руки', 'баланс_общее'];
-    zones.forEach(zone => {
-      if (VALID_ZONES.includes(zone)) {
-        db.run(`INSERT INTO lesson_zones (lesson_id, zone) VALUES (?, ?)`, [id, zone]);
-      }
+    await transaction(async (tdb) => {
+      tdb.run(`DELETE FROM lesson_zones WHERE lesson_id = ?`, [id]);
+      zones.forEach(zone => {
+        if (VALID_ZONES.includes(zone)) {
+          tdb.run(`INSERT INTO lesson_zones (lesson_id, zone) VALUES (?, ?)`, [id, zone]);
+        }
+      });
     });
     saveDb();
     res.json({ success: true });
@@ -609,11 +657,13 @@ feedbackRouter.post('/', async (req, res) => {
     const safeSubject = String(subject).trim().slice(0, 200);
     const safeMessage = String(message).trim().slice(0, 5000);
     if (!safeSubject || !safeMessage) return res.status(400).json({ error: 'subject and message required' });
-    const db = await getDb();
-    db.run(`INSERT INTO tickets (subscriber_id, category, subject) VALUES (?, ?, ?)`, [req.user.id, category, safeSubject]);
-    const idResult = db.exec(`SELECT last_insert_rowid()`);
-    const ticketId = idResult[0].values[0][0];
-    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [ticketId, req.user.id, safeMessage]);
+    const ticketId = await transaction(async (db) => {
+      db.run(`INSERT INTO tickets (subscriber_id, category, subject) VALUES (?, ?, ?)`, [req.user.id, category, safeSubject]);
+      const idResult = db.exec(`SELECT last_insert_rowid()`);
+      const id = idResult[0].values[0][0];
+      db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [id, req.user.id, safeMessage]);
+      return id;
+    });
     saveDb();
     res.json({ success: true, ticketId });
   } catch (err) {
@@ -682,18 +732,25 @@ app.use('/api/feedback', feedbackRouter);
 // Admin: list all tickets (with filters)
 api.get('/admin/feedback', async (req, res) => {
   try {
+    const { page, limit } = parsePagination(req.query);
     const { category, status } = req.query;
     const db = await getDb();
+    let whereSql = ` WHERE 1=1`;
+    const params = [];
+    if (category) { whereSql += ` AND t.category = ?`; params.push(category); }
+    if (status) { whereSql += ` AND t.status = ?`; params.push(status); }
+    const countResult = db.exec(`SELECT COUNT(*) FROM tickets t${whereSql}`, params);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    const offset = (page - 1) * limit;
     let sql = `SELECT t.*, s.name as subscriber_name, s.email as subscriber_email,
       (SELECT message FROM ticket_messages WHERE ticket_id = t.id ORDER BY created_at DESC LIMIT 1) as last_message,
       (SELECT COUNT(*) FROM ticket_messages WHERE ticket_id = t.id) as message_count
-      FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id WHERE 1=1`;
-    const params = [];
-    if (category) { sql += ` AND t.category = ?`; params.push(category); }
-    if (status) { sql += ` AND t.status = ?`; params.push(status); }
-    sql += ` ORDER BY t.created_at DESC`;
-    const tickets = queryToObjects(db.exec(sql, params));
-    res.json(tickets);
+      FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id${whereSql} ORDER BY t.created_at DESC LIMIT ? OFFSET ?`;
+    const tickets = queryToObjects(db.exec(sql, [...params, limit, offset]));
+    res.json({
+      data: tickets,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -894,8 +951,17 @@ app.use((err, req, res, _next) => {
 });
 
 async function start() {
+  const { validateConfig } = require('./helpers/config');
+  validateConfig();
+
   await getDb();
   console.log('Database initialized');
+
+  const { runMigrations } = require('./helpers/migrations');
+  const migrationResult = await runMigrations();
+  if (migrationResult.applied > 0) {
+    console.log(`Applied ${migrationResult.applied} migration(s)`);
+  }
 
   const db = await getDb();
   const users = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM subscribers`));

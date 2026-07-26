@@ -1,8 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
-const { getDb, saveDb } = require('../db');
-const { authMiddleware, generateToken } = require('../auth');
+const jwt = require('jsonwebtoken');
+const { getDb, saveDb, revokeToken } = require('../db');
+const { authMiddleware, generateToken, JWT_SECRET, hashToken } = require('../auth');
 
 const router = express.Router();
 
@@ -13,6 +14,15 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+function revokeCurrentToken(token) {
+  if (!token) return;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const expiresAt = new Date(decoded.exp * 1000).toISOString();
+    revokeToken(hashToken(token), expiresAt);
+  } catch (_) {}
+}
 
 router.post('/login', loginLimiter, async (req, res) => {
   try {
@@ -61,6 +71,11 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+router.post('/logout', authMiddleware, (req, res) => {
+  revokeCurrentToken(req.token);
+  res.json({ success: true });
+});
+
 router.put('/password', authMiddleware, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -82,6 +97,7 @@ router.put('/password', authMiddleware, async (req, res) => {
     }
     const newHash = await bcrypt.hash(newPassword, 10);
     db.run(`UPDATE users SET password = ? WHERE id = ?`, [newHash, req.user.id]);
+    revokeCurrentToken(req.token);
     saveDb();
     res.json({ success: true });
   } catch (err) {

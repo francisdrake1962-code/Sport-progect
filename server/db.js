@@ -289,6 +289,16 @@ async function getDb() {
       )
     `);
 
+    db.run(`
+      CREATE TABLE IF NOT EXISTS token_blocklist (
+        token_hash TEXT PRIMARY KEY,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_token_blocklist_expires ON token_blocklist(expires_at)`);
+
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('admin123', 10);
     db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
@@ -351,4 +361,45 @@ async function getSetting(key, fallback) {
   return fallback !== undefined ? fallback : null;
 }
 
-module.exports = { getDb, saveDb, resetDb, getSetting };
+function revokeToken(tokenHash, expiresAt) {
+  if (!db) return;
+  try {
+    db.run(`INSERT OR IGNORE INTO token_blocklist (token_hash, expires_at) VALUES (?, ?)`, [tokenHash, expiresAt]);
+    saveDb();
+  } catch (err) {
+    console.error('Failed to revoke token:', err.message);
+  }
+}
+
+function isTokenRevoked(tokenHash) {
+  if (!db) return false;
+  try {
+    const result = db.exec(`SELECT 1 FROM token_blocklist WHERE token_hash = ?`, [tokenHash]);
+    return result.length > 0 && result[0].values.length > 0;
+  } catch (_) {
+    return false;
+  }
+}
+
+function cleanupBlocklist() {
+  if (!db) return;
+  try {
+    db.run(`DELETE FROM token_blocklist WHERE expires_at < datetime('now')`);
+    saveDb();
+  } catch (_) {}
+}
+
+async function transaction(fn) {
+  const d = await getDb();
+  try {
+    d.run('BEGIN');
+    const result = await fn(d);
+    d.run('COMMIT');
+    return result;
+  } catch (err) {
+    try { d.run('ROLLBACK'); } catch (_) {}
+    throw err;
+  }
+}
+
+module.exports = { getDb, saveDb, resetDb, getSetting, revokeToken, isTokenRevoked, cleanupBlocklist, transaction };

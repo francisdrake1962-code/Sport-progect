@@ -4,6 +4,51 @@
 
 ---
 
+## [5.0.0] - 2026-07-26
+
+### Added — Phase 1 Stabilization (Technical Specification Compliance)
+
+#### P0: API Pagination
+- Добавлена пагинация `?page=&limit=` на все list endpoints
+- Все list endpoints теперь возвращают `{ data: [], pagination: { page, limit, total, totalPages } }`
+- Max limit: 100, default: 50
+- Затронуто: `/api/lessons`, `/api/complexes`, `/api/schedule`, `/api/reviews`, `/api/faq`, `/api/complex-lessons`, `/api/admin/feedback`, CRUD GET routes, `/api/user/progress`, `/api/user/workout-feedback`, `/api/user/lessons-filter`
+- Создан `server/helpers/pagination.js` — общий модуль пагинации
+
+#### P0: Token Revocation
+- Добавлена таблица `token_blocklist` в схему БД
+- JWT tokens теперь проверяются на блоклисте при каждом запросе
+- `POST /api/auth/logout` — админ logout с ревокацией токена
+- `POST /api/user/logout` — subscriber logout с ревокацией токена
+- Смена пароля автоматически отзывает текущий токен (admin + subscriber)
+- Добавлен индекс `idx_token_blocklist_expires`
+- Созданы тесты для token revocation (3 новых теста)
+
+#### P1: Config Validation
+- Приложение завершает запуск при отсутствии обязательных env vars в production
+- `JWT_SECRET` и `ALLOWED_ORIGIN` обязательны в production mode
+- В dev/test mode — предупреждения вместо ошибок
+- Создан `server/helpers/config.js`
+
+#### P1: DB Transaction Boundaries
+- Добавлен `transaction(fn)` helper в `server/db.js`
+- Транзакции применены к: создание тикета (tickets + ticket_messages), обновление зон урока (lesson_zones DELETE + INSERT)
+- Все транзакции используют BEGIN/COMMIT/ROLLBACK
+
+#### P1: DB Migration System
+- Создан `server/helpers/migrations.js` — система versioned migrations
+- Таблица `migrations` для отслеживания применённых миграций
+- Создан `server/migrations/001_performance_indexes.sql` — 20+ индексов для часто запрашиваемых колонок
+- Миграции автоматически применяются при запуске сервера
+- Поддержка ручного запуска: `require('./helpers/migrations').runMigrations()`
+
+### Changed
+- API list endpoints теперь возвращают `{ data, pagination }` вместо голого массива
+- Тесты обновлены для проверки нового формата ответа
+- Версия: 4.1.0 → 5.0.0
+
+---
+
 ## [4.1.0] - 2026-07-26
 
 ### Fixed — Адвокат дьявола, Раунд 1+2 (33 исправления)

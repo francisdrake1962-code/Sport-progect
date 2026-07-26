@@ -1,4 +1,5 @@
 const { getDb, saveDb } = require('../db');
+const { parsePagination } = require('../helpers/pagination');
 
 const VALID_TABLES = new Set([
   'users', 'lessons', 'complexes', 'schedule',
@@ -26,9 +27,16 @@ function createCrudRoutes(tableName, fields) {
 
   router.get('/', async (req, res) => {
     try {
+      const { page, limit } = parsePagination(req.query);
       const db = await getDb();
-      const result = db.exec(`SELECT * FROM ${tableName} ORDER BY id DESC`);
-      res.json(queryToObjects(result));
+      const offset = (page - 1) * limit;
+      const countResult = db.exec(`SELECT COUNT(*) FROM ${tableName}`);
+      const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+      const result = db.exec(`SELECT * FROM ${tableName} ORDER BY id DESC LIMIT ? OFFSET ?`, [limit, offset]);
+      res.json({
+        data: queryToObjects(result),
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
     } catch (err) {
       console.error(`CRUD GET ${tableName}:`, err.message);
       res.status(500).json({ error: 'Internal server error' });

@@ -289,11 +289,13 @@ describe('API Integration — CRUD Endpoints', () => {
   ];
 
   endpoints.forEach(({ name, path: epPath, fields, updateField }) => {
-    test(`GET ${epPath} should return array`, async () => {
+    test(`GET ${epPath} should return paginated list`, async () => {
       const res = await apiRequest('GET', epPath, null, token);
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body.data).toBeDefined();
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.pagination).toBeDefined();
+      expect(res.body.pagination.total).toBeGreaterThanOrEqual(0);
     });
 
     test(`POST ${epPath} should create record`, async () => {
@@ -331,10 +333,12 @@ describe('API Integration — CRUD Endpoints', () => {
     expect(res.body.success).toBe(true);
   });
 
-  test('GET /api/schedule should return array', async () => {
+  test('GET /api/schedule should return paginated list', async () => {
     const res = await apiRequest('GET', '/api/schedule', null, token);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toBeDefined();
   });
 });
 
@@ -342,7 +346,8 @@ describe('API Integration — Access Control', () => {
   test('unauthenticated GET /api/lessons should return 200 (public)', async () => {
     const res = await apiRequest('GET', '/api/lessons');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   test('unauthenticated POST /api/lessons should return 401', async () => {
@@ -481,10 +486,12 @@ describe('API Integration — User Progress', () => {
     expect(res.status).toBe(400);
   });
 
-  test('GET /api/user/progress should return array', async () => {
+  test('GET /api/user/progress should return paginated list', async () => {
     const res = await apiRequest('GET', '/api/user/progress', null, userToken);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toBeDefined();
   });
 });
 
@@ -740,13 +747,15 @@ describe('API Integration — Feedback Ticket Flow', () => {
   test('admin can list all tickets', async () => {
     const res = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toBeDefined();
   });
 
   test('admin can reply to ticket', async () => {
     const list = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
-    if (list.body.length > 0) {
-      const ticketId = list.body[0].id;
+    if (list.body.data && list.body.data.length > 0) {
+      const ticketId = list.body.data[0].id;
       const res = await apiRequest('POST', `/api/admin/feedback/${ticketId}/reply`, {
         message: 'We are looking into this'
       }, adminToken);
@@ -757,8 +766,8 @@ describe('API Integration — Feedback Ticket Flow', () => {
 
   test('admin can update ticket status', async () => {
     const list = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
-    if (list.body.length > 0) {
-      const ticketId = list.body[0].id;
+    if (list.body.data && list.body.data.length > 0) {
+      const ticketId = list.body.data[0].id;
       const res = await apiRequest('PUT', `/api/admin/feedback/${ticketId}`, {
         status: 'in_progress'
       }, adminToken);
@@ -768,17 +777,19 @@ describe('API Integration — Feedback Ticket Flow', () => {
 });
 
 describe('API Integration — FAQ Public Endpoint', () => {
-  test('GET /api/faq should return array', async () => {
+  test('GET /api/faq should return paginated list', async () => {
     const res = await apiRequest('GET', '/api/faq');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    expect(res.body.pagination).toBeDefined();
   });
 
   test('GET /api/faq items should have question and answer', async () => {
     const res = await apiRequest('GET', '/api/faq');
-    expect(res.body[0]).toHaveProperty('question');
-    expect(res.body[0]).toHaveProperty('answer');
+    expect(res.body.data[0]).toHaveProperty('question');
+    expect(res.body.data[0]).toHaveProperty('answer');
   });
 });
 
@@ -786,8 +797,11 @@ describe('API Integration — Lessons Public Endpoints', () => {
   test('GET /api/lessons should return active lessons', async () => {
     const res = await apiRequest('GET', '/api/lessons');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    expect(res.body.pagination).toBeDefined();
+    expect(res.body.pagination.total).toBeGreaterThan(0);
   });
 
   test('GET /api/lessons/:id should return single lesson', async () => {
@@ -801,15 +815,54 @@ describe('API Integration — Lessons Public Endpoints', () => {
     expect(res.status).toBe(404);
   });
 
-  test('GET /api/complexes should return array', async () => {
+  test('GET /api/complexes should return paginated list', async () => {
     const res = await apiRequest('GET', '/api/complexes');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toBeDefined();
   });
 
-  test('GET /api/reviews should return array', async () => {
+  test('GET /api/reviews should return paginated list', async () => {
     const res = await apiRequest('GET', '/api/reviews');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toBeDefined();
+  });
+});
+
+describe('API Integration — Token Revocation', () => {
+  let token;
+
+  beforeAll(async () => {
+    const res = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    token = res.body.token;
+  });
+
+  test('POST /api/auth/logout should revoke token', async () => {
+    const res = await apiRequest('POST', '/api/auth/logout', null, token);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('revoked token should be rejected', async () => {
+    const res = await apiRequest('GET', '/api/auth/me', null, token);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toContain('revoked');
+  });
+
+  test('subscriber logout should revoke token', async () => {
+    const regRes = await apiRequest('POST', '/api/user/register', {
+      name: 'LogoutTest', email: 'logouttest@test.com', password: 'password123'
+    });
+    const confirmToken = regRes.body.confirmationToken;
+    await apiRequest('POST', `/api/user/confirm/${confirmToken}`);
+    const loginRes = await apiRequest('POST', '/api/user/login', { email: 'logouttest@test.com', password: 'password123' });
+    const subToken = loginRes.body.token;
+    const logoutRes = await apiRequest('POST', '/api/user/logout', null, subToken);
+    expect(logoutRes.status).toBe(200);
+    const meRes = await apiRequest('GET', '/api/user/me', null, subToken);
+    expect(meRes.status).toBe(401);
   });
 });

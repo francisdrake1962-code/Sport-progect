@@ -71,10 +71,13 @@
         } catch(e) {}
         var ZONES = [
             { id: 'шея', label: 'Шея' },
+            { id: 'плечи_руки', label: 'Плечи / Руки' },
+            { id: 'грудной_отдел', label: 'Грудной отдел' },
             { id: 'поясница', label: 'Поясница' },
-            { id: 'осанка', label: 'Осанка' },
-            { id: 'ноги', label: 'Ноги / Баланс' },
-            { id: 'дыхание', label: 'Дыхание' },
+            { id: 'спина_осанка', label: 'Спина / Осанка' },
+            { id: 'колени', label: 'Колени' },
+            { id: 'ноги_таз', label: 'Ноги / Таз' },
+            { id: 'баланс_общее', label: 'Баланс / Общее' },
         ];
         var MOODS = [
             { id: 'энергия', label: 'Взбодриться' },
@@ -84,7 +87,7 @@
         ];
         var activeZones = {};
         var activeMoods = {};
-        var allLessons = [];
+        var token = localStorage.getItem('user_token');
 
         function renderChips(containerId, items, activeMap) {
             var el = document.getElementById(containerId);
@@ -128,26 +131,23 @@
         }
 
         function applyFilters() {
-            var zoneStr = Object.keys(activeZones).join(',');
-            var moodStr = Object.keys(activeMoods).join(',');
+            var params = [];
+            var zoneKeys = Object.keys(activeZones);
+            if (zoneKeys.length) params.push('zone=' + encodeURIComponent(zoneKeys.join(',')));
+            var moodKeys = Object.keys(activeMoods);
+            if (moodKeys.length) params.push('mood=' + encodeURIComponent(moodKeys.join(',')));
             var maxDur = parseInt(document.getElementById('dur-slider').value, 10);
-            var filtered = allLessons.filter(function(l) {
-                if (zoneStr) {
-                    var zoneTags = zoneStr.split(',');
-                    if (!l.tags.some(function(t) { return zoneTags.indexOf(t.toLowerCase()) >= 0; })) return false;
-                }
-                if (moodStr) {
-                    var moodTags = moodStr.split(',');
-                    if (!l.tags.some(function(t) { return moodTags.indexOf(t.toLowerCase()) >= 0; })) return false;
-                }
-                if (l.duration > maxDur) return false;
-                return true;
-            });
-            renderLessons(filtered);
+            if (maxDur < 60) params.push('duration=' + maxDur);
+            var url = '/api/user/lessons-filter' + (params.length ? '?' + params.join('&') : '');
+            fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function(r) { if (!r.ok) throw new Error('Auth'); return r.json(); })
+                .then(function(data) { renderLessons(data); })
+                .catch(function() {});
         }
 
         function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+        if (!token) { window.location.href = 'login.html'; return; }
         renderChips('zone-chips', ZONES, activeZones);
         renderChips('mood-chips', MOODS, activeMoods);
 
@@ -156,12 +156,7 @@
             applyFilters();
         });
 
-        var token = localStorage.getItem('user_token');
-        if (!token) { window.location.href = 'login.html'; return; }
-        fetch('/api/user/lessons-filter', { headers: { 'Authorization': 'Bearer ' + token } })
-            .then(function(r) { if (!r.ok) throw new Error('Auth'); return r.json(); })
-            .then(function(data) { allLessons = data; renderLessons(data); })
-            .catch(function() { window.location.href = 'login.html'; });
+        applyFilters();
     })();
     </script>
 </body>

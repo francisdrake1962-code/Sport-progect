@@ -49,76 +49,8 @@
             <div class="container">
                 <h1>Часто задаваемые вопросы</h1>
                 
-                <div class="faq__list">
-                    <details class="faq__item">
-                        <summary class="faq__question">Это правда бесплатно?</summary>
-                        <div class="faq__answer">
-                            <p>Да. Первые 7 занятий вы получаете без привязки карты. Не вводите номер, не привязываете платёж. Просто регистрируетесь и занимаетесь.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Нужна ли физическая подготовка?</summary>
-                        <div class="faq__answer">
-                            <p>Нет. Все упражнения доступны для людей с любым уровнем подготовки. Занятия рассчитаны на тех, кто только начинает, и включают упрощённые версии для новичков.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Подходит ли новичкам?</summary>
-                        <div class="faq__answer">
-                            <p>Да, программа специально разработана для людей без опыта. Каждое занятие начинается с объяснения, что и зачем мы делаем. Вы можете начинать с простых упражнений и постепенно усложнять.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Если у меня есть проблемы со здоровьем?</summary>
-                        <div class="faq__answer">
-                            <p>Перед началом занятий проконсультируйтесь с врачом. Упражнения мягкие и щадящие, но при наличии хронических заболеваний важно получить одобрение специалиста.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Сколько времени занимает тренировка?</summary>
-                        <div class="faq__answer">
-                            <p>Одно занятие длится примерно 27-31 минут. Это достаточно для полноценной тренировки, но не занимает слишком много времени в распорядке дня.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Как часто нужно заниматься?</summary>
-                        <div class="faq__answer">
-                            <p>Программа рассчитана на 6 занятий в неделю с одним выходным. Но вы можете заниматься в своём темпе — главное, регулярность важнее интенсивности.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Можно ли заниматься сидя?</summary>
-                        <div class="faq__answer">
-                            <p>Да, многие упражнения доступны в сидячем положении. Это удобно для тех, кто проводит много времени за компьютером или имеет ограничения в подвижности.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Как отменить подписку?</summary>
-                        <div class="faq__answer">
-                            <p>Один клик в профиле — без звонков, без обращений в поддержку. Подробнее на странице <a href="/how-to-cancel">Как отменить подписку</a>.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Можно ли вернуть деньги?</summary>
-                        <div class="faq__answer">
-                            <p>Да. Если вы остались недовольны, мы вернём деньги без лишних вопросов. Подробнее на странице <a href="/refund">Политика возврата</a>.</p>
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">Что такое 8 кусков парчи?</summary>
-                        <div class="faq__answer">
-                            <p>8 кусков парчи (Ба Дуань Цзин) — древний комплекс из 8 упражнений цигун для укрепления здоровья. Элементы этого комплекса включены в программу занятий. Подробнее на странице <a href="/8-pieces-of-brocade">8 кусков парчи</a>.</p>
-                        </div>
-                    </details>
+                <div class="faq__list" id="faq-list">
+                    <p style="color:#9fc5a8;text-align:center;padding:2rem 0;">Загрузка...</p>
                 </div>
                 
                 <div class="cta-block">
@@ -176,5 +108,26 @@
             </div>
         </div>
     </footer>
+    <script>
+    (function() {
+        function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        function nl2br(s) { return esc(s).replace(/\n/g, '<br>'); }
+        fetch('/api/faq')
+            .then(function(r) { return r.json(); })
+            .then(function(items) {
+                var list = document.getElementById('faq-list');
+                if (!items || items.length === 0) {
+                    list.innerHTML = '<p style="color:#9fc5a8;text-align:center;padding:2rem 0;">Вопросов пока нет</p>';
+                    return;
+                }
+                list.innerHTML = items.map(function(i) {
+                    return '<details class="faq__item"><summary class="faq__question">' + esc(i.question) + '</summary><div class="faq__answer"><p>' + nl2br(i.answer) + '</p></div></details>';
+                }).join('');
+            })
+            .catch(function() {
+                document.getElementById('faq-list').innerHTML = '<p style="color:#9fc5a8;text-align:center;padding:2rem 0;">Не удалось загрузить FAQ</p>';
+            });
+    })();
+    </script>
 </body>
 </html>

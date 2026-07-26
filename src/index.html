@@ -312,51 +312,8 @@
             <div class="container">
                 <h2 class="section-title">Часто задаваемые вопросы</h2>
                 
-                <div class="faq__list">
-                    <details class="faq__item">
-                        <summary class="faq__question">
-                            Нужна ли физическая подготовка?
-                        </summary>
-                        <div class="faq__answer">
-                            Нет, вся программа рассчитана на новичков и рассчитана на щадящий темп.
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">
-                            Подходит ли, если есть травма или ограничение?
-                        </summary>
-                        <div class="faq__answer">
-                            Да, при регистрации вы указываете, что стоит беречь, и это учитывается в подборе занятий.
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">
-                            Это правда бесплатно на старте?
-                        </summary>
-                        <div class="faq__answer">
-                            Да — 7 занятий доступны без привязки карты. Оплата нужна только если вы решите продолжить.
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">
-                            Можно ли заниматься на телевизоре?
-                        </summary>
-                        <div class="faq__answer">
-                            Да, трансляция поддерживается прямо из плеера.
-                        </div>
-                    </details>
-                    
-                    <details class="faq__item">
-                        <summary class="faq__question">
-                            Как отменить подписку?
-                        </summary>
-                        <div class="faq__answer">
-                            В один клик в профиле, без звонков в поддержку и без необходимости искать в настройках телефона.
-                        </div>
-                    </details>
+                <div class="faq__list" id="faq-list">
+                    <p style="color:#5a7a60;text-align:center;padding:1rem;">Загрузка...</p>
                 </div>
             </div>
         </section>
@@ -399,6 +356,14 @@
                 var grid = document.getElementById('testimonials-grid');
                 grid.innerHTML = '<p style="color:#5a7a60;text-align:center;padding:1rem;">Отзывы загружаются...</p>';
             });
+
+            fetch('/api/faq').then(function(r) { return r.json(); }).then(function(items) {
+                var list = document.getElementById('faq-list');
+                if (!items || items.length === 0) { list.innerHTML = ''; return; }
+                list.innerHTML = items.slice(0, 8).map(function(i) {
+                    return '<details class="faq__item"><summary class="faq__question">' + esc(i.question) + '</summary><div class="faq__answer">' + esc(i.answer) + '</div></details>';
+                }).join('');
+            }).catch(function() {});
         })();
         </script>
 

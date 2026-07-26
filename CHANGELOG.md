@@ -4,6 +4,20 @@
 
 ---
 
+## [5.2.1] - 2026-07-26
+
+### Added
+- `PROGRESS.md` — comprehensive roadmap bookmark file for session continuity, contains full Phase 3 status, next actions, architecture reference, and key rules
+
+### Updated
+- `FEATURE_REGISTRY.md` — updated test suite counts to 715, added Phase 3 features (F121-F130), added security test suite
+
+### Stats
+- 715/715 tests passing
+- Версия: 5.2.0 → 5.2.1
+
+---
+
 ## [5.2.0] - 2026-07-26
 
 ### Added — Phase 3 Refactoring (Foundation)

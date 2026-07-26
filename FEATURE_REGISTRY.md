@@ -167,6 +167,25 @@
 
 ---
 
+## Phase 3 — Refactoring (v5.2.0)
+
+| ID | Feature | User Story | Implementation | Tests | Status |
+|----|---------|-----------|----------------|-------|--------|
+| F121 | Unified Error Model | As API I return consistent `{success, error:{code, message}}` format | `server/helpers/errors.js` | `backend.test.js` | OK |
+| F122 | Request ID Middleware | As a user every request gets a unique `X-Request-Id` | `server/middleware/requestId.js` | `backend.test.js` | OK |
+| F123 | Structured Logging | As a developer I see JSON logs with timestamp, level, component | `server/helpers/logger.js` | — | NOT TESTED |
+| F124 | Auth Service | As API I route auth through business logic layer | `server/services/auth.service.js` | — | NOT WIRED |
+| F125 | Progress Service | As API I route progress/feedback through business logic layer | `server/services/progress.service.js` | — | NOT WIRED |
+| F126 | Schedule Service | As API I route calendar/timeline through business logic layer | `server/services/schedule.service.js` | — | NOT WIRED |
+| F127 | Feedback Service | As API I route ticket system through business logic layer | `server/services/feedback.service.js` | — | NOT WIRED |
+| F128 | Base Repository | As API I access DB through generic CRUD repository | `server/repositories/base.repository.js` | — | NOT WIRED |
+| F129 | Specialized Repos | As API I access subscribers, lessons, users through dedicated repos | `server/repositories/index.js` + `subscriber.repository.js` | — | NOT WIRED |
+| F130 | Performance Indexes | As DB I have 20+ indexes on frequently queried columns | `server/migrations/001_performance_indexes.sql` | `backend.test.js` | OK |
+
+> **NOT WIRED** = Service/repo layer created but not yet called from routes. Inline DB calls in routes still active.
+
+---
+
 ## Test Suites Summary
 
 | Suite | Tests | Coverage |
@@ -178,8 +197,9 @@
 | `admin.test.js` | 164 | 14 admin pages: structure, modals, CRUD |
 | `build.test.js` | 13 | File existence, webpack, admin pages |
 | `seo.test.js` | 11 | Meta tags, sitemap, robots.txt |
-| `backend.test.js` | 129 | File structure, db, auth, CRUD, user auth, progress, calendar, free enforcement, video security, health+db, security hardening, feedback flow, FAQ, lessons |
-| **Total** | **674** | |
+| `backend.test.js` | 132 | Auth, CRUD, user auth, progress, calendar, free enforcement, video security, feedback, FAQ, lessons |
+| `security.test.js` | 38 | Auth bypass, IDOR, input validation, rate limiting, token revocation, XSS |
+| **Total** | **715** | |
 
 ---
 

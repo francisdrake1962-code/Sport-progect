@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
-const { getDb } = require('../db');
+const { getDb, saveDb } = require('../db');
 const { authMiddleware, generateToken } = require('../auth');
 
 const router = express.Router();
@@ -82,7 +82,6 @@ router.put('/password', authMiddleware, async (req, res) => {
     }
     const newHash = await bcrypt.hash(newPassword, 10);
     db.run(`UPDATE users SET password = ? WHERE id = ?`, [newHash, req.user.id]);
-    const { saveDb } = require('../db');
     saveDb();
     res.json({ success: true });
   } catch (err) {

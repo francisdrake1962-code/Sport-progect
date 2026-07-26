@@ -138,28 +138,24 @@ describe('Landing Page — Actual HTML Validation', () => {
   });
 
   describe('FAQ Section', () => {
-    test('should have 5 FAQ items using <details> elements', () => {
-      expect(countOccurrences(html, '<details class="faq__item">')).toBe(5);
+    test('should have a faq-list container for dynamic loading', () => {
+      expect(html).toMatch(/id="faq-list"/);
     });
 
-    test('should include question about physical preparation', () => {
-      expect(html).toMatch(/Нужна ли физическая подготовка/);
+    test('should fetch FAQ data from /api/faq', () => {
+      expect(html).toMatch(/fetch\(['"']\/api\/faq['"']\)/);
     });
 
-    test('should include question about injuries', () => {
-      expect(html).toMatch(/травма или ограничение/);
+    test('should render FAQ items using <details> elements via JS', () => {
+      expect(html).toMatch(/<details class="faq__item">/);
     });
 
-    test('should include question about free start', () => {
-      expect(html).toMatch(/Это правда бесплатно/);
+    test('should use esc() for XSS protection in FAQ rendering', () => {
+      expect(html).toMatch(/function esc\(/);
     });
 
-    test('should include question about TV', () => {
-      expect(html).toMatch(/заниматься на телевизоре/);
-    });
-
-    test('should include question about cancellation', () => {
-      expect(html).toMatch(/Как отменить подписку/);
+    test('should have FAQ fetch error handler in script', () => {
+      expect(html).toMatch(/catch\(function/);
     });
   });
 

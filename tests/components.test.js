@@ -84,38 +84,32 @@ describe('Footer Pages — Actual HTML Validation', () => {
     let html;
     beforeAll(() => { html = readPage('faq.html'); });
 
-    test('should use <details> elements', () => {
-      expect(html).toMatch(/<details/i);
+    test('should have a faq-list container for dynamic loading', () => {
+      expect(html).toMatch(/id="faq-list"/);
     });
 
-    test('should have at least 8 FAQ items', () => {
-      const matches = html.match(/<details/gi);
-      expect(matches).toBeTruthy();
-      expect(matches.length).toBeGreaterThanOrEqual(8);
+    test('should show loading placeholder while fetching FAQ', () => {
+      expect(html).toMatch(/Загрузка/);
     });
 
-    test('should include question about free start', () => {
-      expect(html).toMatch(/бесплатно/i);
+    test('should fetch FAQ data from /api/faq', () => {
+      expect(html).toMatch(/fetch\(['"']\/api\/faq['"']\)/);
     });
 
-    test('should include question about physical preparation', () => {
-      expect(html).toMatch(/физическ/i);
+    test('should render FAQ items using <details> elements via JS', () => {
+      expect(html).toMatch(/<details class="faq__item">/);
     });
 
-    test('should include question about beginners', () => {
-      expect(html).toMatch(/новичк/i);
+    test('should use esc() for XSS protection in FAQ rendering', () => {
+      expect(html).toMatch(/function esc\(/);
     });
 
-    test('should include question about health issues', () => {
-      expect(html).toMatch(/здоровь/i);
+    test('should handle FAQ load errors gracefully', () => {
+      expect(html).toMatch(/Не удалось загрузить FAQ/);
     });
 
-    test('should include question about cancellation', () => {
-      expect(html).toMatch(/отмен/i);
-    });
-
-    test('should include question about refunds', () => {
-      expect(html).toMatch(/возврат/i);
+    test('should include CTA block for contacting support', () => {
+      expect(html).toMatch(/Связаться с нами/);
     });
   });
 

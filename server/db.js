@@ -240,6 +240,28 @@ async function getDb() {
     try { db.run(`ALTER TABLE tickets ADD COLUMN assigned_to TEXT`); } catch (_) {}
 
     db.run(`
+      CREATE TABLE IF NOT EXISTS free_lesson_selections (
+        subscriber_id INTEGER NOT NULL,
+        lesson_id INTEGER NOT NULL,
+        selected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (subscriber_id, lesson_id),
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id),
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS device_fingerprints (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fingerprint TEXT NOT NULL,
+        ip_address TEXT,
+        subscriber_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+      )
+    `);
+
+    db.run(`
       CREATE TABLE IF NOT EXISTS workout_feedback (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         subscriber_id INTEGER NOT NULL,

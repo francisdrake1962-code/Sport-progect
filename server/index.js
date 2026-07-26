@@ -12,6 +12,8 @@ const { createCrudRoutes, queryToObjects } = require('./routes/crud');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const { FREE_LIMIT } = userRoutes;
+const { resetMailConfig, sendConfirmationEmail } = require('./services/mailer');
+const { resetStreamConfig, isStreamConfigured: checkStreamConfigured } = require('./services/stream');
 
 const multer = require('multer');
 
@@ -66,8 +68,8 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const sub = req.query.type || 'general';
-    const dir = path.join(uploadsDir, sub);
+    const sub = (req.query.type || 'general').replace(/[^a-zA-Z0-9_-]/g, '');
+    const dir = path.join(uploadsDir, sub || 'general');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -88,8 +90,14 @@ const uploadImage = multer({ storage: imageStorage, fileFilter: imageFilter, lim
 
 app.use('/uploads', express.static(uploadsDir));
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
+app.get('/api/health', async (req, res) => {
+  try {
+    const db = await getDb();
+    const result = db.exec(`SELECT 1`);
+    res.json({ status: 'ok', db: 'ok', timestamp: Date.now() });
+  } catch (err) {
+    res.status(503).json({ status: 'error', db: 'error', timestamp: Date.now() });
+  }
 });
 
 app.get('/api/lessons', async (req, res) => {
@@ -502,8 +510,6 @@ api.post('/settings/test-email', async (req, res) => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email' });
     }
-    const { resetMailConfig } = require('./services/mailer');
-    const { sendConfirmationEmail } = require('./services/mailer');
     resetMailConfig();
     await sendConfirmationEmail(email, 'test-token-' + Date.now());
     res.json({ success: true });
@@ -515,9 +521,8 @@ api.post('/settings/test-email', async (req, res) => {
 
 api.post('/settings/test-stream', async (req, res) => {
   try {
-    const { resetStreamConfig, isStreamConfigured } = require('./services/stream');
     resetStreamConfig();
-    const configured = await isStreamConfigured();
+    const configured = await checkStreamConfigured();
     res.json({ configured });
   } catch (err) {
     console.error(err);
@@ -601,11 +606,14 @@ feedbackRouter.post('/', async (req, res) => {
     const { category, subject, message } = req.body;
     if (!category || !subject || !message) return res.status(400).json({ error: 'category, subject, message required' });
     if (!['trainer', 'technical', 'admin'].includes(category)) return res.status(400).json({ error: 'Invalid category' });
+    const safeSubject = String(subject).trim().slice(0, 200);
+    const safeMessage = String(message).trim().slice(0, 5000);
+    if (!safeSubject || !safeMessage) return res.status(400).json({ error: 'subject and message required' });
     const db = await getDb();
-    db.run(`INSERT INTO tickets (subscriber_id, category, subject) VALUES (?, ?, ?)`, [req.user.id, category, subject]);
+    db.run(`INSERT INTO tickets (subscriber_id, category, subject) VALUES (?, ?, ?)`, [req.user.id, category, safeSubject]);
     const idResult = db.exec(`SELECT last_insert_rowid()`);
     const ticketId = idResult[0].values[0][0];
-    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [ticketId, req.user.id, message]);
+    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [ticketId, req.user.id, safeMessage]);
     saveDb();
     res.json({ success: true, ticketId });
   } catch (err) {
@@ -631,10 +639,14 @@ feedbackRouter.get('/', async (req, res) => {
 feedbackRouter.get('/:id', async (req, res) => {
   try {
     if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({ error: 'Invalid ticket ID' });
+    }
     const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE id = ? AND subscriber_id = ?`, [req.params.id, req.user.id]));
+    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE id = ? AND subscriber_id = ?`, [ticketId, req.user.id]));
     if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [req.params.id]));
+    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [ticketId]));
     res.json({ ...tickets[0], messages });
   } catch (err) {
     console.error(err);
@@ -646,13 +658,17 @@ feedbackRouter.get('/:id', async (req, res) => {
 feedbackRouter.post('/:id/reply', async (req, res) => {
   try {
     if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({ error: 'Invalid ticket ID' });
+    }
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'message required' });
+    if (!message || !message.trim()) return res.status(400).json({ error: 'message required' });
     const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ? AND subscriber_id = ?`, [req.params.id, req.user.id]));
+    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ? AND subscriber_id = ?`, [ticketId, req.user.id]));
     if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [req.params.id, req.user.id, message]);
-    db.run(`UPDATE tickets SET status = 'open' WHERE id = ? AND status = 'resolved'`, [req.params.id]);
+    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [ticketId, req.user.id, message.trim()]);
+    db.run(`UPDATE tickets SET status = 'open' WHERE id = ? AND status = 'resolved'`, [ticketId]);
     saveDb();
     res.json({ success: true });
   } catch (err) {
@@ -687,10 +703,14 @@ api.get('/admin/feedback', async (req, res) => {
 // Admin: get ticket with messages
 api.get('/admin/feedback/:id', async (req, res) => {
   try {
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({ error: 'Invalid ticket ID' });
+    }
     const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT t.*, s.name as subscriber_name, s.email as subscriber_email FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id WHERE t.id = ?`, [req.params.id]));
+    const tickets = queryToObjects(db.exec(`SELECT t.*, s.name as subscriber_name, s.email as subscriber_email FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id WHERE t.id = ?`, [ticketId]));
     if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [req.params.id]));
+    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [ticketId]));
     res.json({ ...tickets[0], messages });
   } catch (err) {
     console.error(err);
@@ -701,14 +721,19 @@ api.get('/admin/feedback/:id', async (req, res) => {
 // Admin: update ticket status/assign
 api.put('/admin/feedback/:id', async (req, res) => {
   try {
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({ error: 'Invalid ticket ID' });
+    }
     const { status, assigned_to } = req.body;
     const db = await getDb();
     if (status) {
       if (!['open', 'in_progress', 'resolved'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
-      db.run(`UPDATE tickets SET status = ? WHERE id = ?`, [status, req.params.id]);
+      db.run(`UPDATE tickets SET status = ? WHERE id = ?`, [status, ticketId]);
     }
     if (assigned_to !== undefined) {
-      db.run(`UPDATE tickets SET assigned_to = ? WHERE id = ?`, [assigned_to, req.params.id]);
+      const safeAssignee = String(assigned_to).trim().slice(0, 100);
+      db.run(`UPDATE tickets SET assigned_to = ? WHERE id = ?`, [safeAssignee, ticketId]);
     }
     saveDb();
     res.json({ success: true });
@@ -721,13 +746,17 @@ api.put('/admin/feedback/:id', async (req, res) => {
 // Admin: reply to ticket
 api.post('/admin/feedback/:id/reply', async (req, res) => {
   try {
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({ error: 'Invalid ticket ID' });
+    }
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'message required' });
+    if (!message || !message.trim()) return res.status(400).json({ error: 'message required' });
     const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ?`, [req.params.id]));
+    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ?`, [ticketId]));
     if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'admin', ?, ?)`, [req.params.id, req.user.id, message]);
-    db.run(`UPDATE tickets SET status = 'in_progress' WHERE id = ? AND status = 'open'`, [req.params.id]);
+    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'admin', ?, ?)`, [ticketId, req.user.id, message.trim()]);
+    db.run(`UPDATE tickets SET status = 'in_progress' WHERE id = ? AND status = 'open'`, [ticketId]);
     saveDb();
     res.json({ success: true });
   } catch (err) {
@@ -793,8 +822,13 @@ app.get('/videos/{*splat}', async (req, res) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const stat = fs.statSync(filePath);
-  const fileSize = stat.size;
+  let fileSize;
+  try {
+    const stat = fs.statSync(filePath);
+    fileSize = stat.size;
+  } catch (e) {
+    return res.status(404).json({ error: 'Video not found' });
+  }
   const range = req.headers.range;
 
   if (range) {
@@ -878,6 +912,16 @@ async function start() {
     console.log(`Admin panel at http://localhost:${PORT}/admin/`);
     console.log(`API at http://localhost:${PORT}/api/`);
   });
+
+  const shutdown = () => {
+    console.log('Shutting down gracefully...');
+    saveDb();
+    server.close(() => { process.exit(0); });
+    setTimeout(() => { process.exit(1); }, 5000);
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
   return server;
 }
 
@@ -980,19 +1024,48 @@ function seedData(db) {
   });
 
   const faq = [
-    ['Это правда бесплатно?', 'Да. Первые 7 занятий вы получаете без привязки карты. Не вводите номер, не привязываете платёж. Просто регистрируетесь и занимаетесь.', 1],
-    ['Нужна ли физическая подготовка?', 'Нет. Все упражнения доступны для людей с любым уровнем подготовки. Занятия рассчитаны на тех, кто только начинает, и включают упрощённые версии для новичков.', 2],
-    ['Подходит ли новичкам?', 'Да, программа специально разработана для людей без опыта. Каждое занятие начинается с объяснения, что и зачем мы делаем. Вы можете начинать с простых упражнений и постепенно усложнять.', 3],
-    ['Если у меня есть проблемы со здоровьем?', 'Перед началом занятий проконсультируйтесь с врачом. Упражнения мягкие и щадящие, но при наличии хронических заболеваний важно получить одобрение специалиста.', 4],
-    ['Сколько времени занимает тренировка?', 'Одно занятие длится примерно 27–31 минут. Это достаточно для полноценной тренировки, но не занимает слишком много времени в распорядке дня.', 5],
-    ['Как часто нужно заниматься?', 'Программа рассчитана на 6 занятий в неделю с одним выходным. Но вы можете заниматься в своём темпе — главное, регулярность важнее интенсивности.', 6],
-    ['Можно ли заниматься сидя?', 'Да, многие упражнения доступны в сидячем положении. Это удобно для тех, кто проводит много времени за компьютером или имеет ограничения в подвижности.', 7],
-    ['Как отменить подписку?', 'Один клик в профиле — без звонков, без обращений в поддержку. Подробнее на странице <a href="/how-to-cancel">Как отменить подписку</a>.', 8],
-    ['Можно ли вернуть деньги?', 'Да. Если вы остались недовольны, мы вернём деньги без лишних вопросов. Подробнее на странице <a href="/refund">Политика возврата</a>.', 9],
-    ['Что такое 8 кусков парчи?', '8 кусков парчи (Ба Дуань Цзин) — древний комплекс из 8 упражнений цигун для укрепления здоровья. Элементы этого комплекса включены в программу занятий. Подробнее на странице <a href="/8-pieces-of-brocade">8 кусков парчи</a>.', 10],
-    ['Можно ли заниматься оффлайн?', 'Нет, все занятия доступны только в режиме онлайн-трансляции из плеера. Это позволяет нам добавлять новые упражнения и обновлять контент.', 11],
-    ['На каких устройствах можно заниматься?', 'Приложение доступно на смартфонах, планшетах и компьютерах через браузер. Также поддерживается трансляция на телевизор прямо из плеера.', 12],
-    ['Как связаться с поддержкой?', 'Если у вас есть вопросы, предложения или возникли проблемы — напишите нам на <a href="mailto:support@qigong-landing.com">support@qigong-landing.com</a> или через страницу <a href="/contact">Связаться с нами</a>. Мы отвечаем в течение рабочего дня.', 13],
+    ['Это правда бесплатно?',
+     'Да. Первые 7 занятий вы получаете без привязки карты. Не вводите номер, не привязываете платёж. Просто регистрируетесь и занимаетесь. Это не пробный период — это реальный доступ к занятиям, чтобы вы могли оценить программу и понять, подходит ли она вам.',
+     1],
+    ['Подходит ли приложение для полных и новичков?',
+     'Да, приложение цигун разработано для всех комплекций, включая полных новичков. Для начала вам не потребуется никакого предварительного опыта, хорошей физической формы или гибкости. Приложение включает понятные пошаговые уроки, которые проведут вас от основ к более сложным упражнениям, позволяя тренироваться в собственном темпе. Многие пользователи начинают всего с 10–20 минут в день и постепенно, со временем, обретают уверенность, силу и спокойствие.',
+     2],
+    ['Нужна ли физическая подготовка?',
+     'Нет. Все упражнения доступны для людей с любым уровнем подготовки. Занятия рассчитаны на тех, кто только начинает, и включают упрощённые версии для новичков. Вы не сможете себя перегрузить — каждое упражнение имеет облегчённый вариант.',
+     3],
+    ['Если у меня есть проблемы со здоровьем?',
+     'Перед началом занятий проконсультируйтесь с врачом. Упражнения мягкие и щадящие, но при наличии хронических заболеваний важно получить одобрение специалиста. Цигун широко используется как дополнение к основному лечению и помогает улучшить общее самочувствие, но не заменяет медицинскую помощь.',
+     4],
+    ['Какие стили цигун вы преподаете?',
+     'В приложении мы обучаем 8 кусков парчи, предлагая как традиционные углублённые упражнения, так и понятные и доступные инструкции. В будущем мы также добавим короткие формы других стилей для поддержки мягкой, плавной практики.\n\nНаши тренировки по цигун включают такие известные комплексы упражнений, как «Восемь кусков парчи», «И Цзинь Цзин» и «Малый небесный круг», которые помогают улучшить здоровье, подвижность и энергию.',
+     5],
+    ['Сколько времени занимает тренировка?',
+     'Одно занятие длится примерно 27–31 минуту. Это достаточно для полноценной тренировки, но не занимает слишком много времени в распорядке дня. Вы можете заниматься утром для бодрости или вечером для расслабления — в любое удобное время.',
+     6],
+    ['Как часто нужно заниматься?',
+     'Программа рассчитана на 6 занятий в неделю с одним выходным. Но вы можете заниматься в своём темпе — главное, регулярность важнее интенсивности. Даже 2–3 занятия в неделю уже дают заметный результат через несколько недель.',
+     7],
+    ['Можно ли заниматься сидя?',
+     'Да, многие упражнения доступны в сидячем положении. Это удобно для тех, кто проводит много времени за компьютером или имеет ограничения в подвижности. Все движения адаптируются — вы сможете заниматься стоя, сидя или даже лёжа в кровати.',
+     8],
+    ['Можно ли заниматься оффлайн?',
+     'Нет, все занятия доступны только в режиме онлайн-трансляции из плеера. Это позволяет нам регулярно добавлять новые упражнения и обновлять контент. Рекомендуем подключиться к Wi-Fi для комфортного просмотра.',
+     9],
+    ['На каких устройствах можно заниматься?',
+     'Приложение доступно на смартфонах, планшетах и компьютерах через браузер. Также поддерживается трансляция на телевизор прямо из плеера — нажмите кнопку «Трансляция на ТВ» в плеере, чтобы перенести картинку на большой экран.',
+     10],
+    ['Как отменить подписку?',
+     'Один клик в профиле — без звонков, без обращений в поддержку. Зайдите в профиль, найдите раздел подписки и нажмите «Отменить». Подробнее на странице <a href="/how-to-cancel">Как отменить подписку</a>.',
+     11],
+    ['Можно ли вернуть деньги?',
+     'Да. Если вы остались недовольны, мы вернём деньги без лишних вопросов. Обратитесь к нам в течение 7 дней после оплаты. Подробнее на странице <a href="/refund">Политика возврата</a>.',
+     12],
+    ['Что такое 8 кусков парчи?',
+     '8 кусков парчи (Ба Дуань Цзин) — древний комплекс из 8 упражнений цигун для укрепления здоровья. Каждое упражнение воздействует на определённую группу мышц и суставов, улучшая гибкость, кровообращение и общее самочувствие. Элементы этого комплекса включены в программу занятий. Подробнее на странице <a href="/8-pieces-of-brocade">8 кусков парчи</a>.',
+     13],
+    ['Как связаться с поддержкой?',
+     'Если у вас есть вопросы, предложения или возникли проблемы — напишите нам на <a href="mailto:support@qigong-landing.com">support@qigong-landing.com</a> или через страницу <a href="/contact">Связаться с нами</a>. Мы отвечаем в течение рабочего дня.',
+     14],
   ];
   faq.forEach(([q, a, order]) => {
     db.run(`INSERT OR IGNORE INTO faq (question, answer, sort_order) VALUES (?, ?, ?)`, [q, a, order]);

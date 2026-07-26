@@ -1,7 +1,7 @@
 # Feature Registry — Qigong Landing + Admin Panel
 
 > Canonical source of truth. Every feature with user story, implementation, tests, and status.
-> Last updated: v3.5.0
+> Last updated: v4.1.0
 
 ---
 
@@ -173,13 +173,13 @@
 |-------|-------|----------|
 | `landing.test.js` | 53 | All landing page sections |
 | `pages.test.js` | 100 | Subscriber pages: structure, content, ARIA |
-| `components.test.js` | 80 | Trust + SEO + Legal pages: structure, content, ARIA |
+| `components.test.js` | 76 | Trust + SEO + Legal pages: structure, content, ARIA |
 | `integrity.test.js` | 126 | CJK leaks, hardcoded tags, video fallback, typos, skip-links |
 | `admin.test.js` | 164 | 14 admin pages: structure, modals, CRUD |
 | `build.test.js` | 13 | File existence, webpack, admin pages |
 | `seo.test.js` | 11 | Meta tags, sitemap, robots.txt |
-| `backend.test.js` | 109 | File structure, db, auth, CRUD, user auth, progress, calendar, free enforcement, video security |
-| **Total** | **656** | |
+| `backend.test.js` | 129 | File structure, db, auth, CRUD, user auth, progress, calendar, free enforcement, video security, health+db, security hardening, feedback flow, FAQ, lessons |
+| **Total** | **674** | |
 
 ---
 
@@ -195,3 +195,11 @@
 | ISSUE-08 | Copyright year 2024 | RESOLVED (v1.3.0) |
 | ISSUE-10 | Chinese text leaks | RESOLVED (v1.5.0) |
 | ISSUE-11 | Duplicate resource tags | RESOLVED (v1.5.0) |
+| ISSUE-12 | Multer directory injection | RESOLVED (v4.1.0) |
+| ISSUE-13 | fs.statSync race condition | RESOLVED (v4.1.0) |
+| ISSUE-14 | CRUD error swallowing | RESOLVED (v4.1.0) |
+| ISSUE-15 | Ticket ID not validated | RESOLVED (v4.1.0) |
+| ISSUE-16 | Inconsistent password requirements | RESOLVED (v4.1.0) |
+| ISSUE-17 | Health check no DB verify | RESOLVED (v4.1.0) |
+| ISSUE-18 | No graceful shutdown | RESOLVED (v4.1.0) |
+| ISSUE-19 | FAQ tests broken (dynamic loading) | RESOLVED (v4.1.0) |

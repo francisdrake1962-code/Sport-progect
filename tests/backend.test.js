@@ -650,3 +650,166 @@ describe('API Integration — Video Security', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('API Integration — Health Check with DB', () => {
+  test('GET /api/health should verify DB connectivity', async () => {
+    const res = await apiRequest('GET', '/api/health');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+    expect(res.body.db).toBe('ok');
+  });
+});
+
+describe('API Integration — Security Hardening', () => {
+  let subToken;
+
+  beforeAll(async () => {
+    const login = await apiRequest('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    subToken = login.body.token;
+  });
+
+  test('ticket creation should reject empty subject', async () => {
+    const res = await apiRequest('POST', '/api/feedback', { category: 'technical', subject: '', message: 'test' }, subToken);
+    expect(res.status).toBe(400);
+  });
+
+  test('ticket creation should reject empty message', async () => {
+    const res = await apiRequest('POST', '/api/feedback', { category: 'technical', subject: 'test', message: '' }, subToken);
+    expect(res.status).toBe(400);
+  });
+
+  test('ticket GET with invalid ID should return 400', async () => {
+    const res = await apiRequest('GET', '/api/feedback/abc', null, subToken);
+    expect(res.status).toBe(400);
+  });
+
+  test('ticket POST reply with invalid ID should return 400', async () => {
+    const res = await apiRequest('POST', '/api/feedback/abc/reply', { message: 'test' }, subToken);
+    expect(res.status).toBe(400);
+  });
+
+  test('subscriber password change should require 8 characters', async () => {
+    const res = await apiRequest('PUT', '/api/user/me', {
+      current_password: 'password123',
+      new_password: 'short'
+    }, subToken);
+    expect(res.status).toBe(400);
+  });
+
+  test('watch-progress should clamp negative position_seconds to 0', async () => {
+    const res = await apiRequest('POST', '/api/user/watch-progress', {
+      lesson_id: 2, position_seconds: -100, completed: false
+    }, subToken);
+    expect(res.status).toBe(200);
+  });
+
+  test('watch-progress should clamp huge position_seconds to max', async () => {
+    const res = await apiRequest('POST', '/api/user/watch-progress', {
+      lesson_id: 3, position_seconds: 999999, completed: false
+    }, subToken);
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('API Integration — Feedback Ticket Flow', () => {
+  let subToken;
+  let adminToken;
+
+  beforeAll(async () => {
+    const subLogin = await apiRequest('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    subToken = subLogin.body.token;
+    const adminLogin = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    adminToken = adminLogin.body.token;
+  });
+
+  test('subscriber can create ticket', async () => {
+    const res = await apiRequest('POST', '/api/feedback', {
+      category: 'technical', subject: 'Test issue', message: 'Something broke'
+    }, subToken);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.ticketId).toBeDefined();
+  });
+
+  test('subscriber can list tickets', async () => {
+    const res = await apiRequest('GET', '/api/feedback', null, subToken);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test('admin can list all tickets', async () => {
+    const res = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test('admin can reply to ticket', async () => {
+    const list = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
+    if (list.body.length > 0) {
+      const ticketId = list.body[0].id;
+      const res = await apiRequest('POST', `/api/admin/feedback/${ticketId}/reply`, {
+        message: 'We are looking into this'
+      }, adminToken);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    }
+  });
+
+  test('admin can update ticket status', async () => {
+    const list = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
+    if (list.body.length > 0) {
+      const ticketId = list.body[0].id;
+      const res = await apiRequest('PUT', `/api/admin/feedback/${ticketId}`, {
+        status: 'in_progress'
+      }, adminToken);
+      expect(res.status).toBe(200);
+    }
+  });
+});
+
+describe('API Integration — FAQ Public Endpoint', () => {
+  test('GET /api/faq should return array', async () => {
+    const res = await apiRequest('GET', '/api/faq');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/faq items should have question and answer', async () => {
+    const res = await apiRequest('GET', '/api/faq');
+    expect(res.body[0]).toHaveProperty('question');
+    expect(res.body[0]).toHaveProperty('answer');
+  });
+});
+
+describe('API Integration — Lessons Public Endpoints', () => {
+  test('GET /api/lessons should return active lessons', async () => {
+    const res = await apiRequest('GET', '/api/lessons');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/lessons/:id should return single lesson', async () => {
+    const res = await apiRequest('GET', '/api/lessons/1');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('title');
+  });
+
+  test('GET /api/lessons/:id should return 404 for nonexistent', async () => {
+    const res = await apiRequest('GET', '/api/lessons/99999');
+    expect(res.status).toBe(404);
+  });
+
+  test('GET /api/complexes should return array', async () => {
+    const res = await apiRequest('GET', '/api/complexes');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test('GET /api/reviews should return array', async () => {
+    const res = await apiRequest('GET', '/api/reviews');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+});

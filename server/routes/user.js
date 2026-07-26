@@ -155,8 +155,8 @@ router.put('/me', authMiddleware, async (req, res) => {
       if (!valid) {
         return res.status(401).json({ error: 'Wrong current password' });
       }
-      if (new_password.length < 6) {
-        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      if (new_password.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters' });
       }
       const hash = await bcrypt.hash(new_password, 10);
       db.run(`UPDATE subscribers SET password = ? WHERE id = ?`, [hash, req.user.id]);
@@ -240,6 +240,7 @@ router.post('/watch-progress', authMiddleware, async (req, res) => {
     if (!Number.isInteger(lessonId) || lessonId <= 0) {
       return res.status(400).json({ error: 'Invalid lesson_id' });
     }
+    const posSec = Math.max(0, Math.min(Number(position_seconds) || 0, 86400));
     const db = await getDb();
 
     const alreadyCompleted = db.exec(
@@ -251,7 +252,7 @@ router.post('/watch-progress', authMiddleware, async (req, res) => {
     db.run(
       `INSERT INTO watched_lessons (subscriber_id, lesson_id, position_seconds, completed) VALUES (?, ?, ?, ?)
        ON CONFLICT(subscriber_id, lesson_id) DO UPDATE SET position_seconds=?, completed=?, watched_at=CURRENT_TIMESTAMP`,
-      [req.user.id, lessonId, position_seconds || 0, completed ? 1 : 0, position_seconds || 0, completed ? 1 : 0]
+      [req.user.id, lessonId, posSec, completed ? 1 : 0, posSec, completed ? 1 : 0]
     );
     if (completed && !wasAlreadyCompleted) {
       const lessonResult = db.exec(`SELECT is_free FROM lessons WHERE id = ?`, [lessonId]);
@@ -354,7 +355,13 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
       return res.json({ allowed: false, reason: 'limit_reached', freeUsed, freeLimit: FREE_LIMIT });
     }
 
-    return res.json({ allowed: true, reason: 'trial', freeUsed, freeLimit: FREE_LIMIT });
+    const selCheck = db.exec(
+      `SELECT 1 FROM free_lesson_selections WHERE subscriber_id = ? AND lesson_id = ?`,
+      [req.user.id, lessonId]
+    );
+    const isSelected = selCheck.length && selCheck[0].values.length > 0;
+
+    return res.json({ allowed: true, reason: isSelected ? 'selected_free' : 'trial', freeUsed, freeLimit: FREE_LIMIT });
   } catch (err) {
     res.status(500).json({ error: 'Access check failed' });
   }
@@ -414,19 +421,18 @@ router.get('/calendar', authMiddleware, async (req, res) => {
     const db = await getDb();
     const scheduleResult = db.exec(`SELECT s.date, s.theme, s.lesson_id, l.title, l.duration, l.is_free
       FROM schedule s LEFT JOIN lessons l ON s.lesson_id = l.id ORDER BY s.date`);
-    const progressResult = db.exec(`SELECT lesson_id, completed, position_seconds FROM watched_lessons WHERE subscriber_id = ?`, [req.user.id]);
+    const progressResult = db.exec(`SELECT lesson_id, completed, position_seconds, watched_at FROM watched_lessons WHERE subscriber_id = ?`, [req.user.id]);
     const userResult = db.exec(`SELECT subscription_started_at, free_sessions_used, plan, status FROM subscribers WHERE id = ?`, [req.user.id]);
 
     const progress = {};
     if (progressResult.length) {
       progressResult[0].values.forEach(r => {
-        progress[r[0]] = { completed: r[1], position_seconds: r[2] };
+        progress[r[0]] = { completed: r[1], position_seconds: r[2], watched_at: r[3] };
       });
     }
 
     const schedule = scheduleResult.length ? scheduleResult[0].values.map(r => ({
       date: r[0], theme: r[1], lesson_id: r[2], title: r[3], duration: r[4], is_free: r[5],
-      watched: progress[r[2]] || null,
     })) : [];
 
     const user = userResult.length && userResult[0].values.length ? {
@@ -436,10 +442,55 @@ router.get('/calendar', authMiddleware, async (req, res) => {
       status: userResult[0].values[0][3],
     } : {};
 
-    const totalDays = schedule.length;
-    const completedDays = schedule.filter(s => s.watched && s.watched.completed).length;
+    const subStart = user.subscription_started_at ? new Date(user.subscription_started_at.split(' ')[0]) : null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    res.json({ schedule, user, totalDays, completedDays });
+    let personalSchedule = [];
+    let totalDays = 0;
+    let completedDays = 0;
+
+    if (subStart && schedule.length) {
+      subStart.setHours(0, 0, 0, 0);
+      const diffMs = today.getTime() - subStart.getTime();
+      const daysSinceStart = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const lookAhead = 90;
+      const startDay = Math.max(0, daysSinceStart - 30);
+
+      for (let i = startDay; i <= daysSinceStart + lookAhead; i++) {
+        const d = new Date(subStart);
+        d.setDate(d.getDate() + i);
+        const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const scheduleIdx = i % schedule.length;
+        const sched = schedule[scheduleIdx];
+        const watched = progress[sched.lesson_id] || null;
+        const dayNum = i + 1;
+        personalSchedule.push({
+          date: dateStr,
+          day_number: dayNum,
+          theme: sched.theme,
+          lesson_id: sched.lesson_id,
+          title: sched.title,
+          duration: sched.duration,
+          is_free: sched.is_free,
+          watched: watched,
+          is_past: i < daysSinceStart,
+          is_today: i === daysSinceStart,
+          is_future: i > daysSinceStart,
+        });
+        totalDays++;
+        if (watched && watched.completed) completedDays++;
+      }
+    } else {
+      personalSchedule = schedule.map(s => ({
+        ...s, day_number: 0, watched: progress[s.lesson_id] || null,
+        is_past: false, is_today: false, is_future: false,
+      }));
+      totalDays = schedule.length;
+      completedDays = personalSchedule.filter(s => s.watched && s.watched.completed).length;
+    }
+
+    res.json({ schedule: personalSchedule, user, totalDays, completedDays });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load calendar' });
   }
@@ -712,6 +763,82 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
     res.json({ user, lastWatched, completedCount, todaySchedule, schedule, lessonCount, zoneCount, programs });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load dashboard' });
+  }
+});
+
+/* ── Free Lesson Selection (trial users pick 7 lessons) ── */
+
+router.get('/free-selections', authMiddleware, async (req, res) => {
+  try {
+    const db = await getDb();
+    const result = db.exec(
+      `SELECT fls.lesson_id, l.title, l.duration, l.description, l.video_url, l.is_free
+       FROM free_lesson_selections fls
+       JOIN lessons l ON fls.lesson_id = l.id
+       WHERE fls.subscriber_id = ? ORDER BY fls.selected_at`,
+      [req.user.id]
+    );
+    const selections = result.length ? result[0].values.map(r => ({
+      lesson_id: r[0], title: r[1], duration: r[2], description: r[3], video_url: r[4], is_free: r[5],
+    })) : [];
+    res.json({ selections, limit: FREE_LIMIT });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load selections' });
+  }
+});
+
+router.post('/free-selections', authMiddleware, async (req, res) => {
+  try {
+    const { lesson_ids } = req.body;
+    if (!Array.isArray(lesson_ids)) {
+      return res.status(400).json({ error: 'lesson_ids must be an array' });
+    }
+    if (lesson_ids.length > FREE_LIMIT) {
+      return res.status(400).json({ error: 'Maximum ' + FREE_LIMIT + ' lessons allowed' });
+    }
+    const db = await getDb();
+    const userResult = db.exec(`SELECT plan FROM subscribers WHERE id = ?`, [req.user.id]);
+    const plan = userResult.length && userResult[0].values.length ? userResult[0].values[0][0] : 'trial';
+    if (plan === 'annual' || plan === 'monthly') {
+      return res.status(400).json({ error: 'Subscribers with active plans do not need selections' });
+    }
+    const validIds = lesson_ids.map(Number).filter(id => Number.isInteger(id) && id > 0);
+    db.run(`DELETE FROM free_lesson_selections WHERE subscriber_id = ?`, [req.user.id]);
+    for (const lessonId of validIds) {
+      db.run(
+        `INSERT OR IGNORE INTO free_lesson_selections (subscriber_id, lesson_id) VALUES (?, ?)`,
+        [req.user.id, lessonId]
+      );
+    }
+    saveDb();
+    res.json({ success: true, count: validIds.length, limit: FREE_LIMIT });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save selections' });
+  }
+});
+
+/* ── Device Fingerprint (anti-abuse) ── */
+
+router.post('/fingerprint', authMiddleware, async (req, res) => {
+  try {
+    const { fingerprint, ip } = req.body;
+    if (!fingerprint) return res.status(400).json({ error: 'fingerprint required' });
+    const db = await getDb();
+    const ipAddr = ip || req.ip || req.connection.remoteAddress || '';
+    db.run(
+      `INSERT INTO device_fingerprints (fingerprint, ip_address, subscriber_id) VALUES (?, ?, ?)`,
+      [fingerprint, ipAddr, req.user.id]
+    );
+    const dupCount = db.exec(
+      `SELECT COUNT(DISTINCT subscriber_id) FROM device_fingerprints
+       WHERE fingerprint = ? OR ip_address = ?`,
+      [fingerprint, ipAddr]
+    );
+    const accountsCount = dupCount.length && dupCount[0].values.length ? dupCount[0].values[0][0] : 1;
+    saveDb();
+    res.json({ success: true, accountsFromThisDevice: accountsCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save fingerprint' });
   }
 });
 

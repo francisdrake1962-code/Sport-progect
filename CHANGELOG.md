@@ -4,7 +4,33 @@
 
 ---
 
-## [3.5.0] - 2026-07-25
+## [4.1.0] - 2026-07-26
+
+### Fixed — Адвокат дьявола, Раунд 1 (28 исправлений)
+
+- **CRITICAL:** Исправлены 8 сломанных тестов (FAQ переключён на динамическую загрузку через `/api/faq`, тесты проверяли статический HTML)
+- **HIGH:** Multer directory injection — `req.query.type` санитизируется (только `[a-zA-Z0-9_-]`), предотвращает запись файлов за пределы uploads/
+- **HIGH:** `fs.statSync` race condition — обёрнут в try/catch для корректной обработки удаления файла между проверкой существования и получением размера
+- **MEDIUM:** Health check `/api/health` теперь проверяет подключение к БД (возвращает `db: 'ok'` или 503 с `db: 'error'`)
+- **MEDIUM:** Все CRUD обработчики (`crud.js`) теперь логируют ошибки через `console.error` вместо молчаливого проглатывания
+- **MEDIUM:** Ticket routes — `req.params.id` конвертируется в `Number` с валидацией (все 6 хендлеров: subscriber GET, subscriber reply, admin GET, admin PUT, admin reply)
+- **MEDIUM:** Ticket subject/message — добавлены лимиты длины (subject: 200, message: 5000 символов)
+- **MEDIUM:** `assigned_to` — санитизируется (trim + limit 100 символов)
+- **MEDIUM:** `position_seconds` — валидация диапазона [0, 86400], отрицательные и экстремальные значения clamped
+- **LOW:** Длина пароля подписчика — повышена с 6 до 8 символов (согласовано с регистрацией)
+- **LOW:** `require()` внутри request handlers вынесен на верхний уровень модуля (`index.js`, `routes/auth.js`)
+- **LOW:** Добавлен graceful shutdown (SIGTERM/SIGINT) — `saveDb()` перед выходом
+- **LOW:** Subscriber ticket reply — `message` проверяется на `trim()` (пустые сообщения отклоняются)
+
+### Changed
+
+- `package.json` version → 4.1.0
+- Тесты: **674/674** (8 сьютов) — +20 новых интеграционных тестов
+- Новые тест-сьюты: Health Check with DB, Security Hardening, Feedback Ticket Flow, FAQ Public Endpoint, Lessons Public Endpoints
+
+---
+
+## [4.0.0] - 2026-07-25
 
 ### Added
 
@@ -253,3 +279,5 @@
 - CSP настроен с `unsafe-inline` (нужно вынести inline JS в bundle)
 - Нет пагинации на CRUD эндпоинтах
 - JWT_SECRET генерируется случайно при каждом рестарте
+- Нет rate limiting на watch-progress и admin CRUD
+- saveDb() non-atomic (truncate + write) — приемлемо для MVP

@@ -30,6 +30,7 @@ function createCrudRoutes(tableName, fields) {
       const result = db.exec(`SELECT * FROM ${tableName} ORDER BY id DESC`);
       res.json(queryToObjects(result));
     } catch (err) {
+      console.error(`CRUD GET ${tableName}:`, err.message);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -46,6 +47,7 @@ function createCrudRoutes(tableName, fields) {
       if (items.length === 0) return res.status(404).json({ error: 'Not found' });
       res.json(items[0]);
     } catch (err) {
+      console.error(`CRUD GET ${tableName} by id:`, err.message);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -69,6 +71,7 @@ function createCrudRoutes(tableName, fields) {
       saveDb();
       res.status(201).json({ success: true });
     } catch (err) {
+      console.error(`CRUD POST ${tableName}:`, err.message);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -92,6 +95,7 @@ function createCrudRoutes(tableName, fields) {
       if (items.length === 0) return res.status(404).json({ error: 'Not found' });
       res.json(items[0]);
     } catch (err) {
+      console.error(`CRUD PUT ${tableName}:`, err.message);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -107,6 +111,7 @@ function createCrudRoutes(tableName, fields) {
       saveDb();
       res.json({ success: true });
     } catch (err) {
+      console.error(`CRUD DELETE ${tableName}:`, err.message);
       res.status(500).json({ error: 'Internal server error' });
     }
   });

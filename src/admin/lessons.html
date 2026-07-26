@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
+    <meta name="robots" content="index, nofollow">
     <title>Уроки — Админ-панель</title>
     <link rel="stylesheet" href="css/admin.css">
     <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
@@ -19,7 +19,6 @@
             <div class="modal__body">
                 <input type="hidden" id="edit-id">
                 <div class="form-group"><label for="f-title">Название</label><input type="text" class="form-control" id="f-title"></div>
-                <div class="form-group"><label for="f-complex">Комплекс</label><select class="form-control" id="f-complex"></select></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
                     <div class="form-group"><label for="f-duration">Длительность (мин)</label><input type="number" class="form-control" id="f-duration" value="27"></div>
                     <div class="form-group"><label for="f-status">Статус</label><select class="form-control" id="f-status"><option value="active">Активен</option><option value="draft">Черновик</option></select></div>
@@ -53,6 +52,13 @@
                 <div class="form-group"><label for="f-description">Описание</label><textarea class="form-control" id="f-description"></textarea></div>
                 <div class="form-group"><label for="f-video-url">URL видео</label><input type="text" class="form-control" id="f-video-url" placeholder="/videos/filename.mp4"></div>
                 <div class="form-group"><label for="f-cf-uid">Cloudflare Stream UID</label><input type="text" class="form-control" id="f-cf-uid" placeholder="cf-video-uid (опционально)"></div>
+                <div class="form-group">
+                    <label>Картинка</label>
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
+                        <input type="file" id="f-image" accept=".jpg,.jpeg,.png,.webp" style="font-size:0.85rem;">
+                        <img id="f-image-preview" src="" alt="" style="display:none;max-height:60px;border-radius:4px;">
+                    </div>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
                     <div class="form-group"><label for="f-is-free">Бесплатный</label><select class="form-control" id="f-is-free"><option value="0">Нет</option><option value="1">Да (Module 0)</option></select></div>
                     <div class="form-group"><label for="f-free-order">Порядок бесплатного</label><input type="number" class="form-control" id="f-free-order" placeholder="1-7" min="1" max="7"></div>
@@ -68,48 +74,35 @@
     <script src="js/api.js"></script>
     <script src="js/admin.js"></script>
     <script>
-    let allComplexes = [];
-
     async function loadLessons() {
         if (!localStorage.getItem('admin_token')) { window.location.href = 'login.html'; return; }
         document.getElementById('app').innerHTML = getSidebar('lessons.html') + `
             <div class="main-content">
-                ${getTopbar('Уроки')}
+                ${getTopbar('Уроки (справочник)')}
                 <div class="page-content"><div class="card">
-                    <div class="card__header"><h2 class="card__title">Все уроки</h2><button class="btn btn--primary" data-modal-open="modal-lesson" onclick="openCreate()">+ Новый урок</button></div>
-                    <div class="table-wrapper"><table><caption>Список уроков</caption><thead><tr><th>ID</th><th>Название</th><th>Направление</th><th>Комплекс</th><th>Длительность</th><th>Статус</th><th>Дата</th><th>Действия</th></tr></thead>
+                    <div class="card__header"><h2 class="card__title">Все занятия</h2><button class="btn btn--primary" data-modal-open="modal-lesson" onclick="openCreate()">+ Новый урок</button></div>
+                    <div class="table-wrapper"><table><caption>Справочник занятий</caption><thead><tr><th>ID</th><th>Название</th><th>Направление</th><th>Длительность</th><th>Зоны</th><th>Статус</th><th>Дата</th><th>Действия</th></tr></thead>
                     <tbody id="lessons-tbody"></tbody></table></div>
                 </div></div>
             </div>`;
 
         try {
-            const [lessons, complexes] = await Promise.all([
-                window.api.get('/api/lessons'),
-                window.api.get('/api/complexes'),
-            ]);
+            const lessons = await window.api.get('/api/lessons');
             if (!lessons) return;
-            allComplexes = complexes || [];
-            const complexMap = {};
-            allComplexes.forEach(c => { complexMap[c.id] = c.name; });
 
             const tbody = document.getElementById('lessons-tbody');
             tbody.innerHTML = lessons.map(l => {
-                const cid = l.complex_id;
-                const cName = esc(complexMap[cid] || '—');
                 const dirLabel = l.direction === 'суставная_разминка' ? 'Разминка' : l.direction === 'занятие_в_потоке' ? 'Поток' : '—';
                 const dirBadge = l.direction === 'суставная_разминка' ? 'info' : l.direction === 'занятие_в_потоке' ? 'warning' : 'secondary';
                 return `<tr>
-                    <td>${esc(l.id)}</td><td>${esc(l.title)}</td><td><span class="badge badge--${dirBadge}">${dirLabel}</span></td><td>${cName}</td>
-                    <td>${esc(l.duration)} мин</td><td>${statusBadge(l.status)}</td><td>${formatDate(l.date)}</td>
+                    <td>${esc(l.id)}</td><td>${esc(l.title)}</td><td><span class="badge badge--${dirBadge}">${dirLabel}</span></td>
+                    <td>${esc(l.duration)} мин</td><td>—</td><td>${statusBadge(l.status)}</td><td>${formatDate(l.date)}</td>
                     <td>
                         <button class="btn btn--secondary btn--sm" data-edit='${esc(JSON.stringify(l))}' onclick="openEdit(this)" aria-label="Редактировать ${esc(l.title)}">Редактировать</button>
                         <button class="btn btn--danger btn--sm" onclick="deleteLesson(${parseInt(l.id)})" aria-label="Удалить ${esc(l.title)}">Удалить</button>
                     </td>
                 </tr>`;
             }).join('');
-
-            const complexSelect = document.getElementById('f-complex');
-            complexSelect.innerHTML = allComplexes.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
         } catch (err) {
             document.getElementById('app').innerHTML += `<p style="color:var(--admin-danger);padding:1rem;">Ошибка: ${esc(err.message)}</p>`;
         }
@@ -119,7 +112,6 @@
         document.getElementById('modal-title').textContent = 'Новый урок';
         document.getElementById('edit-id').value = '';
         document.getElementById('f-title').value = '';
-        document.getElementById('f-complex').value = '';
         document.getElementById('f-duration').value = 27;
         document.getElementById('f-status').value = 'active';
         document.getElementById('f-description').value = '';
@@ -130,6 +122,8 @@
         document.getElementById('f-effect').value = '';
         document.getElementById('f-effect-is-draft').value = '0';
         document.getElementById('f-draft-badge').style.display = 'none';
+        document.getElementById('f-image').value = '';
+        document.getElementById('f-image-preview').style.display = 'none';
         document.querySelectorAll('input[name="f-direction"]').forEach(r => r.checked = false);
         document.querySelectorAll('#f-zones input[type="checkbox"]').forEach(c => c.checked = false);
         document.getElementById('modal-lesson').classList.add('is-open');
@@ -140,7 +134,6 @@
         document.getElementById('modal-title').textContent = 'Редактировать урок';
         document.getElementById('edit-id').value = lesson.id;
         document.getElementById('f-title').value = lesson.title;
-        document.getElementById('f-complex').value = lesson.complex_id || '';
         document.getElementById('f-duration').value = lesson.duration;
         document.getElementById('f-status').value = lesson.status;
         document.getElementById('f-description').value = lesson.description || '';
@@ -151,6 +144,10 @@
         document.getElementById('f-effect').value = lesson.effect_description || '';
         document.getElementById('f-effect-is-draft').value = String(lesson.effect_is_draft || 0);
         document.getElementById('f-draft-badge').style.display = lesson.effect_is_draft ? 'block' : 'none';
+
+        const preview = document.getElementById('f-image-preview');
+        if (lesson.image_url) { preview.src = lesson.image_url; preview.style.display = 'block'; }
+        else { preview.style.display = 'none'; }
 
         document.querySelectorAll('input[name="f-direction"]').forEach(r => {
             r.checked = r.value === lesson.direction;
@@ -175,7 +172,6 @@
         const directionEl = document.querySelector('input[name="f-direction"]:checked');
         const data = {
             title: document.getElementById('f-title').value,
-            complex_id: parseInt(document.getElementById('f-complex').value) || null,
             duration: parseInt(document.getElementById('f-duration').value),
             status: document.getElementById('f-status').value,
             description: document.getElementById('f-description').value,
@@ -189,6 +185,19 @@
             effect_is_draft: parseInt(document.getElementById('f-effect-is-draft').value) || 0,
         };
         const selectedZones = Array.from(document.querySelectorAll('#f-zones input[type="checkbox"]:checked')).map(c => c.value);
+
+        const imageFile = document.getElementById('f-image').files[0];
+        if (imageFile) {
+            const fd = new FormData();
+            fd.append('file', imageFile);
+            try {
+                const token = localStorage.getItem('admin_token');
+                const uploadRes = await fetch('/api/upload?type=lessons', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
+                const uploadData = await uploadRes.json();
+                if (uploadData.url) data.image_url = uploadData.url;
+            } catch (_) {}
+        }
+
         if (!id) {
             const d = new Date();
             data.date = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');

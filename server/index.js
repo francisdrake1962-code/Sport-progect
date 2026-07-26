@@ -13,6 +13,8 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const { FREE_LIMIT } = userRoutes;
 
+const multer = require('multer');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
@@ -59,6 +61,33 @@ app.use(express.static(path.join(__dirname, '..', 'dist'), {
   }
 }));
 
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const imageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const sub = req.query.type || 'general';
+    const dir = path.join(uploadsDir, sub);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    const safeName = Date.now() + '_' + Math.random().toString(36).slice(2, 8) + ext;
+    cb(null, safeName);
+  }
+});
+
+const imageFilter = (req, file, cb) => {
+  const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  cb(null, allowed.includes(ext));
+};
+
+const uploadImage = multer({ storage: imageStorage, fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+
+app.use('/uploads', express.static(uploadsDir));
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
@@ -66,7 +95,23 @@ app.get('/api/health', (req, res) => {
 app.get('/api/lessons', async (req, res) => {
   try {
     const db = await getDb();
-    const result = db.exec(`SELECT * FROM lessons WHERE status = 'active' ORDER BY date DESC`);
+    const result = db.exec(`SELECT id, title, duration, status, description, video_url, cf_video_uid, image_url, is_free, free_order, date, tags, direction, effect_description FROM lessons WHERE status = 'active' ORDER BY date DESC`);
+    res.json(queryToObjects(result));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/lessons/featured', async (req, res) => {
+  try {
+    const db = await getDb();
+    const limit = parseInt(req.query.limit) || 10;
+    const result = db.exec(
+      `SELECT id, title, duration, image_url, effect_description, direction
+       FROM lessons WHERE status = 'active' AND image_url IS NOT NULL
+       ORDER BY date DESC LIMIT ?`, [limit]
+    );
     res.json(queryToObjects(result));
   } catch (err) {
     console.error(err);
@@ -90,7 +135,11 @@ app.get('/api/lessons/:id', async (req, res) => {
 app.get('/api/complexes', async (req, res) => {
   try {
     const db = await getDb();
-    const result = db.exec(`SELECT * FROM complexes ORDER BY id`);
+    const result = db.exec(
+      `SELECT c.id, c.name, c.description, c.image_url, c.status, COUNT(cl.lesson_id) as lesson_count
+       FROM complexes c LEFT JOIN complex_lessons cl ON cl.complex_id = c.id
+       GROUP BY c.id ORDER BY c.id`
+    );
     res.json(queryToObjects(result));
   } catch (err) {
     console.error(err);
@@ -104,6 +153,12 @@ app.get('/api/complexes/:id', async (req, res) => {
     const result = db.exec(`SELECT * FROM complexes WHERE id = ?`, [Number(req.params.id)]);
     const items = queryToObjects(result);
     if (items.length === 0) return res.status(404).json({ error: 'Not found' });
+    const lessonsResult = db.exec(
+      `SELECT l.id, l.title, l.duration, l.image_url, l.effect_description, cl.position
+       FROM complex_lessons cl JOIN lessons l ON cl.lesson_id = l.id
+       WHERE cl.complex_id = ? ORDER BY cl.position`, [Number(req.params.id)]
+    );
+    items[0].lessons = queryToObjects(lessonsResult);
     res.json(items[0]);
   } catch (err) {
     console.error(err);
@@ -161,8 +216,61 @@ api.use((req, res, next) => {
   next();
 });
 
-api.use('/lessons', createCrudRoutes('lessons', ['title', 'complex_id', 'duration', 'status', 'description', 'video_url', 'cf_video_uid', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft']));
-api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'status']));
+api.use('/lessons', createCrudRoutes('lessons', ['title', 'duration', 'status', 'description', 'video_url', 'cf_video_uid', 'image_url', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft']));
+api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'image_url', 'status']));
+
+// complex_lessons — custom routes (composite PK)
+api.get('/complex-lessons', async (req, res) => {
+  try {
+    const db = await getDb();
+    const result = db.exec(`SELECT complex_id, lesson_id, position FROM complex_lessons ORDER BY complex_id, position`);
+    res.json(queryToObjects(result));
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+api.post('/complex-lessons', async (req, res) => {
+  try {
+    const { complex_id, lesson_id, position } = req.body;
+    if (!complex_id || !lesson_id) return res.status(400).json({ error: 'complex_id and lesson_id required' });
+    const db = await getDb();
+    db.run(`INSERT OR REPLACE INTO complex_lessons (complex_id, lesson_id, position) VALUES (?, ?, ?)`,
+      [complex_id, lesson_id, position || 0]);
+    saveDb();
+    res.status(201).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+api.put('/complex-lessons/:key', async (req, res) => {
+  try {
+    const [complexId, lessonId] = req.params.key.split('_').map(Number);
+    if (!complexId || !lessonId) return res.status(400).json({ error: 'Invalid key' });
+    const { position } = req.body;
+    const db = await getDb();
+    db.run(`UPDATE complex_lessons SET position = ? WHERE complex_id = ? AND lesson_id = ?`,
+      [position || 0, complexId, lessonId]);
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+api.delete('/complex-lessons/:key', async (req, res) => {
+  try {
+    const [complexId, lessonId] = req.params.key.split('_').map(Number);
+    if (!complexId || !lessonId) return res.status(400).json({ error: 'Invalid key' });
+    const db = await getDb();
+    db.run(`DELETE FROM complex_lessons WHERE complex_id = ? AND lesson_id = ?`, [complexId, lessonId]);
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 api.use('/subscribers', createCrudRoutes('subscribers', ['name', 'email', 'plan', 'status', 'email_confirmed', 'free_sessions_used', 'subscription_started_at', 'next_billing_date']));
 api.use('/reviews', createCrudRoutes('reviews', ['author', 'text', 'rating', 'status', 'date']));
 api.use('/faq', createCrudRoutes('faq', ['question', 'answer', 'sort_order']));
@@ -434,6 +542,17 @@ api.post('/upload-trainer-photo', (req, res) => {
     const buffer = Buffer.from(data, 'base64');
     fs.writeFileSync(path.join(uploadDir, safeName), buffer);
     res.json({ success: true, url: '/images/trainers/' + safeName });
+  } catch (err) {
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+api.post('/upload', uploadImage.single('file'), (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded or invalid format' });
+    const sub = req.query.type || 'general';
+    const url = '/uploads/' + sub + '/' + req.file.filename;
+    res.json({ success: true, url });
   } catch (err) {
     res.status(500).json({ error: 'Upload failed' });
   }
@@ -757,20 +876,31 @@ function seedData(db) {
   });
 
   const lessons = [
-    ['Утренняя разминка шеи', 1, 27, 'active', '2026-07-21', '/videos/11 ИЮНЯ. 2025 СУСТАВНАЯ РАЗМИНКА-1784275001698.mp4', 1, 1, '["шея","осанка","энергия"]', 'суставная_разминка', 'заголовок', 'Разминка шейного отдела позвоночника, улучшение кровообращения'],
-    ['Поясница и бёдра', 4, 31, 'active', '2026-07-20', '/videos/СУСТАВНАЯ РАЗМИНКА С ЭЛЕМЕНТАМИ ДЫХАТЕЛЬНОЙ ГИМНАСТИКИ 08.01.2026-cut-merged-1784283601063.mp4', 1, 2, '["поясница","баланс","снятие стресса"]', 'суставная_разминка', 'заголовок', 'Проработка поясничного отдела и тазобедренных суставов'],
-    ['Баланс и координация', 2, 29, 'active', '2026-07-19', '/videos/13 ИЮЛЯ 2026. ЗАНЯТИЕ В ПОТОКЕ++-cut-merged-1784297859174.mp4', 1, 3, '["ноги","баланс","поток"]', 'занятие_в_потоке', 'заголовок', 'Развитие чувства равновесия и координации движений'],
-    ['Дыхательная практика', 3, 28, 'draft', '2026-07-18', '/videos/11 ИЮНЯ. 2025 СУСТАВНАЯ РАЗМИНКА + ЭЛЕМЕНТЫ ДЫХАТЕЛЬНОЙ ГИМНАСТИКИ-cut-merged-1784275001698.mp4', 1, 4, '["дыхание","снятие стресса"]', 'занятие_в_потоке', 'описание_неточно', 'Дыхательные упражнения для расслабления'],
-    ['Разминка суставов рук', 1, 25, 'active', '2026-07-17', '/videos/Зарядка 01.04.2022 ТРЕНИРОВКА «ПОТОК» IMG_8063-cut-merged-1784527616383.MP4', 1, 5, '["осанка","энергия"]', 'суставная_разминка', 'заголовок', 'Разминка плечевых и локтевых суставов'],
-    ['Разминка коленей', 3, 22, 'active', '2026-07-16', '/videos/23 ноября 2023-cut-merged-1784279743390+.MP4', 1, 6, '["ноги","баланс"]', 'суставная_разминка', 'заголовок', 'Бережная разминка коленных суставов'],
-    ['Здоровая спина', 4, 30, 'active', '2026-07-15', '/videos/14 июля 2026 Суставная разминка-cut-merged-1784303384816.MOV', 1, 7, '["поясница","осанка","снятие стресса"]', 'суставная_разминка', 'заголовок', 'Комплекс для укрепления мышц спины'],
-    ['Утренняя энергия', 1, 28, 'active', '2026-07-14', '/videos/11 ИЮНЯ. 2025 СУСТАВНАЯ РАЗМИНКА-1784275001698.mp4', 0, null, '["энергия","дыхание"]', 'суставная_разминка', 'нет_данных', null],
-    ['Вечернее расслабление', 2, 26, 'active', '2026-07-13', '/videos/СУСТАВНАЯ РАЗМИНКА С ЭЛЕМЕНТАМИ ДЫХАТЕЛЬНОЙ ГИМНАСТИКИ 08.01.2026-cut-merged-1784283601063.mp4', 0, null, '["снятие стресса","дыхание","поток"]', 'занятие_в_потоке', 'нет_данных', null],
-    ['Крепкий корпус', 3, 33, 'active', '2026-07-12', '/videos/13 ИЮЛЯ 2026. ЗАНЯТИЕ В ПОТОКЕ++-cut-merged-1784297859174.mp4', 0, null, '["поясница","осанка","энергия"]', 'суставная_разминка', 'нет_данных', null],
+    ['Утренняя разминка шеи', 27, 'active', '2026-07-21', '/videos/11 ИЮНЯ. 2025 СУСТАВНАЯ РАЗМИНКА-1784275001698.mp4', 1, 1, '["шея","осанка","энергия"]', 'суставная_разминка', 'заголовок', 'Разминка шейного отдела позвоночника, улучшение кровообращения'],
+    ['Поясница и бёдра', 31, 'active', '2026-07-20', '/videos/СУСТАВНАЯ РАЗМИНКА С ЭЛЕМЕНТАМИ ДЫХАТЕЛЬНОЙ ГИМНАСТИКИ 08.01.2026-cut-merged-1784283601063.mp4', 1, 2, '["поясница","баланс","снятие стресса"]', 'суставная_разминка', 'заголовок', 'Проработка поясничного отдела и тазобедренных суставов'],
+    ['Баланс и координация', 29, 'active', '2026-07-19', '/videos/13 ИЮЛЯ 2026. ЗАНЯТИЕ В ПОТОКЕ++-cut-merged-1784297859174.mp4', 1, 3, '["ноги","баланс","поток"]', 'занятие_в_потоке', 'заголовок', 'Развитие чувства равновесия и координации движений'],
+    ['Дыхательная практика', 28, 'draft', '2026-07-18', '/videos/11 ИЮНЯ. 2025 СУСТАВНАЯ РАЗМИНКА + ЭЛЕМЕНТЫ ДЫХАТЕЛЬНОЙ ГИМНАСТИКИ-cut-merged-1784275001698.mp4', 1, 4, '["дыхание","снятие стресса"]', 'занятие_в_потоке', 'описание_неточно', 'Дыхательные упражнения для расслабления'],
+    ['Разминка суставов рук', 25, 'active', '2026-07-17', '/videos/Зарядка 01.04.2022 ТРЕНИРОВКА «ПОТОК» IMG_8063-cut-merged-1784527616383.MP4', 1, 5, '["осанка","энергия"]', 'суставная_разминка', 'заголовок', 'Разминка плечевых и локтевых суставов'],
+    ['Разминка коленей', 22, 'active', '2026-07-16', '/videos/23 ноября 2023-cut-merged-1784279743390+.MP4', 1, 6, '["ноги","баланс"]', 'суставная_разминка', 'заголовок', 'Бережная разминка коленных суставов'],
+    ['Здоровая спина', 30, 'active', '2026-07-15', '/videos/14 июля 2026 Суставная разминка-cut-merged-1784303384816.MOV', 1, 7, '["поясница","осанка","снятие стресса"]', 'суставная_разминка', 'заголовок', 'Комплекс для укрепления мышц спины'],
+    ['Утренняя энергия', 28, 'active', '2026-07-14', '/videos/11 ИЮНЯ. 2025 СУСТАВНАЯ РАЗМИНКА-1784275001698.mp4', 0, null, '["энергия","дыхание"]', 'суставная_разминка', 'нет_данных', null],
+    ['Вечернее расслабление', 26, 'active', '2026-07-13', '/videos/СУСТАВНАЯ РАЗМИНКА С ЭЛЕМЕНТАМИ ДЫХАТЕЛЬНОЙ ГИМНАСТИКИ 08.01.2026-cut-merged-1784283601063.mp4', 0, null, '["снятие стресса","дыхание","поток"]', 'занятие_в_потоке', 'нет_данных', null],
+    ['Крепкий корпус', 33, 'active', '2026-07-12', '/videos/13 ИЮЛЯ 2026. ЗАНЯТИЕ В ПОТОКЕ++-cut-merged-1784297859174.mp4', 0, null, '["поясница","осанка","энергия"]', 'суставная_разминка', 'нет_данных', null],
   ];
-  lessons.forEach(([title, cid, dur, status, date, video, isFree, freeOrder, tags, direction, dirSource, effectDesc]) => {
-    db.run(`INSERT OR IGNORE INTO lessons (title, complex_id, duration, status, date, video_url, is_free, free_order, tags, direction, direction_source, effect_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, cid, dur, status, date, video, isFree, freeOrder, tags || '[]', direction, dirSource, effectDesc]);
+  lessons.forEach(([title, dur, status, date, video, isFree, freeOrder, tags, direction, dirSource, effectDesc]) => {
+    db.run(`INSERT OR IGNORE INTO lessons (title, duration, status, date, video_url, is_free, free_order, tags, direction, direction_source, effect_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, dur, status, date, video, isFree, freeOrder, tags || '[]', direction, dirSource, effectDesc]);
+  });
+
+  const complexLessons = [
+    [1, 1, 1], [1, 5, 2], [1, 8, 3],
+    [2, 3, 1], [2, 9, 2],
+    [3, 4, 1], [3, 6, 2], [3, 10, 3],
+    [4, 2, 1], [4, 7, 2],
+  ];
+  complexLessons.forEach(([complexId, lessonId, position]) => {
+    db.run(`INSERT OR IGNORE INTO complex_lessons (complex_id, lesson_id, position) VALUES (?, ?, ?)`,
+      [complexId, lessonId, position]);
   });
 
   const lessonZones = [

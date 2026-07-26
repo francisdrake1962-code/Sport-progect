@@ -449,15 +449,15 @@ router.get('/lessons-filter', authMiddleware, async (req, res) => {
   try {
     const db = await getDb();
     const { zone, mood, duration } = req.query;
-    let query = `SELECT l.id, l.title, l.duration, l.description, l.video_url, l.cf_video_uid, l.is_free, l.tags, l.complex_id, l.direction, l.effect_description FROM lessons l WHERE l.status = 'active'`;
+    let query = `SELECT l.id, l.title, l.duration, l.description, l.video_url, l.cf_video_uid, l.is_free, l.tags, l.direction, l.effect_description FROM lessons l WHERE l.status = 'active'`;
     const params = [];
     const result = db.exec(query, params);
     if (!result.length) return res.json([]);
     let lessons = result[0].values.map(row => ({
       id: row[0], title: row[1], duration: row[2], description: row[3],
       video_url: row[4], cf_video_uid: row[5], is_free: row[6],
-      tags: JSON.parse(row[7] || '[]'), complex_id: row[8],
-      direction: row[9], effect_description: row[10],
+      tags: JSON.parse(row[7] || '[]'),
+      direction: row[8], effect_description: row[9],
     }));
 
     if (zone) {
@@ -700,12 +700,13 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
     const zoneCount = zoneCounts.length ? zoneCounts[0].values.length : 0;
 
     const programsResult = db.exec(
-      `SELECT c.id, c.name, c.description, COUNT(DISTINCT l.id) as lesson_count
-       FROM complexes c LEFT JOIN lessons l ON l.complex_id = c.id AND l.status = 'active'
+      `SELECT c.id, c.name, c.description, c.image_url, COUNT(DISTINCT cl.lesson_id) as lesson_count
+       FROM complexes c LEFT JOIN complex_lessons cl ON cl.complex_id = c.id
+       LEFT JOIN lessons l ON cl.lesson_id = l.id AND l.status = 'active'
        GROUP BY c.id ORDER BY lesson_count DESC`
     );
     const programs = programsResult.length ? programsResult[0].values.map(r => ({
-      id: r[0], name: r[1], description: r[2], lesson_count: r[3],
+      id: r[0], name: r[1], description: r[2], image_url: r[3], lesson_count: r[4],
     })) : [];
 
     res.json({ user, lastWatched, completedCount, todaySchedule, schedule, lessonCount, zoneCount, programs });

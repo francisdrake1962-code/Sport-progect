@@ -40,32 +40,46 @@ async function getDb() {
     `);
 
     db.run(`
+      CREATE TABLE IF NOT EXISTS complexes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        image_url TEXT,
+        status TEXT DEFAULT 'active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    db.run(`
       CREATE TABLE IF NOT EXISTS lessons (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        complex_id INTEGER,
         duration INTEGER DEFAULT 27,
         status TEXT DEFAULT 'active',
         description TEXT,
         video_url TEXT,
         cf_video_uid TEXT,
-        exercise_ids TEXT,
+        image_url TEXT,
         is_free INTEGER DEFAULT 0,
         free_order INTEGER,
         date TEXT,
         tags TEXT DEFAULT '[]',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (complex_id) REFERENCES complexes(id)
+        direction TEXT,
+        direction_source TEXT DEFAULT 'нет_данных',
+        effect_description TEXT,
+        effect_is_draft INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     db.run(`
-      CREATE TABLE IF NOT EXISTS complexes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        description TEXT,
-        status TEXT DEFAULT 'active',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE IF NOT EXISTS complex_lessons (
+        complex_id INTEGER NOT NULL,
+        lesson_id INTEGER NOT NULL,
+        position INTEGER DEFAULT 0,
+        PRIMARY KEY (complex_id, lesson_id),
+        FOREIGN KEY (complex_id) REFERENCES complexes(id),
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
       )
     `);
 
@@ -189,13 +203,6 @@ async function getDb() {
         value TEXT
       )
     `);
-
-    try { db.run(`ALTER TABLE lessons ADD COLUMN cf_video_uid TEXT`); } catch (_) {}
-    try { db.run(`ALTER TABLE lessons ADD COLUMN tags TEXT DEFAULT '[]'`); } catch (_) {}
-    try { db.run(`ALTER TABLE lessons ADD COLUMN direction TEXT CHECK(direction IN ('суставная_разминка','занятие_в_потоке'))`); } catch (_) {}
-    try { db.run(`ALTER TABLE lessons ADD COLUMN direction_source TEXT DEFAULT 'нет_данных' CHECK(direction_source IN ('заголовок','описание_неточно','нет_данных'))`); } catch (_) {}
-    try { db.run(`ALTER TABLE lessons ADD COLUMN effect_description TEXT`); } catch (_) {}
-    try { db.run(`ALTER TABLE lessons ADD COLUMN effect_is_draft INTEGER DEFAULT 0`); } catch (_) {}
 
     db.run(`
       CREATE TABLE IF NOT EXISTS lesson_zones (

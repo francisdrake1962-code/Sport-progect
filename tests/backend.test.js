@@ -741,7 +741,9 @@ describe('API Integration — Feedback Ticket Flow', () => {
   test('subscriber can list tickets', async () => {
     const res = await apiRequest('GET', '/api/feedback', null, subToken);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toBeDefined();
   });
 
   test('admin can list all tickets', async () => {

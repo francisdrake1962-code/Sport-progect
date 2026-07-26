@@ -6,7 +6,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
-const { getDb, saveDb, transaction } = require('./db');
+const { getDb, saveDb, transaction, cleanupBlocklist } = require('./db');
 const { authMiddleware, JWT_SECRET } = require('./auth');
 const { createCrudRoutes, queryToObjects } = require('./routes/crud');
 const authRoutes = require('./routes/auth');
@@ -676,9 +676,16 @@ feedbackRouter.post('/', async (req, res) => {
 feedbackRouter.get('/', async (req, res) => {
   try {
     if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const { page, limit } = parsePagination(req.query);
     const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE subscriber_id = ? ORDER BY created_at DESC`, [req.user.id]));
-    res.json(tickets);
+    const offset = (page - 1) * limit;
+    const countResult = db.exec(`SELECT COUNT(*) FROM tickets WHERE subscriber_id = ?`, [req.user.id]);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE subscriber_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, [req.user.id, limit, offset]));
+    res.json({
+      data: tickets,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -1249,7 +1256,8 @@ async function checkSubscriptions() {
 if (require.main === module) {
   start().then(() => {
     checkSubscriptions();
-    setInterval(checkSubscriptions, 6 * 60 * 60 * 1000);
+    cleanupBlocklist();
+    setInterval(() => { checkSubscriptions(); cleanupBlocklist(); }, 6 * 60 * 60 * 1000);
   }).catch(console.error);
 }
 

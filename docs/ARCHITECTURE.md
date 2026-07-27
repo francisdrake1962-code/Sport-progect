@@ -7,7 +7,7 @@
 **Ключевые возможности:**
 - Каталог видеоуроков с фильтрацией по зонам тела, настроению и длительности
 - Персональное расписание и календарь занятий
-- Система подписок: бесплатный пробный период (7 уроков), ежемесячная и годовая подписки
+- Система подписок: бесплатный пробный период (7 уроков), Stripe ежемесячная и годовая подписки с автопродлением
 - Обратная связь (тикеты) между подписчиками и администрацией
 - Рекомендательная система на основе предпочтений и настроения
 - Версионирование контента уроков
@@ -41,19 +41,19 @@
 │  └──────────────┘ └──────────────┘                     │
 ├─────────────────────────────────────────────────────────┤
 │                      Routes                             │
-│  ┌──────────┐ ┌──────────┐ ┌─────────────────────────┐ │
-│  │  auth.js │ │  user.js │ │  crud.js (generic CRUD) │ │
-│  └──────────┘ └──────────┘ └─────────────────────────┘ │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────────────┐ │
+│  │  auth.js │ │  user.js │ │payment.js│ │  crud.js (generic)  │ │
+│  └──────────┘ └──────────┘ └──────────┘ └─────────────────────┘ │
 │  Inline routes в index.js (уроки, расписание, настройки)│
 │  Feedback router (тикеты)                               │
 ├─────────────────────────────────────────────────────────┤
 │                     Services                            │
-│  ┌──────────────┐ ┌───────────────┐ ┌───────────────┐  │
-│  │ auth.service │ │analytics.svc  │ │ feedback.svc  │  │
-│  │ progress.svc │ │ dashboard.svc │ │ recommendation│  │
-│  │ content-ver. │ │ schedule.svc  │ │  mailer.js    │  │
-│  │ audit.svc    │ │ stream.js     │ │               │  │
-│  └──────────────┘ └───────────────┘ └───────────────┘  │
+│  ┌──────────────────┐ ┌───────────────────┐ ┌───────────────┐  │
+│  │ auth.service.js  │ │analytics.svc.js   │ │feedback.svc   │  │
+│  │ progress.svc.js  │ │dashboard.svc.js   │ │recommendation │  │
+│  │ content-ver.svc  │ │schedule.svc.js    │ │  mailer.js    │  │
+│  │ audit.svc.js     │ │stream.js          │ │payment.svc.js │  │
+│  └──────────────────┘ └───────────────────┘ └───────────────┘  │
 ├─────────────────────────────────────────────────────────┤
 │                   Repositories                          │
 │  ┌───────────────────┐ ┌─────────────────────────────┐  │
@@ -194,6 +194,17 @@
 | Загрузка фото тренера | `POST /api/upload-trainer-photo` | `index.js` (api) | — | — | файловая система |
 | **Серверная доставка видео** | | | | | |
 | Потоковая передача | `GET /videos/:filename` | `index.js` | jwt.verify | — | `lessons`, `subscribers` |
+| **Оплата (Payment)** | | | | | |
+| Планы подписок | `GET /api/payment/plans` | `routes/payment.js` | — | — | `settings` |
+| Checkout-сессия | `POST /api/payment/create` | `routes/payment.js` | `paymentService.createCheckoutSession` | — | `subscribers` |
+| Статус платежа | `GET /api/payment/status` | `routes/payment.js` | `paymentService.getPaymentStatus` | — | `payments` |
+| Статус подписки | `GET /api/payment/subscription` | `routes/payment.js` | `paymentService.getSubscriptionStatus` | — | `subscribers` |
+| Отмена подписки | `POST /api/payment/cancel` | `routes/payment.js` | `paymentService.cancelSubscription` | — | `subscribers` |
+| Stripe webhook | `POST /api/payment/webhook` | `routes/payment.js` | `paymentService.handleWebhookEvent` | — | `payments`, `subscribers`, `payment_events` |
+| Ручные выдачи | `GET /api/payment/admin/grants` | `routes/payment.js` | `paymentService.getAdminGrants` | — | `manual_access_grants` |
+| Выдать доступ | `POST /api/payment/admin/grant` | `routes/payment.js` | `paymentService.adminGrantAccess` | — | `manual_access_grants`, `subscribers` |
+| Отозвать доступ | `POST /api/payment/admin/revoke` | `routes/payment.js` | `paymentService.adminRevokeAccess` | — | `manual_access_grants`, `subscribers` |
+| История платежей | `GET /api/payment/admin/history` | `routes/payment.js` | `paymentService.getPaymentHistory` | — | `payments` |
 | **Health / Readiness** | | | | | |
 | Health check | `GET /api/health` | `index.js` (inline) | — | — | — |
 | Readiness check | `GET /api/ready` | `index.js` (inline) | — | — | — |
@@ -236,7 +247,10 @@
 │ subscription_started │      │  complex_lessons     │
 │ next_billing_date    │      ├──────────────────────┤
 │ joined_at            │      │ complex_id (FK→complexes) │
-└──────┬───────────────┘      │ lesson_id (FK→lessons)    │
+│ subscription_expires_at     │ lesson_id (FK→lessons)    │
+│ stripe_customer_id   │      │ position              │
+│ stripe_subscription_id│     └──────────┬────────────┘
+└──────┬───────────────┘                 │
        │                      │ position              │
        │                      └──────────┬────────────┘
        │                                 │
@@ -343,6 +357,24 @@
 │ description          │  │ name (UNIQUE)        │
 │ created_at           │  │ applied_at           │
 └──────────────────────┘  └──────────────────────┘
+
+┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+│     payments         │  │   payment_events     │  │ manual_access_grants │
+├──────────────────────┤  ├──────────────────────┤  ├──────────────────────┤
+│ id (PK)              │  │ id (PK)              │  │ id (PK)              │
+│ subscriber_id (FK)   │  │ event_id (UNIQUE)    │  │ admin_id             │
+│ amount               │  │ event_type           │  │ subscriber_id (FK)   │
+│ currency             │  │ payload              │  │ action               │
+│ status               │  │ processed_at         │  │ reason               │
+│ provider             │  └──────────────────────┘  │ expires_at           │
+│ provider_checkout_id │                            │ created_at           │
+│ provider_payment_id  │                            └──────────────────────┘
+│ provider_customer_id │
+│ plan                 │
+│ paid_at              │
+│ failure_reason       │
+│ created_at           │
+└──────────────────────┘
 ```
 
 ### Индексы
@@ -360,6 +392,11 @@
 | `analytics_events` | `idx_analytics_entity` | `entity`, `entity_id` |
 | `lesson_versions` | `idx_lesson_versions_lesson` | `lesson_id` |
 | `lesson_versions` | `idx_lesson_versions_version` | `lesson_id`, `version` |
+| `payments` | `idx_payments_subscriber` | `subscriber_id` |
+| `payments` | `idx_payments_status` | `status` |
+| `payments` | `idx_payments_created` | `created_at` |
+| `manual_access_grants` | `idx_manual_grants_subscriber` | `subscriber_id` |
+| `manual_access_grants` | `idx_manual_grants_created` | `created_at` |
 
 ### Валидные зоны уроков
 
@@ -643,6 +680,7 @@ server/
 ├── routes/
 │   ├── auth.js                 # Admin auth (login, logout, password)
 │   ├── user.js                 # Subscriber auth, profile, progress, calendar
+│   ├── payment.js              # Stripe оплата, подписки, webhook
 │   └── crud.js                 # Generic CRUD-роутер для таблиц
 ├── services/
 │   ├── auth.service.js         # Логика аутентификации admin/subscriber
@@ -655,6 +693,7 @@ server/
 │   ├── progress.service.js     # Прогресс просмотра, профиль
 │   ├── recommendation.service.js # Рекомендательная система
 │   ├── schedule.service.js     # Расписание, персональный таймлайн
+│   ├── payment.service.js      # Stripe: Checkout, webhook, подписки
 │   └── stream.js               # Cloudflare Stream интеграция
 ├── repositories/
 │   ├── base.repository.js      # Generic Repository (CRUD + query)

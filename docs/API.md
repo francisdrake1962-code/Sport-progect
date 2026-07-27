@@ -20,7 +20,8 @@
 10. [Админ-панель (Admin)](#10-админ-панель-admin)
 11. [Обратная связь (Feedback / Tickets)](#11-обратная-связь-feedback--tickets)
 12. [Видеоплеер (Video)](#12-видеоплеер-video)
-13. [Сводная таблица всех эндпоинтов](#13-сводная-таблица-всех-эндпоинтов)
+13. [Оплата (Payment)](#13-оплата-payment)
+14. [Сводная таблица всех эндпоинтов](#14-сводная-таблица-всех-эндпоинтов)
 
 ---
 
@@ -939,7 +940,186 @@ Content-Type: video/mp4
 
 ---
 
-## 13. Сводная таблица всех эндпоинтов
+## 13. Оплата (Payment)
+
+Stripe recurring подписки. Модуль оплаты предоставляет создание подписок через Stripe Checkout, обработку вебхуков и управление доступом подписчиков.
+
+### Планы подписки
+
+| ID | Название | Цена | Интервал | Особенности |
+|---|---|---|---|---|
+| `monthly` | Ежемесячная | $12/мес | month | Полный доступ, календарь, прогресс |
+| `annual` | Годовая | $89/год | year | То же + экономия 38% |
+
+### GET /api/payment/plans
+
+Получить доступные планы подписки. **Публичный эндпоинт.**
+
+```http
+GET /api/payment/plans
+```
+
+**Ответ 200:**
+```json
+{
+  "plans": [
+    {
+      "id": "monthly",
+      "name": "Ежемесячная",
+      "price": 12,
+      "currency": "usd",
+      "interval": "month",
+      "features": ["Полный доступ ко всем занятиям", "Персональный календарь", "Прогресс и рекомендации"]
+    },
+    {
+      "id": "annual",
+      "name": "Годовая",
+      "price": 89,
+      "currency": "usd",
+      "interval": "year",
+      "features": ["...", "Экономия 38%"],
+      "popular": true
+    }
+  ]
+}
+```
+
+### POST /api/payment/create
+
+Создать сессию Stripe Checkout для оплаты подписки.
+
+```http
+POST /api/payment/create
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "plan": "monthly" }
+```
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `plan` | string | да | `"monthly"` или `"annual"` |
+
+**Ответ 200:** URL редиректа на Stripe Checkout.
+**Ошибки:** `400` — невалидный план, `401` — нет токена, `500` — Stripe не настроен.
+
+### GET /api/payment/status
+
+Последний статус платежа текущего пользователя.
+
+```http
+GET /api/payment/status
+Authorization: Bearer <token>
+```
+
+**Ответ 200:** Информация о последнем платеже или `{ status: 'none' }`.
+
+### GET /api/payment/subscription
+
+Текущий статус подписки пользователя.
+
+```http
+GET /api/payment/subscription
+Authorization: Bearer <token>
+```
+
+**Ответ 200:**
+```json
+{
+  "plan": "monthly",
+  "status": "active",
+  "active": true,
+  "expires_at": "2026-08-27T00:00:00Z"
+}
+```
+
+### POST /api/payment/cancel
+
+Отменить подписку (действует до конца оплаченного периода).
+
+```http
+POST /api/payment/cancel
+Authorization: Bearer <token>
+```
+
+**Ответ 200:** Подписка отменена, доступ сохраняется до `expires_at`.
+**Ошибки:** `500` — Stripe не настроен или нет `stripe_subscription_id`.
+
+### POST /api/payment/webhook
+
+Stripe webhook endpoint. **Внешний эндпоинт, без JWT.** Тело запроса — raw body (не JSON middleware).
+
+```http
+POST /api/payment/webhook
+Stripe-Signature: t=...,v1=...
+Content-Type: application/json
+```
+
+**Обрабатываемые события:**
+- `checkout.session.completed` — активация подписки, обновление `subscription_expires_at`
+- `customer.subscription.updated` — обновление статуса
+- `customer.subscription.deleted` — деактивация
+- `invoice.payment_failed` — уведомление о неудачном платеже
+
+**Идемпотентность:** Каждый `event_id` записывается в `payment_events`. Повторные вызовы игнорируются.
+
+### GET /api/payment/admin/grants
+
+Список ручных выдач/отзывов доступа (admin).
+
+```http
+GET /api/payment/admin/grants?page=1&limit=20
+Authorization: Bearer <admin-token>
+```
+
+### POST /api/payment/admin/grant
+
+Выдать ручной доступ подписчику (admin).
+
+```http
+POST /api/payment/admin/grant
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "subscriber_id": 3,
+  "reason": "Промо-доступ",
+  "expires_at": "2026-12-31T23:59:59Z"
+}
+```
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `subscriber_id` | integer | да | ID подписчика |
+| `expires_at` | string | да | Дата окончания доступа (ISO 8601) |
+| `reason` | string | нет | Причина выдачи |
+
+**Важно:** Ручная выдача НЕ перезаписывается вебхуками Stripe.
+
+### POST /api/payment/admin/revoke
+
+Отозвать доступ подписчика (admin).
+
+```http
+POST /api/payment/admin/revoke
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{ "subscriber_id": 3, "reason": "Нарушение" }
+```
+
+### GET /api/payment/admin/history
+
+История платежей (admin).
+
+```http
+GET /api/payment/admin/history?page=1&limit=20
+Authorization: Bearer <admin-token>
+```
+
+---
+
+## 14. Сводная таблица всех эндпоинтов
 
 | # | Метод | Путь | Auth | Роль | Описание |
 |---|-------|------|------|------|----------|
@@ -1014,6 +1194,16 @@ Content-Type: video/mp4
 | 69 | GET | `/api/feedback/:id` | JWT | subscriber | Тикет с сообщениями |
 | 70 | POST | `/api/feedback/:id/reply` | JWT | subscriber | Ответить в тикет |
 | 71 | GET | `/videos/:filename` | JWT | any | Видеопоток (Range + JWT) |
+| 72 | GET | `/api/payment/plans` | Нет | — | Планы подписок |
+| 73 | POST | `/api/payment/create` | JWT | subscriber | Создать Checkout-сессию |
+| 74 | GET | `/api/payment/status` | JWT | subscriber | Статус платежа |
+| 75 | GET | `/api/payment/subscription` | JWT | subscriber | Статус подписки |
+| 76 | POST | `/api/payment/cancel` | JWT | subscriber | Отмена подписки |
+| 77 | POST | `/api/payment/webhook` | Нет | — | Stripe webhook |
+| 78 | GET | `/api/payment/admin/grants` | JWT | admin | Список ручных выдач |
+| 79 | POST | `/api/payment/admin/grant` | JWT | admin | Выдать доступ |
+| 80 | POST | `/api/payment/admin/revoke` | JWT | admin | Отозвать доступ |
+| 81 | GET | `/api/payment/admin/history` | JWT | admin | История платежей |
 
 ---
 
@@ -1033,3 +1223,7 @@ Content-Type: video/mp4
 | `CF_STREAM_CUSTOMER_CODE` | — | Cloudflare Stream customer code |
 | `CF_STREAM_SIGNING_KEY_ID` | — | Cloudflare Stream signing key ID |
 | `CF_STREAM_SIGNING_KEY` | — | Cloudflare Stream signing key |
+| `STRIPE_SECRET_KEY` | — | Stripe secret API key |
+| `STRIPE_WEBHOOK_SECRET` | — | Stripe webhook signing secret |
+| `STRIPE_MONTHLY_PRICE_ID` | — | Stripe Price ID для ежемесячного плана |
+| `STRIPE_ANNUAL_PRICE_ID` | — | Stripe Price ID для годового плана |

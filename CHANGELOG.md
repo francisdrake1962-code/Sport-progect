@@ -4,7 +4,45 @@
 
 ---
 
-## [5.3.0] - 2026-07-27
+## [5.4.0] - 2026-07-27
+
+### Added — Phase 4: Production Hardening
+
+#### CI/CD Pipeline
+- `.github/workflows/ci.yml` — GitHub Actions: lint + test (Node 18+20 matrix) + build
+- `eslint.config.js` — ESLint flat config, 0 errors, 65 warnings (unused vars)
+- `package.json` — added `lint` / `lint:fix` scripts, version bumped to 5.4.0
+
+#### Audit Logging
+- `audit_log` table — action, entity, entity_id, user_id, user_role, details (JSON), ip_address, created_at
+- `server/services/audit.service.js` — `logAction()` + `getAuditLogs()` with entity/user/action filters
+- Automatic audit logging in `crud.js` for all CRUD tables (create/update/delete)
+- Manual audit logging in `index.js` for settings, complex-lessons, admin feedback routes
+- `GET /api/admin/audit-logs` — paginated, filterable by entity, user_id, action
+
+#### GDPR Compliance
+- `GET /api/user/data-export` — subscriber data export (profile, watched lessons, workout feedback, tickets, free selections, preferences)
+- `DELETE /api/user/account` — account anonymization (PII scrubbed, status set to 'deleted')
+
+#### Monitoring
+- `GET /api/health/detailed` — admin-only: uptime, memory usage, entity counts, DB size, node version
+- Basic `/api/health` remains public and unauthenticated
+
+#### Backup & Restore
+- `POST /api/admin/backup` — timestamped DB copy to `data/backups/` + audit log entry
+- `POST /api/admin/restore` — restore from backup file (path traversal protection: restricted to backup directory)
+
+### Fixed
+- `feedback.service.js` `closeTicket()` — added missing ticketId validation (was passing raw string to SQL)
+- `repositories/index.js` — added missing `saveDb` import (complex-lessons POST/PUT/DELETE were failing with 500)
+- `feedback.service.js` — fixed circular dependency (moved `queryToObjects` to `helpers/db-utils.js`)
+
+### Stats
+- 715/715 tests passing
+- 0 lint errors, 65 warnings
+- Версия: 5.3.0 → 5.4.0
+
+---
 
 ### Changed — Phase 3 Route Wiring (Steps 1-3)
 

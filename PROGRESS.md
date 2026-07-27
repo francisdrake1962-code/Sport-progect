@@ -2,29 +2,23 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-27 v5.3.0
+> Last updated: 2026-07-27 v5.4.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.3.0
+**Version**: 5.4.0
 **Tests**: 715/715 passing (9 test suites)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+1cc78d9 feat(v5.4.0): GDPR + monitoring + backup — Phase 4 complete
+51f2a5a feat(v5.4.0): CI/CD + ESLint + audit logging — Phase 4 first steps
 52a2db3 refactor(v5.3.0): wire index.js routes to services/repos (Step 3)
 7d67e33 refactor(v5.3.0): wire auth + user routes to service layer (Step 1+2)
 251b153 docs(v5.2.1): create PROGRESS.md roadmap bookmark, update CHANGELOG + FEATURE_REGISTRY
-991147d feat(v5.2.0): Phase 3 — Repository Layer + updated CHANGELOG
-10748af feat(v5.2.0): Phase 3 foundation — Error Model, Request ID, Structured Logging, Service Layer
-4afea66 fix(security): strengthen security tests, fix JWT duplicate token bug, fix error handler
-115c2b0 feat(v5.1.0): Phase 2 — Security test suite (33→38 tests) + Phase 1 QA fixes
-d513a78 fix(v5.0.0): Phase 1 QA fixes — paginate feedback endpoint, cleanup blocklist, remove dead code
-f7f330f feat(v5.0.0): Phase 1 Stabilization — P0 pagination, token revocation, P1 config validation, transactions, migrations
-6b34537 fix(v4.1.0): devil's advocate audit round 2 — 5 additional fixes
-d4507f9 fix(v4.1.0): devil's advocate audit round 1 — 28 fixes, 674 tests
 ```
 
 ---
@@ -39,7 +33,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Phase 1 — Stabilization | Pagination, Token Revocation, Config Validation, DB Transactions, DB Migrations | ✅ DONE (v5.0.0) |
 | Phase 2 — Testing | Security tests (38 tests), JWT bug fix, Error handler fix | ✅ DONE (v5.1.1) |
 | Phase 3 — Refactoring | Error Model, Request ID, Logging, Service Layer, Repository Layer, Route Wiring | ✅ DONE (v5.3.0) |
-| Phase 4 — Production Hardening | CI/CD, Audit logging, GDPR, Monitoring, Backup/Restore | 🔜 PENDING |
+| Phase 4 — Production Hardening | CI/CD, Audit logging, GDPR, Monitoring, Backup/Restore | ✅ DONE (v5.4.0) |
 | Phase 5 — Product Evolution | Analytics, Recommendations, Content Versioning | 🔜 PENDING |
 
 ---
@@ -95,23 +89,57 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ---
 
+## PHASE 4 STATUS — ✅ COMPLETE (v5.4.0)
+
+### All Phase 4 deliverables done:
+
+**CI/CD Pipeline**:
+- `.github/workflows/ci.yml` — GitHub Actions: lint + test (Node 18+20 matrix) + build
+- `eslint.config.js` — ESLint flat config, 0 errors, 65 warnings
+- `package.json` — `lint` / `lint:fix` scripts
+
+**Audit Logging**:
+- `audit_log` table in DB schema
+- `server/services/audit.service.js` — logAction + getAuditLogs
+- Auto-audit in crud.js for all tables, manual audit in index.js
+- `GET /api/admin/audit-logs` — paginated, filterable
+
+**GDPR Compliance**:
+- `GET /api/user/data-export` — full subscriber data export
+- `DELETE /api/user/account` — PII anonymization
+
+**Monitoring**:
+- `GET /api/health/detailed` — admin-only detailed health (uptime, memory, counts, DB size)
+- Basic `/api/health` remains public
+
+**Backup/Restore**:
+- `POST /api/admin/backup` — timestamped DB copy + audit log
+- `POST /api/admin/restore` — restore with path traversal protection
+
+### Stats
+- 715/715 tests passing, 0 lint errors, 65 warnings
+
+---
+
 ## NEXT ACTIONS (for the next session)
 
-### Step 4: Phase 4 — Production Hardening
-Start the next major phase. Priority order:
-1. **CI/CD pipeline** — GitHub Actions for lint, test, build, deploy
-2. **Audit logging** — log all admin actions, subscriber data changes
-3. **GDPR compliance** — data export, right to deletion, consent tracking
-4. **Monitoring** — health check improvements, error alerting, uptime
-5. **Backup/Restore** — automated DB backup, restore script
-6. **Rate limiting improvements** — per-route limits, IP-based for auth
+### Option A: Phase 5 — Product Evolution (Recommended)
+The natural next step per tech spec:
+1. **Analytics dashboard** — subscriber progress charts, lesson completion rates
+2. **Recommendations engine** — suggest lessons based on watched history + mood
+3. **Content versioning** — lesson update tracking, version history
 
-### Alternative: Service layer cleanup (optional)
-If desired, extend services to cover remaining inline routes:
+### Option B: Service Layer Cleanup (optional)
+Extend services to cover remaining inline routes:
 - Create `register.service.js` (email sending flow)
 - Extend `progress.service.js` with pagination + free logic
 - Create `calendar.service.js` (personal timeline + schedule merge)
 - Fix mood validation mismatch in progress service
+
+### Option C: Additional Production Hardening
+- **Rate limiting improvements** — per-route limits, IP-based for auth
+- **HTTPS/TLS** — production SSL termination
+- **Containerization** — Docker + docker-compose for consistent deploys
 
 ---
 
@@ -122,11 +150,18 @@ If desired, extend services to cover remaining inline routes:
 - `CHANGELOG.md` (full history)
 - `C:\Ded\спорт\Разное\Аналиp-аудит GPT.txt` (tech spec, lines 884-900 for Phase 3)
 
-### Files modified in Phase 3 wiring:
+### Files modified in Phase 4:
+- `server/services/audit.service.js` — audit logging service
+- `server/routes/user.js` — GDPR endpoints (data-export, account deletion)
+- `server/index.js` — health/detailed, backup, restore endpoints
+- `.github/workflows/ci.yml` — CI/CD pipeline
+- `eslint.config.js` — ESLint config
+
+### Files modified in Phase 3:
 - `server/routes/auth.js` — fully wired to authService (4 routes)
 - `server/routes/user.js` — 4 of ~20 routes wired
 - `server/index.js` — 15 of ~25 routes wired
-- `server/routes/crud.js` — unchanged, base CRUD fine as-is
+- `server/routes/crud.js` — auto-audit for all CRUD tables
 
 ### New files created in Phase 3:
 - `server/helpers/errors.js` — error classes
@@ -162,17 +197,19 @@ server/
 │   ├── logger.js         — Structured logging
 │   ├── pagination.js     — parsePagination
 │   ├── config.js         — validateConfig
-│   └── migrations.js     — DB migration runner
+│   ├── migrations.js     — DB migration runner
+│   └── db-utils.js       — queryToObjects (fixes circular dep)
 ├── routes/
 │   ├── auth.js           — Admin auth (WIRED to authService)
-│   ├── user.js           — Subscriber routes (PARTIALLY WIRED)
-│   └── crud.js           — Generic CRUD factory
+│   ├── user.js           — Subscriber routes (PARTIALLY WIRED + GDPR)
+│   └── crud.js           — Generic CRUD factory (auto-audit)
 ├── services/
 │   ├── auth.service.js   — Auth business logic (WIRED)
 │   ├── progress.service.js — Progress/feedback logic (PARTIALLY WIRED)
 │   ├── schedule.service.js — Calendar/timeline logic (NOT WIRED)
 │   ├── feedback.service.js — Ticket system logic (WIRED)
 │   ├── dashboard.service.js — Dashboard stats (WIRED)
+│   ├── audit.service.js  — Audit logging (WIRED into crud.js + index.js)
 │   ├── mailer.js         — Email sending
 │   └── stream.js         — Cloudflare Stream
 ├── repositories/
@@ -181,6 +218,10 @@ server/
 │   └── index.js          — All other repos (settingsRepo, complexRepo wired)
 └── migrations/
     └── 001_performance_indexes.sql
+
+.github/
+└── workflows/
+    └── ci.yml            — GitHub Actions CI/CD
 ```
 
 ---

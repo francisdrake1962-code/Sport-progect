@@ -67,10 +67,14 @@ async function getWorkoutFeedback(subscriberId, page, limit) {
 
 async function recordWorkoutFeedback(subscriberId, lessonId, mood) {
   if (!lessonId || !mood) throw new ValidationError('lesson_id and mood required');
-  const validMoods = ['happy', 'energized', 'neutral', 'disappointed'];
+  const validMoods = ['happy', 'energized', 'calm', 'neutral', 'tired', 'disappointed'];
   if (!validMoods.includes(mood)) throw new ValidationError(`mood must be one of: ${validMoods.join(', ')}`);
   const db = await getDb();
-  db.run(`INSERT INTO workout_feedback (subscriber_id, lesson_id, mood) VALUES (?, ?, ?)`, [subscriberId, lessonId, mood]);
+  db.run(
+    `INSERT INTO workout_feedback (subscriber_id, lesson_id, mood) VALUES (?, ?, ?)
+     ON CONFLICT(subscriber_id, lesson_id) DO UPDATE SET mood=?, created_at=CURRENT_TIMESTAMP`,
+    [subscriberId, lessonId, mood, mood]
+  );
   saveDb();
   return { success: true };
 }

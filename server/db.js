@@ -34,7 +34,7 @@ async function getDb() {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT DEFAULT 'admin',
+        role TEXT DEFAULT 'subscriber',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -298,6 +298,7 @@ async function getDb() {
     `);
 
     db.run(`CREATE INDEX IF NOT EXISTS idx_token_blocklist_expires ON token_blocklist(expires_at)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_token_blocklist_hash ON token_blocklist(token_hash)`);
 
     db.run(`
       CREATE TABLE IF NOT EXISTS audit_log (

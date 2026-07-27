@@ -62,6 +62,14 @@ class BaseRepository {
     return this._toObjects(result);
   }
 
+  async findByColumn(column, value) {
+    const VALID_COLUMNS = new Set(['id', 'email', 'name', 'status', 'plan', 'role', 'lesson_id', 'subscriber_id', 'mood', 'category']);
+    if (!VALID_COLUMNS.has(column)) throw new Error(`Invalid column: ${column}`);
+    const db = await this._db();
+    const result = db.exec(`SELECT * FROM ${this.tableName} WHERE ${column} = ?`, [value]);
+    return this._toObjects(result);
+  }
+
   async create(data) {
     const db = await this._db();
     const cols = Object.keys(data).filter(k => data[k] !== undefined);
@@ -105,11 +113,6 @@ class BaseRepository {
     }
     const result = db.exec(`SELECT COUNT(*) FROM ${this.tableName} ${whereClause}`, params);
     return (result.length > 0 && result[0].values.length > 0) ? result[0].values[0][0] : 0;
-  }
-
-  async raw(sql, params = []) {
-    const db = await this._db();
-    return db.exec(sql, params);
   }
 }
 

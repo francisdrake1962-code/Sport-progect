@@ -7,10 +7,14 @@ class AnalyticsService {
 
   async trackEvent({ eventName, userId = null, entity = null, entityId = null, metadata = null, ipAddress = null, userAgent = null }) {
     const db = await this.getDb();
+    let metaStr = null;
+    if (metadata) { try { metaStr = JSON.stringify(metadata); } catch (_) { metaStr = '{}'; } }
     db.run(
       `INSERT INTO analytics_events (event_name, user_id, entity, entity_id, metadata, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [eventName, userId, entity, entityId, metadata ? JSON.stringify(metadata) : null, ipAddress, userAgent]
+      [eventName, userId, entity, entityId, metaStr, ipAddress, userAgent]
     );
+    const { saveDb } = require('../db');
+    saveDb();
   }
 
   async getEventStats({ startDate, endDate, eventName, entity, groupBy = 'event_name' }) {
@@ -32,7 +36,7 @@ class AnalyticsService {
       selectExpr = `${group} as period, COUNT(*) as count`;
       groupExpr = group;
     }
-    const result = db.exec(`SELECT ${selectExpr} FROM analytics_events ${whereClause} GROUP BY ${groupExpr} ORDER BY count DESC`);
+    const result = db.exec(`SELECT ${selectExpr} FROM analytics_events ${whereClause} GROUP BY ${groupExpr} ORDER BY count DESC`, params);
     return queryToObjects(result);
   }
 
@@ -46,7 +50,7 @@ class AnalyticsService {
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
     const result = db.exec(
       `SELECT DATE(created_at) as date, COUNT(*) as count FROM analytics_events ${whereClause} GROUP BY DATE(created_at) ORDER BY date DESC LIMIT ?`,
-      [days]
+      [...params, days]
     );
     return queryToObjects(result);
   }

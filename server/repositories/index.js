@@ -11,7 +11,8 @@ class LessonRepository extends BaseRepository {
   }
 
   async getZones(lessonId) {
-    const result = await this.raw(
+    const db = await this._db();
+    const result = db.exec(
       `SELECT zone FROM lesson_zones WHERE lesson_id = ?`, [lessonId]
     );
     return this._toObjects(result).map(r => r.zone);

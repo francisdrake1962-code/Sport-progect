@@ -56,6 +56,17 @@
         .lesson-row__name { color:#fff; font-size:0.95rem; }
         .lesson-row__meta { color:#5a7a60; font-size:0.8rem; }
         .lesson-row__play { color:#1a5e2a; font-size:1.1rem; }
+        .selection-bar{position:fixed;bottom:0;left:0;right:0;background:#111a14;border-top:2px solid #1a5e2a;padding:1rem 1.5rem;display:none;z-index:20;box-shadow:0 -4px 24px rgba(0,0,0,0.5)}
+        .selection-bar.show{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+        .selection-bar__info{color:#7acc8a;font-size:0.9rem;font-weight:600}
+        .selection-bar__btn{background:#1a5e2a;color:#fff;border:none;padding:0.6rem 1.5rem;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s}
+        .selection-bar__btn:hover{background:#228b33}
+        .selection-bar__btn:disabled{background:#2a3a2e;color:#5a7a60;cursor:not-allowed}
+        .lesson-select{width:22px;height:22px;border:2px solid #5a7a60;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;background:transparent}
+        .lesson-select:hover{border-color:#1a5e2a}
+        .lesson-select.checked{background:#1a5e2a;border-color:#1a5e2a}
+        .lesson-select.checked::after{content:'✓';color:#fff;font-size:0.8rem;font-weight:700}
+        .lesson-row.selected{border-color:#1a5e2a;background:#0d1a10}
         .lessons-empty { text-align:center; padding:3rem 1rem; color:#5a7a60; }
         .lessons-empty__icon { font-size:2rem; margin-bottom:0.5rem; }
         @media (max-width:768px) {
@@ -83,6 +94,9 @@
         }
 
         const complexIcons = { 'Основной комплекс': '🧘', 'Утренняя разминка': '🌅', 'Здоровая шея': '💆', 'Крепкая спина': '🦴', 'Суставы и гибкость': '🤸' };
+        let isTrialUser = false;
+        let selectedIds = new Set();
+        const FREE_LIMIT = 7;
 
         async function load() {
             const token = localStorage.getItem('user_token');
@@ -94,12 +108,24 @@
                 const meRes = await fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } });
                 if (meRes.ok) {
                     const me = await meRes.json();
-                    if (me.plan === 'trial' && (me.free_sessions_used || 0) >= 7) {
+                    isTrialUser = me.plan === 'trial';
+                    if (isTrialUser && (me.free_sessions_used || 0) >= FREE_LIMIT) {
                         root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">⏰</div><p>Пробный период завершён</p><p style="color:#5a7a60;margin:0.5rem 0 1rem;">Вы просмотрели все 7 бесплатных занятий</p><a href="plans.html" class="btn btn--primary" style="margin-top:0.5rem;display:inline-block;">Выбрать план</a></div>';
                         return;
                     }
                 }
             } catch(e) {}
+
+            if (isTrialUser) {
+                try {
+                    const selRes = await fetch('/api/user/free-selections', { headers: { 'Authorization': 'Bearer ' + token } });
+                    if (selRes.ok) {
+                        const selData = await selRes.json();
+                        selData.selections.forEach(s => selectedIds.add(s.lesson_id));
+                    }
+                } catch(e) {}
+            }
+
             try {
                 const [lessons, complexes, schedule] = await Promise.all([
                     api('/api/lessons'),
@@ -142,6 +168,7 @@
 
                 root.innerHTML = html;
                 bindEvents();
+                updateSelectionBar();
             } catch(err) {
                 root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">⚠️</div><p>Ошибка загрузки: ' + esc(err.message) + '</p><a href="/" style="color:#7acc8a;">На главную</a></div>';
             }
@@ -207,8 +234,11 @@
                     '<div class="complex-card__arrow">▶</div>' +
                     '</div><div class="complex-card__lessons">';
                 g.lessons.forEach((l, i) => {
-                    html += '<a href="player.html?id=' + l.id + '" class="complex-lesson">' +
+                    const checked = selectedIds.has(l.id);
+                    const checkHtml = isTrialUser ? '<div class="lesson-select' + (checked ? ' checked' : '') + '" data-select="' + l.id + '"></div>' : '';
+                    html += '<a href="player.html?id=' + l.id + '" class="complex-lesson" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#1a5e2a;background:#0d1a10"' : '') + '>' +
                         '<span class="complex-lesson__num">' + (i+1) + '</span>' +
+                        checkHtml +
                         '<span class="complex-lesson__title">' + esc(l.title) + '</span>' +
                         (l.duration ? '<span class="complex-lesson__duration">' + esc(l.duration) + '</span>' : '') +
                         '<span class="complex-lesson__play">▶</span>' +
@@ -237,14 +267,42 @@
         function renderAllLessons(lessons, complexes) {
             let html = '<div class="all-lessons"><div class="all-lessons__title">Все занятия (' + lessons.length + ')</div>';
             lessons.forEach((l, i) => {
-                html += '<a href="player.html?id=' + l.id + '" class="lesson-row">' +
+                const checked = selectedIds.has(l.id);
+                const checkHtml = isTrialUser ? '<div class="lesson-select' + (checked ? ' checked' : '') + '" data-select="' + l.id + '"></div>' : '';
+                html += '<a href="player.html?id=' + l.id + '" class="lesson-row" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#1a5e2a;background:#0d1a10"' : '') + '>' +
                     '<span class="lesson-row__num">' + (i+1) + '</span>' +
+                    checkHtml +
                     '<div class="lesson-row__info"><div class="lesson-row__name">' + esc(l.title) + '</div>' +
                     '<div class="lesson-row__meta">' + (l.duration ? esc(l.duration) : '') + '</div></div>' +
                     '<span class="lesson-row__play">▶</span></a>';
             });
             html += '</div>';
+            if (isTrialUser) {
+                html += '<div class="selection-bar" id="selection-bar">' +
+                    '<div class="selection-bar__info" id="selection-info">Выбрано: 0 / ' + FREE_LIMIT + '</div>' +
+                    '<button class="selection-bar__btn" id="save-selections" disabled>Сохранить выбор</button>' +
+                    '</div>';
+            }
             return html;
+        }
+
+        function updateSelectionBar() {
+            const bar = document.getElementById('selection-bar');
+            const info = document.getElementById('selection-info');
+            const btn = document.getElementById('save-selections');
+            if (!bar || !info || !btn) return;
+            info.textContent = 'Выбрано: ' + selectedIds.size + ' / ' + FREE_LIMIT;
+            btn.disabled = selectedIds.size === 0;
+            document.querySelectorAll('[data-select]').forEach(el => {
+                const id = Number(el.dataset.select);
+                if (selectedIds.has(id)) el.classList.add('checked');
+                else el.classList.remove('checked');
+            });
+            document.querySelectorAll('[data-lesson-row]').forEach(el => {
+                const id = Number(el.dataset.lessonRow);
+                if (selectedIds.has(id)) el.style.borderColor = '#1a5e2a';
+                else el.style.borderColor = '';
+            });
         }
 
         function bindEvents() {
@@ -253,6 +311,39 @@
                     this.closest('[data-complex]').classList.toggle('open');
                 });
             });
+            document.querySelectorAll('[data-select]').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const id = Number(this.dataset.select);
+                    if (selectedIds.has(id)) {
+                        selectedIds.delete(id);
+                    } else {
+                        if (selectedIds.size >= FREE_LIMIT) return;
+                        selectedIds.add(id);
+                    }
+                    updateSelectionBar();
+                });
+            });
+            const saveBtn = document.getElementById('save-selections');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async function() {
+                    const token = localStorage.getItem('user_token');
+                    if (!token) return;
+                    try {
+                        const res = await fetch('/api/user/free-selections', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify({ lesson_ids: Array.from(selectedIds) })
+                        });
+                        if (res.ok) {
+                            saveBtn.textContent = '✓ Сохранено';
+                            saveBtn.style.background = '#228b33';
+                            setTimeout(() => { saveBtn.textContent = 'Сохранить выбор'; saveBtn.style.background = ''; }, 2000);
+                        }
+                    } catch(e) {}
+                });
+            }
         }
 
         load();

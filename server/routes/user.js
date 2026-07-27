@@ -9,7 +9,7 @@ const { isStreamConfigured, generateSignedToken, getStreamUrl } = require('../se
 const { parsePagination } = require('../helpers/pagination');
 const { queryToObjects } = require('../helpers/db-utils');
 const jwt = require('jsonwebtoken');
-const { revokeToken } = require('../db');
+const { revokeToken, transaction } = require('../db');
 const authService = require('../services/auth.service');
 const progressService = require('../services/progress.service');
 const AnalyticsService = require('../services/analytics.service');
@@ -488,7 +488,7 @@ router.get('/lessons-filter', authMiddleware, async (req, res) => {
     let lessons = result[0].values.map(row => ({
       id: row[0], title: row[1], duration: row[2], description: row[3],
       video_url: row[4], cf_video_uid: row[5], is_free: row[6],
-      tags: JSON.parse(row[7] || '[]'),
+      tags: (() => { try { return JSON.parse(row[7] || '[]'); } catch (_) { return []; } })(),
       direction: row[8], effect_description: row[9],
     }));
 
@@ -547,10 +547,10 @@ router.get('/onboarding', authMiddleware, async (req, res) => {
     res.json({
       completed: r[5] === 1,
       experience: r[0],
-      goals: JSON.parse(r[1] || '[]'),
+      goals: (() => { try { return JSON.parse(r[1] || '[]'); } catch (_) { return []; } })(),
       preferred_duration: r[2],
       preferred_time: r[3],
-      focus_zones: JSON.parse(r[4] || '[]')
+      focus_zones: (() => { try { return JSON.parse(r[4] || '[]'); } catch (_) { return []; } })()
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load preferences' });
@@ -812,14 +812,16 @@ router.post('/free-selections', authMiddleware, async (req, res) => {
     if (plan === 'annual' || plan === 'monthly') {
       return res.status(400).json({ error: 'Subscribers with active plans do not need selections' });
     }
-    const validIds = lesson_ids.map(Number).filter(id => Number.isInteger(id) && id > 0);
-    db.run(`DELETE FROM free_lesson_selections WHERE subscriber_id = ?`, [req.user.id]);
-    for (const lessonId of validIds) {
-      db.run(
-        `INSERT OR IGNORE INTO free_lesson_selections (subscriber_id, lesson_id) VALUES (?, ?)`,
-        [req.user.id, lessonId]
-      );
-    }
+    const validIds = [...new Set(lesson_ids.map(Number).filter(id => Number.isInteger(id) && id > 0))];
+    await transaction(async () => {
+      db.run(`DELETE FROM free_lesson_selections WHERE subscriber_id = ?`, [req.user.id]);
+      for (const lessonId of validIds) {
+        db.run(
+          `INSERT OR IGNORE INTO free_lesson_selections (subscriber_id, lesson_id) VALUES (?, ?)`,
+          [req.user.id, lessonId]
+        );
+      }
+    });
     saveDb();
     analyticsService.trackEvent({ eventName: 'free_lesson_selected', userId: req.user.id, entity: 'lessons', metadata: { count: validIds.length }, ipAddress: req.ip }).catch(() => {});
     res.json({ success: true, count: validIds.length, limit: FREE_LIMIT });
@@ -832,18 +834,18 @@ router.post('/free-selections', authMiddleware, async (req, res) => {
 
 router.post('/fingerprint', authMiddleware, async (req, res) => {
   try {
-    const { fingerprint, ip } = req.body;
+    const { fingerprint } = req.body;
     if (!fingerprint) return res.status(400).json({ error: 'fingerprint required' });
     const db = await getDb();
-    const ipAddr = ip || req.ip || req.connection.remoteAddress || '';
+    const ipAddr = req.ip || req.connection.remoteAddress || '';
     db.run(
       `INSERT INTO device_fingerprints (fingerprint, ip_address, subscriber_id) VALUES (?, ?, ?)`,
       [fingerprint, ipAddr, req.user.id]
     );
     const dupCount = db.exec(
       `SELECT COUNT(DISTINCT subscriber_id) FROM device_fingerprints
-       WHERE fingerprint = ? OR ip_address = ?`,
-      [fingerprint, ipAddr]
+       WHERE fingerprint = ?`,
+      [fingerprint]
     );
     const accountsCount = dupCount.length && dupCount[0].values.length ? dupCount[0].values[0][0] : 1;
     saveDb();
@@ -885,6 +887,14 @@ router.delete('/account', authMiddleware, async (req, res) => {
     db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'deleted', status = 'deleted' WHERE id = ?`, [req.user.id]);
     db.run(`DELETE FROM user_preferences WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM device_fingerprints WHERE subscriber_id = ?`, [req.user.id]);
+    db.run(`DELETE FROM watched_lessons WHERE subscriber_id = ?`, [req.user.id]);
+    db.run(`DELETE FROM workout_feedback WHERE subscriber_id = ?`, [req.user.id]);
+    db.run(`DELETE FROM free_lesson_selections WHERE subscriber_id = ?`, [req.user.id]);
+    db.run(`UPDATE tickets SET subject = '[deleted]', category = 'general' WHERE subscriber_id = ?`, [req.user.id]);
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.decode(req.token);
+    const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000).toISOString() : new Date(Date.now() + 86400000).toISOString();
+    revokeToken(hashToken(req.token), expiresAt);
     saveDb();
     res.json({ success: true, message: 'Account anonymized and deleted' });
   } catch (err) {

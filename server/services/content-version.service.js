@@ -1,4 +1,5 @@
 const { queryToObjects } = require('../helpers/db-utils');
+const { saveDb, transaction } = require('../db');
 
 class ContentVersionService {
   constructor(getDb) {
@@ -21,6 +22,7 @@ class ContentVersionService {
       `INSERT INTO lesson_versions (lesson_id, version, title, description, video_url, cf_video_uid, image_url, duration, is_free, tags, direction, effect_description, status, changed_by, change_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [lessonId, nextVersion, lesson.title, lesson.description, lesson.video_url, lesson.cf_video_uid, lesson.image_url, lesson.duration, lesson.is_free, lesson.tags, lesson.direction, lesson.effect_description, lesson.status, changedBy, changeSummary]
     );
+    saveDb();
     return { lesson_id: lessonId, version: nextVersion };
   }
 
@@ -47,10 +49,12 @@ class ContentVersionService {
     const db = await this.getDb();
     const versionData = await this.getVersion(lessonId, version);
     if (!versionData) return null;
-    db.run(
-      `UPDATE lessons SET title=?, description=?, video_url=?, cf_video_uid=?, image_url=?, duration=?, is_free=?, tags=?, direction=?, effect_description=?, status=? WHERE id=?`,
-      [versionData.title, versionData.description, versionData.video_url, versionData.cf_video_uid, versionData.image_url, versionData.duration, versionData.is_free, versionData.tags, versionData.direction, versionData.effect_description, versionData.status, lessonId]
-    );
+    await transaction(async () => {
+      db.run(
+        `UPDATE lessons SET title=?, description=?, video_url=?, cf_video_uid=?, image_url=?, duration=?, is_free=?, tags=?, direction=?, effect_description=?, status=? WHERE id=?`,
+        [versionData.title, versionData.description, versionData.video_url, versionData.cf_video_uid, versionData.image_url, versionData.duration, versionData.is_free, versionData.tags, versionData.direction, versionData.effect_description, versionData.status, lessonId]
+      );
+    });
     const result = await this.createVersion(lessonId, { changedBy, changeSummary: `Restored from version ${version}` });
     return result;
   }

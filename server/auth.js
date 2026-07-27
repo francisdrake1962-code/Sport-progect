@@ -13,14 +13,19 @@ function hashToken(token) {
 }
 
 function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) {
     return res.status(401).json({ error: 'No token provided' });
   }
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (isTokenRevoked(hashToken(token))) {
-      return res.status(401).json({ error: 'Token has been revoked' });
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    try {
+      if (isTokenRevoked(hashToken(token))) {
+        return res.status(401).json({ error: 'Token has been revoked' });
+      }
+    } catch (_) {
+      return res.status(401).json({ error: 'Auth service unavailable' });
     }
     req.user = decoded;
     req.token = token;
@@ -34,7 +39,7 @@ function generateToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role, jti: crypto.randomUUID() },
     JWT_SECRET,
-    { expiresIn: '24h' }
+    { algorithm: 'HS256', expiresIn: '24h' }
   );
 }
 

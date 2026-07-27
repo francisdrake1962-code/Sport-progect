@@ -559,6 +559,8 @@
             });
 
             /* HLS / direct source */
+            video.muted = false;
+            video.volume = 1;
             if (streamUrl) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = streamUrl;
@@ -580,12 +582,17 @@
                 video.load();
             }
 
+            video.addEventListener('loadedmetadata', function() {
+                video.muted = false;
+                video.volume = 1;
+            }, { once: true });
+
             /* Play/pause */
             var playIcon = '<svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>';
             var pauseIcon = '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
 
             function togglePlay() {
-                if (video.paused) { video.play(); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }
+                if (video.paused) { video.muted = false; video.volume = video.volume || 1; video.play(); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }
                 else { video.pause(); btnPlay.innerHTML = playIcon; overlay.classList.remove('hidden'); }
             }
 

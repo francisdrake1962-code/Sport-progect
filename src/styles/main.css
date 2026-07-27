@@ -528,13 +528,15 @@ p {
 }
 
 .faq__list {
-    max-width: 800px;
-    margin: 0 auto;
+    columns: 2;
+    column-gap: var(--spacing-sm);
 }
 
 .faq__item {
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
+    display: block;
+    break-inside: avoid;
     margin-bottom: var(--spacing-sm);
 }
 
@@ -921,5 +923,9 @@ p {
     
     .feelings__grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .faq__list {
+        columns: 1;
     }
 }

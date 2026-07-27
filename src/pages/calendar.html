@@ -25,29 +25,37 @@
         .cal-tab{flex:1;padding:.6rem;text-align:center;cursor:pointer;color:#7a9a80;font-size:.85rem;font-weight:500;border:none;background:none;transition:all .15s}
         .cal-tab.active{background:#1a5e2a;color:#fff}
         .cal-nav{max-width:960px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
-        .cal-nav__title{color:#fff;font-size:1rem;font-weight:600}
-        .cal-nav__btn{background:#1a2a1e;color:#9fc5a8;border:none;padding:.4rem .8rem;border-radius:6px;cursor:pointer;font-size:.85rem}
-        .cal-nav__btn:hover{background:#2a3a2e;color:#fff}
+        .cal-nav__center{display:flex;align-items:center;gap:.75rem}
+        .cal-nav__title{color:#fff;font-size:1.15rem;font-weight:600}
+        .cal-nav__btn{background:#111a14;color:#9fc5a8;border:1px solid #2a3a2e;padding:.45rem .9rem;border-radius:6px;cursor:pointer;font-size:.85rem;transition:all .15s}
+        .cal-nav__btn:hover{background:#1a2a1e;color:#fff;border-color:#3a5a40}
+        .cal-nav__today{background:#1a5e2a;color:#fff;border:1px solid #1a5e2a;font-weight:600}
+        .cal-nav__today:hover{background:#228b33;border-color:#228b33;color:#fff}
         .cal-grid{max-width:960px;margin:0 auto;padding:0 1rem 3rem}
         .cal-grid--year{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem}
-        .cal-grid--month{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+        .cal-grid--month{background:#111a14;border:1px solid #1e2e22;border-radius:12px;overflow:hidden}
         .cal-grid--week{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem}
+        .cal-day-header{color:#7acc8a;font-size:.8rem;font-weight:600;text-align:center;padding:.7rem .2rem;border-bottom:1px solid #1e2e22;text-transform:uppercase;letter-spacing:.05em}
+        .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:.9rem;cursor:pointer;transition:all .15s;position:relative;border:1px solid transparent}
+        .cal-day:hover{background:#1a2a1e;border-color:#2a3a2e}
+        .cal-day--empty{cursor:default;border-color:transparent}
+        .cal-day--today{background:rgba(26,94,42,0.25);color:#7acc8a;font-weight:700;border:2px solid #1a5e2a;border-radius:50%}
+        .cal-day--completed{background:#0d3a15;color:#7acc8a}
+        .cal-day--completed:hover{background:#124a1f}
+        .cal-day--rest{color:#3a4a3e}
+        .cal-day--future{color:#7a9a80}
+        .cal-day--has-lesson::after{content:'';position:absolute;bottom:4px;width:5px;height:5px;border-radius:50%;background:#2ecc71}
+        .cal-day--completed::after{background:#2ecc71}
+        .cal-day--future::after{background:#1a5e2a}
         .cal-month{background:#111a14;border:1px solid #1e2e22;border-radius:8px;overflow:hidden}
         .cal-month__title{background:#1a2a1e;color:#7acc8a;font-size:.75rem;font-weight:600;padding:.4rem;text-align:center}
         .cal-month__days{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:2px}
-        .cal-day-header{color:#5a7a60;font-size:.6rem;text-align:center;padding:.2rem 0}
-        .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:.65rem;cursor:pointer;transition:all .1s;position:relative}
-        .cal-day:hover{background:#2a3a2e}
-        .cal-day--empty{cursor:default}
-        .cal-day--today{background:#1a5e2a;color:#fff;font-weight:700}
-        .cal-day--completed{background:#0d3a15;color:#7acc8a}
-        .cal-day--rest{color:#3a4a3e}
-        .cal-day--future{color:#5a7a60}
-        .cal-day--has-lesson::after{content:'';position:absolute;bottom:2px;width:4px;height:4px;border-radius:50%;background:#1a5e2a}
-        .cal-day--completed::after{background:#2ecc71}
+        .cal-month .cal-day-header{font-size:.55rem;padding:.2rem 0;border-bottom:none}
+        .cal-month .cal-day{font-size:.65rem;border-radius:4px}
         .cal-week-card{background:#111a14;border:1px solid #1e2e22;border-radius:10px;padding:1rem;cursor:pointer;transition:all .15s}
         .cal-week-card:hover{border-color:#2a5a30;transform:translateY(-1px)}
         .cal-week-card.today{border-color:#1a5e2a;background:#0d1a10}
+        .cal-week-card--missed{border-color:#5a3a1a;background:#1a1508}
         .cal-week-card__day{color:#5a7a60;font-size:.75rem;margin-bottom:.2rem}
         .cal-week-card__theme{color:#fff;font-size:.95rem;font-weight:600;margin-bottom:.2rem}
         .cal-week-card__meta{color:#7a9a80;font-size:.8rem;display:flex;gap:.5rem;align-items:center}
@@ -108,12 +116,12 @@ let html='<div class="cal-header"><a href="lessons.html" class="cal-header__back
 html+='<div class="cal-stats">';
 html+='<div class="cal-stat"><div class="cal-stat__value">'+esc(completed)+'</div><div class="cal-stat__label">Пройдено</div></div>';
 html+='<div class="cal-stat"><div class="cal-stat__value">'+esc(total-completed)+'</div><div class="cal-stat__label">Осталось</div></div>';
-html+='<div class="cal-stat"><div class="cal-stat__value">'+esc(total)+'</div><div class="cal-stat__label">Всего в году</div></div>';
-html+='<div class="cal-stat"><div class="cal-stat__value">'+(u.subscription_started_at?esc(u.subscription_started_at.split(' ')[0]):'—')+'</div><div class="cal-stat__label">Подписка с</div></div>';
+html+='<div class="cal-stat"><div class="cal-stat__value">'+esc(total)+'</div><div class="cal-stat__label">Всего в курсе</div></div>';
+html+='<div class="cal-stat"><div class="cal-stat__value">'+(u.subscription_started_at?esc(u.subscription_started_at.split(' ')[0]):'—')+'</div><div class="cal-stat__label">Начало занятий</div></div>';
 html+='</div>';
 
 html+='<div class="cal-progress"><div class="cal-progress__bar"><div class="cal-progress__fill" style="width:'+pct+'%"></div></div>';
-html+='<div class="cal-progress__text">Пройдено '+completed+' из '+total+' занятий года ('+pct+'%)</div></div>';
+html+='<div class="cal-progress__text">Пройдено '+completed+' из '+total+' занятий ('+pct+'%)</div></div>';
 
 html+='<div class="cal-tabs">';
 ['year','month','week'].forEach(v=>{
@@ -132,7 +140,10 @@ bindEvents(s);
 
 function renderYear(s){
 let html='<div class="cal-nav"><button class="cal-nav__btn" id="prev-year">←</button>';
+html+='<div class="cal-nav__center">';
 html+='<div class="cal-nav__title">'+viewDate.getFullYear()+'</div>';
+html+='<button class="cal-nav__btn cal-nav__today" id="btn-today-year">Сегодня</button>';
+html+='</div>';
 html+='<button class="cal-nav__btn" id="next-year">→</button></div>';
 html+='<div class="cal-grid cal-grid--year">';
 for(let m=0;m<12;m++){
@@ -149,10 +160,12 @@ const today=new Date();const todayStr=localDateStr(today);
 let cls='cal-day';
 if(dateStr===todayStr)cls+=' cal-day--today';
 else if(item&&item.watched&&item.watched.completed)cls+=' cal-day--completed';
-else if(item&&item.lesson_id&&!item.watched)cls+=' cal-day--future';
-else if(!item||!item.lesson_id)cls+=' cal-day--rest';
+else if(item&&item.is_future)cls+=' cal-day--future';
+else if(item&&item.is_past&&!item.watched)cls+=' cal-day--rest';
+else if(!item)cls+=' cal-day--rest';
 if(item&&item.lesson_id)cls+=' cal-day--has-lesson';
-html+='<div class="'+cls+'" data-date="'+dateStr+'" title="'+(item?esc(item.theme||''):('Нет занятия'))+'">'+d+'</div>';
+const label=item?(item.day_number?item.day_number:d):d;
+html+='<div class="'+cls+'" data-date="'+dateStr+'" title="'+(item?('День '+item.day_number+': '+esc(item.theme||item.title||'')):'Нет занятия')+'">'+label+'</div>';
 }
 html+='</div></div>';
 }
@@ -162,8 +175,12 @@ return html;
 
 function renderMonth(s){
 const year=viewDate.getFullYear();const month=viewDate.getMonth();
+const today=new Date();const todayStr=localDateStr(today);
 let html='<div class="cal-nav"><button class="cal-nav__btn" id="prev-month">←</button>';
+html+='<div class="cal-nav__center">';
 html+='<div class="cal-nav__title">'+MONTHS[month]+' '+year+'</div>';
+html+='<button class="cal-nav__btn cal-nav__today" id="btn-today">Сегодня</button>';
+html+='</div>';
 html+='<button class="cal-nav__btn" id="next-month">→</button></div>';
 html+='<div class="cal-grid cal-grid--month">';
 DAYS_SHORT.forEach(d=>{html+='<div class="cal-day-header">'+d+'</div>';});
@@ -173,14 +190,15 @@ for(let i=0;i<startDay;i++)html+='<div class="cal-day cal-day--empty"></div>';
 for(let d=1;d<=daysInMonth;d++){
 const dateStr=year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
 const item=s.find(x=>x.date===dateStr);
-const today=new Date();const todayStr=localDateStr(today);
 let cls='cal-day';
 if(dateStr===todayStr)cls+=' cal-day--today';
 else if(item&&item.watched&&item.watched.completed)cls+=' cal-day--completed';
-else if(item&&item.lesson_id)cls+=' cal-day--future';
-else cls+=' cal-day--rest';
+else if(item&&item.is_future)cls+=' cal-day--future';
+else if(item&&item.is_past&&!item.watched)cls+=' cal-day--rest';
+else if(!item)cls+=' cal-day--rest';
 if(item&&item.lesson_id)cls+=' cal-day--has-lesson';
-html+='<div class="'+cls+'" data-date="'+dateStr+'" title="'+(item?esc(item.theme||''):('Нет занятия'))+'">'+d+'</div>';
+const label=item?(item.day_number?item.day_number:d):d;
+html+='<div class="'+cls+'" data-date="'+dateStr+'" title="'+(item?('День '+item.day_number+': '+esc(item.theme||item.title||'')):'Нет занятия')+'">'+label+'</div>';
 }
 html+='</div>';
 return html;
@@ -199,20 +217,23 @@ const todayStr=localDateStr(today);
 const isToday=dateStr===todayStr;
 let cls='cal-week-card';
 if(isToday)cls+=' today';
+if(item&&item.is_past&&!item.watched)cls+=' cal-week-card--missed';
 html+='<div class="'+cls+'" data-date="'+dateStr+'">';
 html+='<div class="cal-week-card__day">'+DAYS_SHORT[i]+' '+d.getDate()+' '+(MONTHS_SHORT[d.getMonth()])+'</div>';
 if(item&&item.theme){
 html+='<div class="cal-week-card__theme">'+esc(item.theme)+'</div>';
 html+='<div class="cal-week-card__meta">';
+html+='<span style="color:#7acc8a;font-weight:600">День '+esc(item.day_number)+'</span>';
 if(item.duration)html+='<span>⏱ '+esc(item.duration)+' мин</span>';
 if(item.title)html+='<span>'+esc(item.title)+'</span>';
 html+='<span class="cal-week-card__status">';
 if(item.watched&&item.watched.completed)html+='<span style="color:#2ecc71">✓ Пройдено</span>';
 else if(isToday)html+='<span style="color:#1a5e2a">● Сегодня</span>';
-else html+='<span style="color:#5a7a60">○ Предстоит</span>';
+else if(item.is_future)html+='<span style="color:#5a7a60">○ Предстоит</span>';
+else html+='<span style="color:#e8a735">○ Пропущено</span>';
 html+='</span></div>';
 }else{
-html+='<div class="cal-week-card__theme" style="color:#5a7a60">День отдыха</div>';
+html+='<div class="cal-week-card__theme" style="color:#5a7a60">Нет занятия</div>';
 }
 html+='</div>';
 }
@@ -228,6 +249,8 @@ document.getElementById('prev-year')?.addEventListener('click',()=>{viewDate.set
 document.getElementById('next-year')?.addEventListener('click',()=>{viewDate.setFullYear(viewDate.getFullYear()+1);render();});
 document.getElementById('prev-month')?.addEventListener('click',()=>{viewDate.setMonth(viewDate.getMonth()-1);render();});
 document.getElementById('next-month')?.addEventListener('click',()=>{viewDate.setMonth(viewDate.getMonth()+1);render();});
+document.getElementById('btn-today')?.addEventListener('click',()=>{viewDate=new Date();currentView='month';render();});
+document.getElementById('btn-today-year')?.addEventListener('click',()=>{viewDate=new Date();currentView='year';render();});
 document.querySelectorAll('[data-date]').forEach(el=>{
 el.addEventListener('click',function(){
 const dateStr=this.dataset.date;

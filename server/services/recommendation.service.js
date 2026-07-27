@@ -19,8 +19,9 @@ class RecommendationService {
 
     const scored = candidates.map(lesson => {
       let score = 0;
-      const tags = lesson.tags ? JSON.parse(lesson.tags) : [];
-      const zones = lesson.zones || [];
+      let tags;
+      try { tags = lesson.tags ? JSON.parse(lesson.tags) : []; } catch (_) { tags = []; }
+      const zones = lesson.zones ? lesson.zones.split(',').filter(Boolean) : [];
 
       if (preferences.focus_zones && preferences.focus_zones.length > 0 && zones.some(z => preferences.focus_zones.includes(z))) score += 30;
       if (preferences.goals && preferences.goals.length > 0 && tags.some(t => preferences.goals.includes(t))) score += 20;

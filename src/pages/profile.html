@@ -104,6 +104,7 @@
                 '<div class="profile-row"><span class="profile-row__label">Следующее списание</span><span class="profile-row__value">' + fmtDate(user.next_billing_date) + '</span></div>' +
                 '<div class="profile-row"><span class="profile-row__label">Бесплатных занятий</span><span class="profile-row__value">' + freeUsed + ' / ' + freeLimit + '</span></div>' +
                 '<div class="progress-bar"><div class="progress-bar__fill" style="width:' + freePct + '%"></div></div>' +
+                (user.plan === 'trial' ? '<div style="margin-top:1rem;text-align:center;"><a href="plans.html" class="btn btn--primary" style="display:inline-block;width:auto;padding:.7rem 2rem;font-size:.95rem;">Подписаться</a></div>' : '') +
                 '</div>' +
                 '<div class="profile-card">' +
                 '<div class="profile-card__title">Моё самочувствие</div>' +

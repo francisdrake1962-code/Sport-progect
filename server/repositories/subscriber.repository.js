@@ -11,7 +11,8 @@ class SubscriberRepository extends BaseRepository {
   }
 
   async getPublicProfile(id) {
-    const result = await this.raw(
+    const db = await this._db();
+    const result = db.exec(
       `SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, next_billing_date FROM subscribers WHERE id = ?`,
       [id]
     );

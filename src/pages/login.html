@@ -95,6 +95,40 @@
             });
         });
 
+        function generateFingerprint() {
+            var components = [
+                navigator.userAgent,
+                screen.width + 'x' + screen.height,
+                screen.colorDepth,
+                new Date().getTimezoneOffset(),
+                navigator.language,
+                navigator.platform,
+                !!window.sessionStorage,
+                !!window.localStorage
+            ];
+            var hash = 0;
+            var str = components.join('|||');
+            for (var i = 0; i < str.length; i++) {
+                var ch = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + ch;
+                hash |= 0;
+            }
+            return 'fp_' + Math.abs(hash).toString(36);
+        }
+
+        function sendFingerprint(token) {
+            var fp = localStorage.getItem('device_fingerprint');
+            if (!fp) {
+                fp = generateFingerprint();
+                localStorage.setItem('device_fingerprint', fp);
+            }
+            fetch('/api/user/fingerprint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ fingerprint: fp })
+            }).catch(function() {});
+        }
+
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             loginError.style.display = 'none';
@@ -112,6 +146,7 @@
                 if (!res.ok) throw new Error(responseData.error || 'Login failed');
                 localStorage.setItem('user_token', responseData.token);
                 localStorage.setItem('user_data', JSON.stringify(responseData.user));
+                sendFingerprint(responseData.token);
                 try {
                     const obRes = await fetch('/api/user/onboarding', { headers: { 'Authorization': 'Bearer ' + responseData.token } });
                     const obData = await obRes.json();

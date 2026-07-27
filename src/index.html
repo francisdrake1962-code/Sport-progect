@@ -360,8 +360,9 @@
             fetch('/api/faq').then(function(r) { return r.json(); }).then(function(items) {
                 var list = document.getElementById('faq-list');
                 if (!items || items.length === 0) { list.innerHTML = ''; return; }
-                list.innerHTML = items.slice(0, 8).map(function(i) {
-                    return '<details class="faq__item"><summary class="faq__question">' + esc(i.question) + '</summary><div class="faq__answer">' + esc(i.answer) + '</div></details>';
+                list.innerHTML = items.map(function(i) {
+                    var ans = esc(i.answer).replace(/\n/g, '<br>');
+                    return '<details class="faq__item"><summary class="faq__question">' + esc(i.question) + '</summary><div class="faq__answer">' + ans + '</div></details>';
                 }).join('');
             }).catch(function() {});
         })();

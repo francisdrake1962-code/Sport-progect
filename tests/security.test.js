@@ -380,3 +380,127 @@ describe('Security — Health Check', () => {
     expect(res.body.timestamp).toBeDefined();
   });
 });
+
+describe('Security — JWT Hardening (P0 Round 1)', () => {
+  let subscriberToken;
+
+  beforeAll(async () => {
+    const login = await apiRequest('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    subscriberToken = login.body.token;
+  });
+
+  test('rejects token with alg:none', async () => {
+    const jwt = require('jsonwebtoken');
+    const payload = { id: 2, email: 'maria@example.com', role: 'subscriber' };
+    const noneToken = jwt.sign(payload, '', { algorithm: 'none' });
+    const res = await apiRequest('GET', '/api/user/me', null, noneToken);
+    expect(res.status).toBe(401);
+  });
+
+  test('rejects malformed Bearer header', async () => {
+    const res = await apiRequest('GET', '/api/user/me', null, undefined, { Authorization: 'Bearer ' });
+    expect(res.status).toBe(401);
+  });
+
+  test('subscriber token works correctly', async () => {
+    const res = await apiRequest('GET', '/api/user/me', null, subscriberToken);
+    expect(res.status).toBe(200);
+    expect(res.body.email).toBe('maria@example.com');
+  });
+});
+
+describe('Security — GDPR Account Deletion (P0 Round 1)', () => {
+  let token;
+
+  beforeAll(async () => {
+    const reg = await apiRequest('POST', '/api/user/register', { name: 'GDPR Test', email: 'gdpr_test@example.com', password: 'password12345' });
+    const login = await apiRequest('POST', '/api/user/login', { email: 'gdpr_test@example.com', password: 'password12345' });
+    token = login.body.token;
+  });
+
+  test('account deletion revokes token', async () => {
+    const del = await apiRequest('DELETE', '/api/user/account', null, token);
+    expect(del.status).toBe(200);
+    expect(del.body.success).toBe(true);
+    const me = await apiRequest('GET', '/api/user/me', null, token);
+    expect(me.status).toBe(401);
+  });
+});
+
+describe('Security — Fingerprint IP Trust (P0 Round 1)', () => {
+  let token;
+
+  beforeAll(async () => {
+    const login = await apiRequest('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    token = login.body.token;
+  });
+
+  test('fingerprint endpoint ignores client IP', async () => {
+    const res = await apiRequest('POST', '/api/user/fingerprint', { fingerprint: 'test-fp-123', ip: '1.2.3.4' }, token);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('fingerprint fails without fingerprint', async () => {
+    const res = await apiRequest('POST', '/api/user/fingerprint', {}, token);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Security — Analytics Filtering (P0 Round 1)', () => {
+  let adminToken;
+
+  beforeAll(async () => {
+    const login = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  test('analytics dashboard returns data', async () => {
+    const res = await apiRequest('GET', '/api/admin/analytics/dashboard?days=30', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.period_days).toBe(30);
+    expect(typeof res.body.total_events).toBe('number');
+  });
+
+  test('analytics stats returns array', async () => {
+    const res = await apiRequest('GET', '/api/admin/analytics/stats?group_by=event_name', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test('analytics timeline returns array', async () => {
+    const res = await apiRequest('GET', '/api/admin/analytics/timeline?days=7', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+});
+
+describe('Security — Content Versioning (P0 Round 1)', () => {
+  let adminToken;
+
+  beforeAll(async () => {
+    const login = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  test('create version for lesson', async () => {
+    const res = await apiRequest('POST', '/api/admin/lessons/1/version', { change_summary: 'Test version' }, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.lesson_id).toBe(1);
+    expect(res.body.version).toBeGreaterThan(0);
+  });
+
+  test('list versions', async () => {
+    const res = await apiRequest('GET', '/api/admin/lessons/1/versions', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  test('recommendations return lessons', async () => {
+    const login = await apiRequest('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    const res = await apiRequest('GET', '/api/user/recommendations?limit=3', null, login.body.token);
+    expect(res.status).toBe(200);
+    expect(res.body.recommendations).toBeDefined();
+    expect(Array.isArray(res.body.recommendations)).toBe(true);
+  });
+});

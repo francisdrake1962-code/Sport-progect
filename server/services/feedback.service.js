@@ -1,7 +1,7 @@
 const { getDb, saveDb, transaction } = require('../db');
 const { NotFoundError, ValidationError, ForbiddenError } = require('../helpers/errors');
 const { createLogger } = require('../helpers/logger');
-const { queryToObjects } = require('../routes/crud');
+const { queryToObjects } = require('../helpers/db-utils');
 
 const logger = createLogger('feedback-service');
 
@@ -113,8 +113,10 @@ async function replyToTicket(ticketId, senderType, senderId, message) {
 }
 
 async function closeTicket(ticketId) {
+  const ticketIdNum = Number(ticketId);
+  if (!Number.isInteger(ticketIdNum) || ticketIdNum <= 0) throw new ValidationError('Invalid ticket ID');
   const db = await getDb();
-  db.run(`UPDATE tickets SET status = 'closed' WHERE id = ?`, [ticketId]);
+  db.run(`UPDATE tickets SET status = 'closed' WHERE id = ?`, [ticketIdNum]);
   saveDb();
   return { success: true };
 }

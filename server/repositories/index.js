@@ -1,4 +1,5 @@
 const { BaseRepository } = require('./base.repository');
+const { saveDb } = require('../db');
 
 class LessonRepository extends BaseRepository {
   constructor() {

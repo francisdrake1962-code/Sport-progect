@@ -1,21 +1,12 @@
 const { getDb, saveDb } = require('../db');
 const { parsePagination } = require('../helpers/pagination');
+const { queryToObjects } = require('../helpers/db-utils');
 
 const VALID_TABLES = new Set([
   'users', 'lessons', 'complexes', 'schedule',
   'subscribers', 'reviews', 'faq', 'promo_codes', 'transactions',
   'notifications', 'settings', 'watched_lessons', 'lesson_zones'
 ]);
-
-function queryToObjects(result) {
-  if (result.length === 0) return [];
-  const columns = result[0].columns;
-  return result[0].values.map(row => {
-    const obj = {};
-    columns.forEach((col, i) => { obj[col] = row[i]; });
-    return obj;
-  });
-}
 
 function createCrudRoutes(tableName, fields) {
   if (!VALID_TABLES.has(tableName)) {

@@ -370,7 +370,7 @@
         function renderPlayer(lesson) {
             var posterUrl = lesson.poster_url || 'images/hero-poster.jpg';
             return '<div class="player-wrap" id="player-wrap">' +
-                '<video id="video" preload="metadata" playsinline poster="' + esc(posterUrl) + '"></video>' +
+                '<video id="video" preload="metadata" playsinline muted poster="' + esc(posterUrl) + '"></video>' +
                 '<div class="player-loading" id="player-loading"><div class="player-loading__spinner"></div></div>' +
                 '<div class="player-error" id="player-error" style="display:none;">' +
                 '<div class="player-error__icon">⚠️</div>' +
@@ -559,7 +559,7 @@
             });
 
             /* HLS / direct source */
-            video.muted = false;
+            video.muted = true;
             video.volume = 1;
             if (streamUrl) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -583,7 +583,6 @@
             }
 
             video.addEventListener('loadedmetadata', function() {
-                video.muted = false;
                 video.volume = 1;
             }, { once: true });
 
@@ -592,7 +591,21 @@
             var pauseIcon = '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
 
             function togglePlay() {
-                if (video.paused) { video.muted = false; video.volume = video.volume || 1; video.play(); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }
+                if (video.paused) {
+                    video.muted = false;
+                    video.volume = video.volume || 1;
+                    video.play().then(function() {
+                        btnPlay.innerHTML = pauseIcon;
+                        overlay.classList.add('hidden');
+                    }).catch(function() {
+                        video.muted = true;
+                        video.play().then(function() {
+                            btnPlay.innerHTML = pauseIcon;
+                            overlay.classList.add('hidden');
+                            video.muted = false;
+                        }).catch(function() {});
+                    });
+                }
                 else { video.pause(); btnPlay.innerHTML = playIcon; overlay.classList.remove('hidden'); }
             }
 
@@ -605,8 +618,8 @@
                 getLocalProgress(lesson.id).then(function(saved) {
                     if (saved && !saved.completed && saved.position > 10 && saved.position < video.duration * 0.9) {
                         showResumePrompt(video, saved.position, video.duration,
-                            function() { video.currentTime = saved.position; video.play(); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); },
-                            function() { video.play(); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }
+                            function() { video.currentTime = saved.position; video.muted = false; video.volume = video.volume || 1; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }).catch(function() { video.muted = true; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); video.muted = false; }).catch(function() {}); }); },
+                            function() { video.muted = false; video.volume = video.volume || 1; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }).catch(function() { video.muted = true; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); video.muted = false; }).catch(function() {}); }); }
                         );
                     }
                 });

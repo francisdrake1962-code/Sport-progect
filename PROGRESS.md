@@ -2,23 +2,23 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-27 v5.5.1
+> Last updated: 2026-07-27 v5.6.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.5.1
-**Tests**: 727/727 passing (9 test suites)
+**Version**: 5.6.0
+**Tests**: 744/744 passing (9 test suites)
 **Lint**: 0 errors, 73 warnings
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+3592261 v5.6.0: RBAC, Security Headers, Input Validation, API Versioning, Documentation
+e1334e7 docs: v5.5.1 changelog + progress update for Round 1 fixes
 5b8a472 v5.5.1: Devil's Advocate Round 1 - Critical security & data integrity fixes
 3fafa22 feat(v5.5.0): Phase 5 — Analytics, Recommendations, Content Versioning
-0145ce2 docs(v5.4.0): update CHANGELOG + PROGRESS for Phase 4 completion
-1cc78d9 feat(v5.4.0): GDPR + monitoring + backup — Phase 4 complete
 ```
 
 ---
@@ -34,7 +34,9 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Phase 2 — Testing | Security tests (38 tests), JWT bug fix, Error handler fix | ✅ DONE (v5.1.1) |
 | Phase 3 — Refactoring | Error Model, Request ID, Logging, Service Layer, Repository Layer, Route Wiring | ✅ DONE (v5.3.0) |
 | Phase 4 — Production Hardening | CI/CD, Audit logging, GDPR, Monitoring, Backup/Restore | ✅ DONE (v5.4.0) |
-| Phase 5 — Product Evolution | Analytics, Recommendations, Content Versioning | 🔜 IN PROGRESS (v5.5.0) |
+| Phase 5 — Product Evolution | Analytics, Recommendations, Content Versioning | ✅ DONE (v5.5.0) |
+| Round 1 — Devil's Advocate | 12 P0 critical security/data fixes | ✅ DONE (v5.5.1) |
+| Round 2 — Tech Spec Compliance | RBAC, Security Headers, Validation, API Versioning, Shutdown, Readiness, Docs | ✅ DONE (v5.6.0) |
 
 ---
 
@@ -157,23 +159,26 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ## NEXT ACTIONS (for the next session)
 
-### Option A: Devil's Advocate Round 2 — Fix remaining P1/P2 issues (Recommended)
-- Fix broken test assertions (pages.test.js:57, backend.test.js:759-778)
-- Remove JWT ?token= query string auth (security risk)
-- Make hardcoded seed password configurable
-- Clean up 73 lint warnings
-- Re-analyze entire codebase for remaining issues
+### Option A: Remaining P1/P2 tasks (Recommended)
+- Service Layer Cleanup: wire remaining ~26 inline routes into services
+- Frontend: unified API client, global error handling, loading states, session expiry UX
+- Testing: E2E tests (10 scenarios from TEST-004), regression tests for each P0/P1 fix
+- Security: XSS audit, dependency audit in CI, CORS production allowlist testing
+- Database: constraints audit (FK, UNIQUE, NOT NULL), N+1 query audit, soft delete
 
-### Option B: Service Layer Cleanup
-Extend services to cover remaining inline routes:
-- Create `register.service.js` (email sending flow)
-- Extend `progress.service.js` with pagination + free logic
-- Create `calendar.service.js` (personal timeline + schedule merge)
+### Option B: Documentation & DevOps
+- docs/openapi.yaml — Swagger/OpenAPI specification
+- docs/DEPLOYMENT.md — deployment guide
+- docs/DATA_RETENTION.md — data retention policy
+- docs/adr/* — 5 Architecture Decision Records
+- Docker + docker-compose for consistent deploys
+- Staging environment setup
 
 ### Option C: Production Ops
-- **Rate limiting improvements** — per-route limits, IP-based for auth
-- **HTTPS/TLS** — production SSL termination
-- **Containerization** — Docker + docker-compose for consistent deploys
+- Rate limiting improvements — per-route limits, IP-based for auth
+- HTTPS/TLS — production SSL termination
+- Environment separation (development, test, staging, production)
+- Rollback procedure documentation
 
 ---
 
@@ -225,7 +230,11 @@ server/
 ├── auth.js               — JWT middleware + generateToken
 ├── db.js                 — sql.js DB, schema, transactions, migrations
 ├── middleware/
-│   └── requestId.js      — X-Request-Id
+│   ├── requestId.js      — X-Request-Id
+│   ├── rbac.js           — Role-based access control (subscriber/admin/super_admin)
+│   ├── validation.js     — Input validation (validateBody)
+│   ├── api-version.js    — API versioning (X-API-Version header)
+│   └── confirmation.js   — Dangerous action confirmation (X-Confirm-Action)
 ├── helpers/
 │   ├── errors.js         — Unified error classes
 │   ├── logger.js         — Structured logging
@@ -267,7 +276,7 @@ server/
 
 1. **User communicates in Russian** — respond in Russian
 2. **One step forward, two steps back** — always verify before moving on
-3. **727/727 tests must pass** after every change
+3. **744/744 tests must pass** after every change
 4. **Push to GitHub** after every commit
 5. **Never modify MWH APK** — illegal (DRM)
 6. **Subscription model**: 7 days free WITHOUT payment card

@@ -2,6 +2,10 @@ const { getSetting } = require('../db');
 
 const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3001';
 
+function htmlEncode(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 const CONFIRM_HTML = (confirmUrl) => `
   <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem;">
     <h2 style="color:#1a5e2a;">Подтвердите регистрацию</h2>
@@ -17,7 +21,7 @@ const CONFIRM_HTML = (confirmUrl) => `
 const TRIAL_EXPIRING_HTML = (name, daysLeft) => `
   <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem;">
     <h2 style="color:#c0392b;">Пробный период заканчивается</h2>
-    <p>Здравствуйте, ${name || 'пользователь'}!</p>
+    <p>Здравствуйте, ${htmlEncode(name) || 'пользователь'}!</p>
     <p>Ваш пробный период заканчивается через <strong>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}</strong>.</p>
     <p>Чтобы продолжить заниматься без ограничений, оформите подписку:</p>
     <a href="${baseUrl}/plans"
@@ -31,7 +35,7 @@ const TRIAL_EXPIRING_HTML = (name, daysLeft) => `
 const SUBSCRIPTION_EXPIRING_HTML = (name, daysLeft, plan) => `
   <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem;">
     <h2 style="color:#e67e22;">Подписка заканчивается</h2>
-    <p>Здравствуйте, ${name || 'пользователь'}!</p>
+    <p>Здравствуйте, ${htmlEncode(name) || 'пользователь'}!</p>
     <p>Ваша подписка "${plan === 'annual' ? 'Годовая' : 'Ежемесячная'}" заканчивается через <strong>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}</strong>.</p>
     <p>Продлите подписку, чтобы не потерять доступ к занятиям:</p>
     <a href="${baseUrl}/plans"
@@ -45,7 +49,7 @@ const SUBSCRIPTION_EXPIRING_HTML = (name, daysLeft, plan) => `
 const SUBSCRIPTION_EXPIRED_HTML = (name, plan) => `
   <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem;">
     <h2 style="color:#c0392b;">Подписка истекла</h2>
-    <p>Здравствуйте, ${name || 'пользователь'}!</p>
+    <p>Здравствуйте, ${htmlEncode(name) || 'пользователь'}!</p>
     <p>Ваша подписка "${plan === 'annual' ? 'Годовая' : 'Ежемесячная'}" истекла. Доступ к занятиям приостановлен.</p>
     <p>Оформите новую подписку, чтобы продолжить заниматься:</p>
     <a href="${baseUrl}/plans"

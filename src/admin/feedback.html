@@ -99,11 +99,11 @@
                             <div class="ticket-item" data-id="${t.id}" onclick="selectTicket(${t.id})">
                                 <div class="ticket-item__header">
                                     <span class="ticket-item__subject">${esc(t.subject)}</span>
-                                    <span class="category-badge category-badge--${t.category}">${CATEGORY_LABELS[t.category]}</span>
+                                    <span class="category-badge category-badge--${esc(t.category)}">${esc(CATEGORY_LABELS[t.category] || t.category)}</span>
                                 </div>
                                 <div class="ticket-item__meta">
                                     <span>${esc(t.subscriber_name || 'Неизвестно')}</span>
-                                    <span class="status-badge status-badge--${t.status}">${STATUS_LABELS[t.status]}</span>
+                                    <span class="status-badge status-badge--${esc(t.status)}">${esc(STATUS_LABELS[t.status] || t.status)}</span>
                                     <span>${formatDate(t.created_at)}</span>
                                 </div>
                                 <div class="ticket-item__preview">${esc((t.last_message || '').substring(0, 80))}</div>
@@ -141,8 +141,8 @@
                 <div class="ticket-header">
                     <h3>${esc(selectedTicket.subject)}</h3>
                     <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
-                        <span class="category-badge category-badge--${selectedTicket.category}">${CATEGORY_LABELS[selectedTicket.category]}</span>
-                        <span class="status-badge status-badge--${selectedTicket.status}">${STATUS_LABELS[selectedTicket.status]}</span>
+                        <span class="category-badge category-badge--${esc(selectedTicket.category)}">${esc(CATEGORY_LABELS[selectedTicket.category] || selectedTicket.category)}</span>
+                        <span class="status-badge status-badge--${esc(selectedTicket.status)}">${esc(STATUS_LABELS[selectedTicket.status] || selectedTicket.status)}</span>
                         <span style="font-size:0.8rem;color:var(--admin-text-secondary);">от ${esc(selectedTicket.subscriber_name || 'Неизвестно')} (${esc(selectedTicket.subscriber_email || '')})</span>
                     </div>
                     <div class="ticket-actions">

@@ -268,10 +268,10 @@
                 return '<div style="padding:.6rem 0;border-bottom:1px solid #1a2a1e;cursor:pointer;" onclick="openTicket(' + t.id + ')">' +
                     '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                     '<span style="color:#fff;font-size:.9rem;font-weight:600;">' + esc(t.subject) + '</span>' +
-                    '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + (CATEGORY_LABELS[t.category] || t.category) + '</span>' +
+                    '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + esc(CATEGORY_LABELS[t.category] || t.category) + '</span>' +
                     '</div>' +
                     '<div style="display:flex;gap:.75rem;margin-top:.25rem;">' +
-                    '<span style="font-size:.75rem;" class="' + (statusCls[t.status] || '') + '">' + (STATUS_LABELS[t.status] || t.status) + '</span>' +
+                    '<span style="font-size:.75rem;" class="' + (statusCls[t.status] || '') + '">' + esc(STATUS_LABELS[t.status] || t.status) + '</span>' +
                     '<span style="font-size:.75rem;color:#9fc5a8;">' + fmtDate(t.created_at) + '</span>' +
                     '</div></div>';
             }).join('');
@@ -346,8 +346,8 @@
                         '<div style="margin-bottom:.75rem;"><button style="background:none;border:none;color:#9fc5a8;cursor:pointer;font-size:.85rem;" onclick="cancelNewTicket()">← Назад</button></div>' +
                         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;">' +
                         '<div><span style="color:#fff;font-size:1rem;font-weight:600;">' + esc(ticket.subject) + '</span> ' +
-                        '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + (CATEGORY_LABELS[ticket.category] || ticket.category) + '</span></div>' +
-                        '<span style="font-size:.8rem;" class="' + (statusCls[ticket.status] || '') + '">' + (STATUS_LABELS[ticket.status] || ticket.status) + '</span>' +
+                        '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + esc(CATEGORY_LABELS[ticket.category] || ticket.category) + '</span></div>' +
+                        '<span style="font-size:.8rem;" class="' + (statusCls[ticket.status] || '') + '">' + esc(STATUS_LABELS[ticket.status] || ticket.status) + '</span>' +
                         '</div>' +
                         '<div style="max-height:40vh;overflow-y:auto;margin-bottom:.75rem;">' +
                         (ticket.messages || []).map(function(m) {

@@ -4,6 +4,37 @@
 
 ---
 
+## [5.5.1] - 2026-07-27
+
+### Fixed — Devil's Advocate Round 1: Critical Security & Data Integrity (P0)
+
+#### Security Fixes
+- **auth.js**: JWT algorithm pinning (HS256 only), fail-closed token revocation (was fail-open on DB error)
+- **db.js**: `role` DEFAULT changed from `'admin'` to `'subscriber'` (privilege escalation fix), added `idx_token_blocklist_hash` index
+- **user.js**: Fingerprint endpoint uses `req.ip` (not client-supplied `ip`), account deletion now calls `revokeToken()`, full GDPR erasure (deleted `watched_lessons`, `workout_feedback`, `free_lesson_selections`, anonymized `tickets`)
+- **base.repository.js**: Removed `raw()` method (SQL injection vector), added column whitelist validation for `findByColumn()`
+- **user.js**: Removed `?token=` query string auth (JWT leakage vector), JSON.parse wrapped in try/catch (onboarding, lessons-filter), free-selections DELETE+INSERT wrapped in `transaction()` with `Set` dedup
+
+#### Data Integrity Fixes
+- **analytics.service.js**: `params` now passed to `db.exec()` (was completely broken — returned all rows), `saveDb()` called after tracking events
+- **recommendation.service.js**: `GROUP_CONCAT` zones split to array (was string comparison failing), JSON.parse tags wrapped in try/catch
+- **content-version.service.js**: `saveDb()` called after `createVersion`, `restoreVersion` wrapped in `transaction()`
+- **progress.service.js**: Added `'calm'` and `'tired'` to valid moods, `workout_feedback` uses `INSERT ... ON CONFLICT DO UPDATE` (was throwing UNIQUE constraint errors)
+
+#### New Tests (12 tests added)
+- JWT algorithm none rejection, malformed header, subscriber token validity
+- GDPR account deletion + token revocation verification
+- Fingerprint IP trust, fingerprint validation
+- Analytics dashboard/stats/timeline with filtering
+- Content versioning create/list
+- Recommendations endpoint verification
+
+#### Other
+- UI asset updates (hero-poster, screen images)
+- Version bump 5.5.0 → 5.5.1
+
+---
+
 ## [5.5.0] - 2026-07-27
 
 ### Added — Phase 5: Product Evolution (Step 1-3)

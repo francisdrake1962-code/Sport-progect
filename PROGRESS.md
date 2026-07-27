@@ -2,22 +2,23 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-27 v5.5.0
+> Last updated: 2026-07-27 v5.5.1
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.5.0
-**Tests**: 715/715 passing (9 test suites)
+**Version**: 5.5.1
+**Tests**: 727/727 passing (9 test suites)
+**Lint**: 0 errors, 73 warnings
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
-pending commit: feat(v5.5.0): Phase 5 — Analytics, Recommendations, Content Versioning
+5b8a472 v5.5.1: Devil's Advocate Round 1 - Critical security & data integrity fixes
+3fafa22 feat(v5.5.0): Phase 5 — Analytics, Recommendations, Content Versioning
 0145ce2 docs(v5.4.0): update CHANGELOG + PROGRESS for Phase 4 completion
 1cc78d9 feat(v5.4.0): GDPR + monitoring + backup — Phase 4 complete
-51f2a5a feat(v5.4.0): CI/CD + ESLint + audit logging — Phase 4 first steps
 ```
 
 ---
@@ -88,6 +89,40 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ---
 
+## DEVIL'S ADVOCATE ROUND 1 — ✅ P0 FIXES COMPLETE (v5.5.1)
+
+### What was done:
+- 5 parallel audit agents analyzed entire codebase, found 155+ issues
+- **P0 (Critical) fixes applied**: 12 security + data integrity fixes
+- **Tests**: 727/727 passing (12 new security tests added)
+- **Commit**: `5b8a472` pushed to GitHub
+
+### Fixed P0s:
+- [x] analytics.service.js — params not passed to db.exec() (BROKEN)
+- [x] recommendation.service.js — zones from GROUP_CONCAT was string, not array
+- [x] content-version.service.js — missing saveDb(), transaction in restoreVersion
+- [x] progress.service.js — validMoods incomplete, UNIQUE constraint violation
+- [x] db.js — role DEFAULT 'admin' → 'subscriber' (privilege escalation)
+- [x] db.js — token_hash index missing
+- [x] auth.js — JWT algorithm not pinned (alg:none attack), token revocation fail-open
+- [x] user.js — fingerprint trusted client IP, missing token revocation on account delete
+- [x] user.js — GDPR erasure incomplete (missing watched_lessons, workout_feedback, etc.)
+- [x] user.js — JSON.parse without try/catch (3 locations)
+- [x] user.js — free-selections not atomic (no transaction, no dedup)
+- [x] base.repository.js — raw() SQL injection vector removed, column validation added
+
+### Remaining (P1/P2 — Round 2):
+- [ ] isTokenRevoked() returns false on exception (fail-open → fail-closed done in auth.js middleware)
+- [ ] JWT accepted via query string ?token= in index.js video streaming
+- [ ] Hardcoded seed password 'admin123' in production
+- [ ] pages.test.js:57 inverted assertion ("no retention tactics" checks for "скидка" IS present)
+- [ ] backend.test.js:759-778 vacuous admin ticket assertions
+- [ ] 73 lint warnings to clean up
+- [ ] schedule.service.js NOT wired into routes
+- [ ] user.js:~16 routes still inline (not in service layer)
+
+---
+
 ## PHASE 4 STATUS — ✅ COMPLETE (v5.4.0)
 
 ### All Phase 4 deliverables done:
@@ -122,17 +157,18 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ## NEXT ACTIONS (for the next session)
 
-### Option A: Phase 5 remaining — Personalization (Recommended)
-- Content versioning endpoints for admin UI integration
-- Recommendation click tracking + scoring feedback loop
-- A/B testing framework for recommendation algorithms
+### Option A: Devil's Advocate Round 2 — Fix remaining P1/P2 issues (Recommended)
+- Fix broken test assertions (pages.test.js:57, backend.test.js:759-778)
+- Remove JWT ?token= query string auth (security risk)
+- Make hardcoded seed password configurable
+- Clean up 73 lint warnings
+- Re-analyze entire codebase for remaining issues
 
-### Option B: Service Layer Cleanup (optional)
+### Option B: Service Layer Cleanup
 Extend services to cover remaining inline routes:
 - Create `register.service.js` (email sending flow)
 - Extend `progress.service.js` with pagination + free logic
 - Create `calendar.service.js` (personal timeline + schedule merge)
-- Fix mood validation mismatch in progress service
 
 ### Option C: Production Ops
 - **Rate limiting improvements** — per-route limits, IP-based for auth
@@ -203,11 +239,14 @@ server/
 │   └── crud.js           — Generic CRUD factory (auto-audit)
 ├── services/
 │   ├── auth.service.js   — Auth business logic (WIRED)
-│   ├── progress.service.js — Progress/feedback logic (PARTIALLY WIRED)
+│   ├── progress.service.js — Progress/feedback logic (PARTIALLY WIRED, FIXED in v5.5.1)
 │   ├── schedule.service.js — Calendar/timeline logic (NOT WIRED)
 │   ├── feedback.service.js — Ticket system logic (WIRED)
 │   ├── dashboard.service.js — Dashboard stats (WIRED)
 │   ├── audit.service.js  — Audit logging (WIRED into crud.js + index.js)
+│   ├── analytics.service.js — Event analytics (NEW v5.5.0, FIXED v5.5.1)
+│   ├── recommendation.service.js — Lesson recommendations (NEW v5.5.0, FIXED v5.5.1)
+│   ├── content-version.service.js — Content versioning (NEW v5.5.0, FIXED v5.5.1)
 │   ├── mailer.js         — Email sending
 │   └── stream.js         — Cloudflare Stream
 ├── repositories/
@@ -228,7 +267,7 @@ server/
 
 1. **User communicates in Russian** — respond in Russian
 2. **One step forward, two steps back** — always verify before moving on
-3. **715/715 tests must pass** after every change
+3. **727/727 tests must pass** after every change
 4. **Push to GitHub** after every commit
 5. **Never modify MWH APK** — illegal (DRM)
 6. **Subscription model**: 7 days free WITHOUT payment card

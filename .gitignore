@@ -14,3 +14,8 @@ Thumbs.db
 data/
 videos/
 server/videos/
+
+references/
+*.apk
+*.log
+uploads/

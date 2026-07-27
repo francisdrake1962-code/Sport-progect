@@ -2,23 +2,22 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-27 v5.4.0
+> Last updated: 2026-07-27 v5.5.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.4.0
+**Version**: 5.5.0
 **Tests**: 715/715 passing (9 test suites)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+pending commit: feat(v5.5.0): Phase 5 — Analytics, Recommendations, Content Versioning
+0145ce2 docs(v5.4.0): update CHANGELOG + PROGRESS for Phase 4 completion
 1cc78d9 feat(v5.4.0): GDPR + monitoring + backup — Phase 4 complete
 51f2a5a feat(v5.4.0): CI/CD + ESLint + audit logging — Phase 4 first steps
-52a2db3 refactor(v5.3.0): wire index.js routes to services/repos (Step 3)
-7d67e33 refactor(v5.3.0): wire auth + user routes to service layer (Step 1+2)
-251b153 docs(v5.2.1): create PROGRESS.md roadmap bookmark, update CHANGELOG + FEATURE_REGISTRY
 ```
 
 ---
@@ -34,7 +33,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Phase 2 — Testing | Security tests (38 tests), JWT bug fix, Error handler fix | ✅ DONE (v5.1.1) |
 | Phase 3 — Refactoring | Error Model, Request ID, Logging, Service Layer, Repository Layer, Route Wiring | ✅ DONE (v5.3.0) |
 | Phase 4 — Production Hardening | CI/CD, Audit logging, GDPR, Monitoring, Backup/Restore | ✅ DONE (v5.4.0) |
-| Phase 5 — Product Evolution | Analytics, Recommendations, Content Versioning | 🔜 PENDING |
+| Phase 5 — Product Evolution | Analytics, Recommendations, Content Versioning | 🔜 IN PROGRESS (v5.5.0) |
 
 ---
 
@@ -123,11 +122,10 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ## NEXT ACTIONS (for the next session)
 
-### Option A: Phase 5 — Product Evolution (Recommended)
-The natural next step per tech spec:
-1. **Analytics dashboard** — subscriber progress charts, lesson completion rates
-2. **Recommendations engine** — suggest lessons based on watched history + mood
-3. **Content versioning** — lesson update tracking, version history
+### Option A: Phase 5 remaining — Personalization (Recommended)
+- Content versioning endpoints for admin UI integration
+- Recommendation click tracking + scoring feedback loop
+- A/B testing framework for recommendation algorithms
 
 ### Option B: Service Layer Cleanup (optional)
 Extend services to cover remaining inline routes:
@@ -136,7 +134,7 @@ Extend services to cover remaining inline routes:
 - Create `calendar.service.js` (personal timeline + schedule merge)
 - Fix mood validation mismatch in progress service
 
-### Option C: Additional Production Hardening
+### Option C: Production Ops
 - **Rate limiting improvements** — per-route limits, IP-based for auth
 - **HTTPS/TLS** — production SSL termination
 - **Containerization** — Docker + docker-compose for consistent deploys

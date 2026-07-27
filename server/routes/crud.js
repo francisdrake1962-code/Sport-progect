@@ -3,6 +3,11 @@ const { parsePagination } = require('../helpers/pagination');
 const { queryToObjects } = require('../helpers/db-utils');
 const { logAction } = require('../services/audit.service');
 
+let analyticsTrack = null;
+function setAnalyticsTracker(tracker) { analyticsTrack = tracker; }
+let versionTracker = null;
+function setVersionTracker(tracker) { versionTracker = tracker; }
+
 const VALID_TABLES = new Set([
   'users', 'lessons', 'complexes', 'schedule',
   'subscribers', 'reviews', 'faq', 'promo_codes', 'transactions',
@@ -67,6 +72,7 @@ function createCrudRoutes(tableName, fields) {
         const items = queryToObjects(result);
         saveDb();
         logAction('create', tableName, id, req.user?.id, req.user?.role, { fields: cols }, req.ip);
+        if (analyticsTrack && tableName === 'lessons') analyticsTrack({ eventName: 'lesson_created', userId: req.user?.id, entity: 'lessons', entityId: id, ipAddress: req.ip });
         if (items.length > 0) return res.status(201).json(items[0]);
       }
       saveDb();
@@ -92,6 +98,8 @@ function createCrudRoutes(tableName, fields) {
       db.run(`UPDATE ${tableName} SET ${setClause} WHERE id = ?`, vals);
       saveDb();
       logAction('update', tableName, id, req.user?.id, req.user?.role, { fields: cols }, req.ip);
+      if (analyticsTrack && tableName === 'lessons') analyticsTrack({ eventName: 'lesson_updated', userId: req.user?.id, entity: 'lessons', entityId: id, ipAddress: req.ip });
+      if (versionTracker && tableName === 'lessons') versionTracker(id, { changedBy: req.user?.id, changeSummary: `Updated fields: ${cols.join(', ')}` }).catch(() => {});
       const result = db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
       const items = queryToObjects(result);
       if (items.length === 0) return res.status(404).json({ error: 'Not found' });
@@ -112,6 +120,7 @@ function createCrudRoutes(tableName, fields) {
       db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
       saveDb();
       logAction('delete', tableName, id, req.user?.id, req.user?.role, null, req.ip);
+      if (analyticsTrack && tableName === 'lessons') analyticsTrack({ eventName: 'lesson_deleted', userId: req.user?.id, entity: 'lessons', entityId: id, ipAddress: req.ip });
       res.json({ success: true });
     } catch (err) {
       console.error(`CRUD DELETE ${tableName}:`, err.message);
@@ -122,4 +131,4 @@ function createCrudRoutes(tableName, fields) {
   return router;
 }
 
-module.exports = { createCrudRoutes, queryToObjects };
+module.exports = { createCrudRoutes, queryToObjects, setAnalyticsTracker, setVersionTracker };

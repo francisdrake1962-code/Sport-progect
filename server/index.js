@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const { getDb, saveDb, transaction, cleanupBlocklist } = require('./db');
 const { authMiddleware, JWT_SECRET } = require('./auth');
-const { createCrudRoutes, queryToObjects } = require('./routes/crud');
+const { createCrudRoutes, queryToObjects, setAnalyticsTracker, setVersionTracker } = require('./routes/crud');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const { FREE_LIMIT } = userRoutes;
@@ -21,6 +21,14 @@ const { formatError, AppError, ValidationError, NotFoundError, ForbiddenError, P
 const feedbackService = require('./services/feedback.service');
 const dashboardService = require('./services/dashboard.service');
 const auditService = require('./services/audit.service');
+const AnalyticsService = require('./services/analytics.service');
+const analyticsService = new AnalyticsService(getDb);
+const RecommendationService = require('./services/recommendation.service');
+const recommendationService = new RecommendationService(getDb);
+const ContentVersionService = require('./services/content-version.service');
+const contentVersionService = new ContentVersionService(getDb);
+setAnalyticsTracker((event) => analyticsService.trackEvent(event).catch(() => {}));
+setVersionTracker((lessonId, opts) => contentVersionService.createVersion(lessonId, opts));
 const { settingsRepo, complexRepo } = require('./repositories');
 const jwt = require('jsonwebtoken');
 
@@ -698,6 +706,115 @@ api.get('/admin/audit-logs', async (req, res, next) => {
     const { entity, user_id, action } = req.query;
     const result = await auditService.getAuditLogs({ entity, userId: user_id, action, page, limit });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/analytics/dashboard', async (req, res, next) => {
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const dashboard = await analyticsService.getDashboard({ days });
+    res.json(dashboard);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/analytics/stats', async (req, res, next) => {
+  try {
+    const { start_date, end_date, event_name, entity, group_by } = req.query;
+    const stats = await analyticsService.getEventStats({
+      startDate: start_date, endDate: end_date, eventName: event_name, entity, groupBy: group_by,
+    });
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/analytics/timeline', async (req, res, next) => {
+  try {
+    const { start_date, end_date, event_name, days } = req.query;
+    const timeline = await analyticsService.getEventTimeline({
+      startDate: start_date, endDate: end_date, eventName: event_name,
+      days: Math.min(parseInt(days) || 30, 365),
+    });
+    res.json(timeline);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/analytics/user/:userId', async (req, res, next) => {
+  try {
+    const activity = await analyticsService.getUserActivity({
+      userId: parseInt(req.params.userId), limit: parseInt(req.query.limit) || 50,
+    });
+    res.json(activity);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/recommendations/:subscriberId', async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 5, 20);
+    const recommendations = await recommendationService.getRecommendations(parseInt(req.params.subscriberId), { limit });
+    res.json({ subscriber_id: parseInt(req.params.subscriberId), recommendations });
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.post('/admin/lessons/:id/version', async (req, res, next) => {
+  try {
+    const lessonId = parseInt(req.params.id);
+    const { change_summary } = req.body;
+    const result = await contentVersionService.createVersion(lessonId, { changedBy: req.user?.id, changeSummary: change_summary });
+    if (!result) return res.status(404).json({ error: 'Lesson not found' });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/lessons/:id/versions', async (req, res, next) => {
+  try {
+    const versions = await contentVersionService.getVersions(parseInt(req.params.id));
+    res.json(versions);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/lessons/:id/versions/:version', async (req, res, next) => {
+  try {
+    const version = await contentVersionService.getVersion(parseInt(req.params.id), parseInt(req.params.version));
+    if (!version) return res.status(404).json({ error: 'Version not found' });
+    res.json(version);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.post('/admin/lessons/:id/restore/:version', async (req, res, next) => {
+  try {
+    const result = await contentVersionService.restoreVersion(parseInt(req.params.id), parseInt(req.params.version), { changedBy: req.user?.id });
+    if (!result) return res.status(404).json({ error: 'Version not found' });
+    res.json({ success: true, restored_to: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/lessons/:id/compare', async (req, res, next) => {
+  try {
+    const { a, b } = req.query;
+    if (!a || !b) return res.status(400).json({ error: 'Query params a and b required' });
+    const diff = await contentVersionService.compareVersions(parseInt(req.params.id), parseInt(a), parseInt(b));
+    if (!diff) return res.status(404).json({ error: 'Versions not found' });
+    res.json(diff);
   } catch (err) {
     next(err);
   }

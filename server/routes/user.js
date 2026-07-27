@@ -12,6 +12,10 @@ const jwt = require('jsonwebtoken');
 const { revokeToken } = require('../db');
 const authService = require('../services/auth.service');
 const progressService = require('../services/progress.service');
+const AnalyticsService = require('../services/analytics.service');
+const analyticsService = new AnalyticsService(getDb);
+const RecommendationService = require('../services/recommendation.service');
+const recommendationService = new RecommendationService(getDb);
 
 const router = express.Router();
 
@@ -83,6 +87,9 @@ router.post('/register', authLimiter, async (req, res) => {
       [name.trim(), normalizedEmail, hash, confirmToken, isConsole ? 1 : 0]
     );
     saveDb();
+    const newSub = db.exec(`SELECT id FROM subscribers WHERE email = ?`, [normalizedEmail]);
+    const newId = newSub.length > 0 && newSub[0].values.length > 0 ? newSub[0].values[0][0] : null;
+    analyticsService.trackEvent({ eventName: 'user_registered', userId: newId, ipAddress: req.ip }).catch(() => {});
     await sendConfirmationEmail(normalizedEmail, confirmToken);
     const response = {
       message: isConsole
@@ -100,6 +107,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const result = await authService.loginSubscriber(email, password);
+    analyticsService.trackEvent({ eventName: 'user_logged_in', userId: result.subscriber_id, ipAddress: req.ip }).catch(() => {});
     res.json(result);
   } catch (err) {
     next(err);
@@ -229,6 +237,11 @@ router.post('/watch-progress', authMiddleware, async (req, res) => {
       }
     }
     saveDb();
+    if (completed && !wasAlreadyCompleted) {
+      analyticsService.trackEvent({ eventName: 'lesson_completed', userId: req.user.id, entity: 'lessons', entityId: lessonId, ipAddress: req.ip }).catch(() => {});
+    } else if (!completed) {
+      analyticsService.trackEvent({ eventName: 'lesson_started', userId: req.user.id, entity: 'lessons', entityId: lessonId, metadata: { position_seconds: posSec }, ipAddress: req.ip }).catch(() => {});
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to save progress' });
@@ -605,6 +618,18 @@ router.get('/categories', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/recommendations', authMiddleware, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 5, 20);
+    const excludeWatched = req.query.exclude_watched !== 'false';
+    const recommendations = await recommendationService.getRecommendations(req.user.id, { limit, excludeWatched });
+    analyticsService.trackEvent({ eventName: 'recommendation_viewed', userId: req.user.id, metadata: { count: recommendations.length }, ipAddress: req.ip }).catch(() => {});
+    res.json({ recommendations });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load recommendations' });
+  }
+});
+
 router.post('/workout-feedback', authMiddleware, async (req, res) => {
   try {
     const { lesson_id, mood } = req.body;
@@ -623,6 +648,7 @@ router.post('/workout-feedback', authMiddleware, async (req, res) => {
       [req.user.id, lessonId, mood, mood]
     );
     saveDb();
+    analyticsService.trackEvent({ eventName: 'feedback_submitted', userId: req.user.id, entity: 'lessons', entityId: lessonId, metadata: { mood }, ipAddress: req.ip }).catch(() => {});
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to save feedback' });
@@ -795,6 +821,7 @@ router.post('/free-selections', authMiddleware, async (req, res) => {
       );
     }
     saveDb();
+    analyticsService.trackEvent({ eventName: 'free_lesson_selected', userId: req.user.id, entity: 'lessons', metadata: { count: validIds.length }, ipAddress: req.ip }).catch(() => {});
     res.json({ success: true, count: validIds.length, limit: FREE_LIMIT });
   } catch (err) {
     res.status(500).json({ error: 'Failed to save selections' });

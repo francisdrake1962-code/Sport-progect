@@ -4,7 +4,42 @@
 
 ---
 
-## [5.4.0] - 2026-07-27
+## [5.5.0] - 2026-07-27
+
+### Added — Phase 5: Product Evolution (Step 1-3)
+
+#### Analytics (ANALYTICS-001, ANALYTICS-002)
+- `analytics_events` table — event_name, user_id, entity, entity_id, metadata, ip_address, user_agent, created_at
+- `server/services/analytics.service.js` — trackEvent, getEventStats, getEventTimeline, getUserActivity, getDashboard
+- Auto-tracked events: user_logged_in, user_registered, lesson_started, lesson_completed, lesson_created, lesson_updated, lesson_deleted, feedback_submitted, free_lesson_selected, recommendation_viewed
+- `GET /api/admin/analytics/dashboard` — aggregated stats (total events, unique users, top events, daily activity)
+- `GET /api/admin/analytics/stats` — grouped by event_name/entity/date/user_id with date range filters
+- `GET /api/admin/analytics/timeline` — daily event counts
+- `GET /api/admin/analytics/user/:userId` — user-specific event history
+
+#### Recommendations (REC-001, REC-002)
+- `server/services/recommendation.service.js` — RuleBasedRecommendationProvider
+- Factors: focus_zones (30pts), goals (20pts), schedule/day-of-week (15pts), feedback mood (10pts), plan match (5pts)
+- `GET /api/user/recommendations` — subscriber-facing, supports limit + exclude_watched params
+- `GET /api/admin/recommendations/:subscriberId` — admin view for any subscriber
+- Auto-tracked `recommendation_viewed` events
+
+#### Content Versioning
+- `lesson_versions` table — full snapshots of lesson state per version
+- `server/services/content-version.service.js` — createVersion, getVersions, getVersion, restoreVersion, compareVersions
+- Auto-versioning on lesson update via CRUD routes
+- `POST /api/admin/lessons/:id/version` — manual snapshot
+- `GET /api/admin/lessons/:id/versions` — version history
+- `GET /api/admin/lessons/:id/versions/:version` — specific version
+- `POST /api/admin/lessons/:id/restore/:version` — restore to previous version
+- `GET /api/admin/lessons/:id/compare?a=1&b=2` — diff two versions
+
+### Stats
+- 715/715 tests passing
+- 0 lint errors, 69 warnings
+- Версия: 5.4.0 → 5.5.0
+
+---
 
 ### Added — Phase 4: Production Hardening
 

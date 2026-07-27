@@ -316,6 +316,49 @@ async function getDb() {
     db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)`);
 
+    db.run(`
+      CREATE TABLE IF NOT EXISTS analytics_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_name TEXT NOT NULL,
+        user_id INTEGER,
+        entity TEXT,
+        entity_id INTEGER,
+        metadata TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_event_name ON analytics_events(event_name)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_user ON analytics_events(user_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics_events(created_at)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_entity ON analytics_events(entity, entity_id)`);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS lesson_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lesson_id INTEGER NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        title TEXT,
+        description TEXT,
+        video_url TEXT,
+        cf_video_uid TEXT,
+        image_url TEXT,
+        duration INTEGER,
+        is_free INTEGER,
+        tags TEXT,
+        direction TEXT,
+        effect_description TEXT,
+        status TEXT,
+        changed_by INTEGER,
+        change_summary TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_lesson_versions_lesson ON lesson_versions(lesson_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_lesson_versions_version ON lesson_versions(lesson_id, version)`);
+
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('admin123', 10);
     db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,

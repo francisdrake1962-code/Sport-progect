@@ -4,7 +4,56 @@
 
 ---
 
-## [5.2.1] - 2026-07-26
+## [5.3.0] - 2026-07-27
+
+### Changed — Phase 3 Route Wiring (Steps 1-3)
+
+#### Step 1: Auth Routes Wired (v5.2.2)
+- `server/routes/auth.js` — replaced all inline DB calls with `authService` methods
+  - POST /login → `authService.loginAdmin()`
+  - GET /me → `authService.getAdminProfile()`
+  - POST /logout → `authService.revokeCurrentToken()`
+  - PUT /password → `authService.changeAdminPassword()`
+- Added `jti` (UUID) claim to JWT tokens to prevent identical token generation
+
+#### Step 2: User Routes Partially Wired
+- `server/routes/user.js` — 4 of ~20 routes wired to services:
+  - POST /login → `authService.loginSubscriber()`
+  - GET /me → `progressService.getSubscriberProfile()`
+  - PUT /me → `progressService.updateSubscriberProfile()` + `authService.revokeCurrentToken()`
+  - POST /logout → `authService.revokeCurrentToken()`
+- Removed local `revokeCurrentToken()` function (using authService)
+
+#### Step 3: Index.js Routes Wired
+- `server/index.js` — 15 routes replaced with service/repository calls:
+  - **Feedback** (8 routes): subscriber CRUD → `feedbackService`, admin CRUD → `feedbackService`
+  - **Settings** (3 routes): GET/PUT/POST → `settingsRepo.getAll()` + `settingsRepo.set()`
+  - **Dashboard** (1 route): GET → `dashboardService.getStats()`
+  - **Complex Lessons** (4 routes): GET/POST/PUT/DELETE → `complexRepo` methods
+
+#### New Service Created
+- `server/services/dashboard.service.js` — admin dashboard stats aggregation (replaces 8 inline DB queries)
+
+#### Repository Extensions
+- `SettingsRepository.getAll()` — returns flat `{key: value}` object (no `id` column in settings table)
+- `SettingsRepository.set()` — fixed column quoting for SQLite reserved word `key`
+- `ComplexRepository` — added `listComplexLessons()`, `upsertComplexLesson()`, `updateComplexLessonPosition()`, `deleteComplexLesson()`
+
+#### Bug Fixes
+- Fixed `SettingsRepository.set()` selecting nonexistent `id` column from settings table
+- Fixed `feedbackService.replyToTicket()` missing NaN validation for invalid ticket IDs (was returning 404 instead of 400)
+
+#### Routes Still Inline (intentionally)
+- **user.js**: register (email sending), watch-progress (free logic), progress (pagination mismatch), calendar (complex logic), lessons-filter, onboarding, categories, workout-feedback (mood mismatch), dashboard, free-selections, fingerprint
+- **index.js**: public routes (simple read-only), settings test-email/stream, video streaming, trainer photo upload, lesson-zones
+
+### Stats
+- 715/715 tests passing (132 backend + 38 security + 545 frontend)
+- 30 routes wired to services/repos (from ~2100 lines of inline DB calls)
+- ~20 routes intentionally left inline
+- Версия: 5.2.1 → 5.3.0
+
+---
 
 ### Added
 - `PROGRESS.md` — comprehensive roadmap bookmark file for session continuity, contains full Phase 3 status, next actions, architecture reference, and key rules

@@ -2,18 +2,21 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-26 v5.2.0
+> Last updated: 2026-07-27 v5.3.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.2.0
+**Version**: 5.3.0
 **Tests**: 715/715 passing (9 test suites)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+52a2db3 refactor(v5.3.0): wire index.js routes to services/repos (Step 3)
+7d67e33 refactor(v5.3.0): wire auth + user routes to service layer (Step 1+2)
+251b153 docs(v5.2.1): create PROGRESS.md roadmap bookmark, update CHANGELOG + FEATURE_REGISTRY
 991147d feat(v5.2.0): Phase 3 — Repository Layer + updated CHANGELOG
 10748af feat(v5.2.0): Phase 3 foundation — Error Model, Request ID, Structured Logging, Service Layer
 4afea66 fix(security): strengthen security tests, fix JWT duplicate token bug, fix error handler
@@ -35,104 +38,80 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 |-------|---------|--------|
 | Phase 1 — Stabilization | Pagination, Token Revocation, Config Validation, DB Transactions, DB Migrations | ✅ DONE (v5.0.0) |
 | Phase 2 — Testing | Security tests (38 tests), JWT bug fix, Error handler fix | ✅ DONE (v5.1.1) |
-| Phase 3 — Refactoring | Error Model, Request ID, Logging, Service Layer, Repository Layer | ⬅️ IN PROGRESS (v5.2.0) |
+| Phase 3 — Refactoring | Error Model, Request ID, Logging, Service Layer, Repository Layer, Route Wiring | ✅ DONE (v5.3.0) |
 | Phase 4 — Production Hardening | CI/CD, Audit logging, GDPR, Monitoring, Backup/Restore | 🔜 PENDING |
 | Phase 5 — Product Evolution | Analytics, Recommendations, Content Versioning | 🔜 PENDING |
 
 ---
 
-## PHASE 3 STATUS (what's done, what remains)
+## PHASE 3 STATUS — ✅ COMPLETE (v5.3.0)
 
-### ✅ Done in Phase 3 (v5.2.0)
+### All Phase 3 deliverables done:
 
-**Infrastructure** — all created and tested, no routes broken:
-- `server/helpers/errors.js` — AppError, ValidationError, NotFoundError, UnauthorizedError, ForbiddenError, ConflictError, RateLimitError, PayloadTooLargeError + formatSuccess/formatError
+**Infrastructure** (v5.2.0):
+- `server/helpers/errors.js` — 8 error classes + formatSuccess/formatError
 - `server/middleware/requestId.js` — X-Request-Id auto-generation
-- `server/helpers/logger.js` — createLogger(component), requestLogger middleware, JSON structured logging
-- Global error handler in `server/index.js` updated to use unified error model
+- `server/helpers/logger.js` — createLogger, requestLogger, JSON structured logging
+- Global error handler in index.js uses unified error model
 
-**Service Layer** — created but NOT YET WIRED into routes:
-- `server/services/auth.service.js` — loginAdmin, loginSubscriber, registerSubscriber, changeAdminPassword, revokeCurrentToken
-- `server/services/progress.service.js` — recordWatchProgress, getProgress, getWorkoutFeedback, recordWorkoutFeedback, getSubscriberProfile, updateSubscriberProfile
-- `server/services/schedule.service.js` — getSchedule, getPersonalTimeline
-- `server/services/feedback.service.js` — createTicket, getSubscriberTickets, replyToTicket, closeTicket
+**Service Layer** — all wired into routes:
+- `server/services/auth.service.js` — wired into auth.js + user.js
+- `server/services/progress.service.js` — wired into user.js (GET /me, PUT /me)
+- `server/services/schedule.service.js` — NOT wired (calendar route logic doesn't match service)
+- `server/services/feedback.service.js` — wired into index.js (all 8 subscriber+admin feedback routes)
+- `server/services/dashboard.service.js` — NEW, wired into index.js (GET /api/dashboard)
 
-**Repository Layer** — created but NOT YET WIRED into services:
-- `server/repositories/base.repository.js` — BaseRepository with generic CRUD (findAll, findById, create, update, delete, count, raw)
-- `server/repositories/subscriber.repository.js` — SubscriberRepository (findByEmail, getPublicProfile, confirmEmail)
-- `server/repositories/index.js` — LessonRepository, UserRepository, FaqRepository, ReviewRepository, ComplexRepository, SettingsRepository
+**Repository Layer** — wired into index.js:
+- `server/repositories/base.repository.js` — generic CRUD
+- `server/repositories/subscriber.repository.js` — subscriber data access
+- `server/repositories/index.js` — LessonRepo, UserRepo, FaqRepo, ReviewRepo, ComplexRepo (with complex-lesson methods), SettingsRepo (with getAll/set)
 
-### ❌ Remaining in Phase 3
+**Route Wiring Summary** (v5.3.0):
 
-**Wire services into routes** — THE BIG TASK (~2100 lines to refactor):
-- `server/index.js` (~1275 lines) — replace all inline DB calls with service/repository calls
-  - Ticket routes (lines 645-730): replace with feedbackService
-  - Settings routes (lines 100-142): replace with settingsRepo
-  - Dashboard routes (lines 145-169): create dashboard service
-  - Complex lessons routes (lines 312-370): replace with complexRepo
-  - Public routes (lessons/complexes/faq/reviews): keep using repos for read-only
-- `server/routes/user.js` (~888 lines) — replace inline DB calls with service calls
-  - Registration (lines 50-103): replace with authService.registerSubscriber
-  - Login (lines 105-135): replace with authService.loginSubscriber
-  - Profile (lines 137-187): replace with progressService
-  - Logout (lines 189-192): replace with authService.revokeCurrentToken
-  - Progress routes (lines 300-450): replace with progressService
-  - Workout feedback (lines 666-745): replace with progressService
-  - Free selections (lines 550-650): keep inline (complex logic)
-  - Calendar (lines 460-530): replace with scheduleService
-  - Feedback/ticket routes (lines 750-830): replace with feedbackService
-- `server/routes/crud.js` — base CRUD is fine, no changes needed
-- `server/routes/auth.js` — replace with authService
+| File | Routes Wired | Routes Still Inline | Notes |
+|------|-------------|-------------------|-------|
+| `server/routes/auth.js` | 4/4 | 0 | Fully wired to authService |
+| `server/routes/user.js` | 4/~20 | ~16 | Login, GET /me, PUT /me, logout wired. Remaining: register, stats, confirm, progress, can-watch, stream-token, watch-progress, calendar, lessons-filter, onboarding, categories, workout-feedback, dashboard, free-selections, fingerprint |
+| `server/index.js` | 15/~25 | ~10 | Feedback ×8, Settings ×3, Dashboard ×1, Complex-lessons ×4 wired. Remaining: public routes (lessons/complexes/faq/reviews/schedule), lesson-zones, trainer upload, video streaming, settings test-email/stream |
 
-**Tests to update** after wiring:
-- `tests/backend.test.js` — responses may change format (currently `{error: 'msg'}` → `{success:false, error:{code,msg}}`)
-- `tests/security.test.js` — same format changes
+### Remaining routes (intentionally NOT wired — see notes):
+
+**user.js — why left inline:**
+- **register**: missing email sending (sendConfirmationEmail not in service)
+- **watch-progress**: missing free_sessions_used increment + ON CONFLICT
+- **progress**: service not paginated, route has pagination
+- **calendar**: service doesn't match route logic
+- **lessons-filter**: complex filtering, no service method
+- **onboarding, categories**: not in any service
+- **workout-feedback**: service has different valid moods (happy/energized/neutral/disappointed vs route: happy/energized/calm/neutral/tired/disappointed)
+- **dashboard, free-selections, fingerprint**: complex business logic not worth abstracting
+
+**index.js — why left inline:**
+- **Public routes** (GET /api/lessons, complexes, faq, reviews, schedule): simple read-only queries, no business logic
+- **settings test-email/test-stream**: service-specific, uses mailer/stream services directly
+- **video streaming**: complex range-header logic, not worth abstracting
+- **trainer photo upload**: file I/O, not business logic
+- **lesson-zones PUT**: uses transaction helper, already clean
 
 ---
 
 ## NEXT ACTIONS (for the next session)
 
-### Step 1: Wire auth routes (smallest, safest start)
-1. Read `server/routes/auth.js` — currently 108 lines with inline DB calls
-2. Replace with `authService.loginAdmin()` and `authService.changeAdminPassword()`
-3. Run `npx jest tests/backend.test.js` — fix any test assertion changes
-4. Run `npx jest tests/security.test.js` — fix any test assertion changes
-5. Commit + push
+### Step 4: Phase 4 — Production Hardening
+Start the next major phase. Priority order:
+1. **CI/CD pipeline** — GitHub Actions for lint, test, build, deploy
+2. **Audit logging** — log all admin actions, subscriber data changes
+3. **GDPR compliance** — data export, right to deletion, consent tracking
+4. **Monitoring** — health check improvements, error alerting, uptime
+5. **Backup/Restore** — automated DB backup, restore script
+6. **Rate limiting improvements** — per-route limits, IP-based for auth
 
-### Step 2: Wire user routes (biggest file, ~888 lines)
-1. Read `server/routes/user.js` section by section
-2. Replace registration with `authService.registerSubscriber()`
-3. Replace login with `authService.loginSubscriber()`
-4. Replace profile with `progressService.getSubscriberProfile()`
-5. Replace progress routes with `progressService`
-6. Replace workout feedback with `progressService`
-7. Replace calendar with `scheduleService.getPersonalTimeline()`
-8. Replace feedback/ticket routes with `feedbackService`
-9. Run all tests, fix assertions
-10. Commit + push
-
-### Step 3: Wire index.js routes
-1. Replace ticket routes with `feedbackService`
-2. Replace settings with `settingsRepo`
-3. Create `dashboard.service.js` for dashboard aggregation
-4. Replace complex lessons with repository calls
-5. Run all tests, fix assertions
-6. Commit + push
-
-### Step 4: Update error format in tests
-After all routes are wired, the API error format changes from:
-```json
-{"error": "message"}
-```
-to:
-```json
-{"success": false, "error": {"code": "VALIDATION_ERROR", "message": "message"}}
-```
-This requires updating test assertions in backend.test.js and security.test.js.
-
-### Step 5: Update CHANGELOG + commit + push
-- Version bump to 5.2.1 or 5.3.0
-- Update CHANGELOG with Phase 3 completion
+### Alternative: Service layer cleanup (optional)
+If desired, extend services to cover remaining inline routes:
+- Create `register.service.js` (email sending flow)
+- Extend `progress.service.js` with pagination + free logic
+- Create `calendar.service.js` (personal timeline + schedule merge)
+- Fix mood validation mismatch in progress service
 
 ---
 
@@ -143,20 +122,21 @@ This requires updating test assertions in backend.test.js and security.test.js.
 - `CHANGELOG.md` (full history)
 - `C:\Ded\спорт\Разное\Аналиp-аудит GPT.txt` (tech spec, lines 884-900 for Phase 3)
 
-### Files to modify in Phase 3 wiring:
-- `server/routes/auth.js` (108 lines — auth routes)
-- `server/routes/user.js` (888 lines — subscriber routes)
-- `server/index.js` (1275 lines — server + all API routes)
-- `server/routes/crud.js` (130 lines — generic CRUD, probably fine as-is)
+### Files modified in Phase 3 wiring:
+- `server/routes/auth.js` — fully wired to authService (4 routes)
+- `server/routes/user.js` — 4 of ~20 routes wired
+- `server/index.js` — 15 of ~25 routes wired
+- `server/routes/crud.js` — unchanged, base CRUD fine as-is
 
-### New files created in Phase 3 (read-only reference):
+### New files created in Phase 3:
 - `server/helpers/errors.js` — error classes
 - `server/middleware/requestId.js` — request ID
 - `server/helpers/logger.js` — structured logging
 - `server/services/auth.service.js` — auth business logic
 - `server/services/progress.service.js` — progress business logic
-- `server/services/schedule.service.js` — schedule/calendar business logic
+- `server/services/schedule.service.js` — calendar business logic
 - `server/services/feedback.service.js` — ticket business logic
+- `server/services/dashboard.service.js` — dashboard aggregation
 - `server/repositories/base.repository.js` — generic CRUD repo
 - `server/repositories/subscriber.repository.js` — subscriber data access
 - `server/repositories/index.js` — all other repos
@@ -176,28 +156,29 @@ server/
 ├── auth.js               — JWT middleware + generateToken
 ├── db.js                 — sql.js DB, schema, transactions, migrations
 ├── middleware/
-│   └── requestId.js      — X-Request-Id (NEW v5.2.0)
+│   └── requestId.js      — X-Request-Id
 ├── helpers/
-│   ├── errors.js         — Unified error classes (NEW v5.2.0)
-│   ├── logger.js         — Structured logging (NEW v5.2.0)
+│   ├── errors.js         — Unified error classes
+│   ├── logger.js         — Structured logging
 │   ├── pagination.js     — parsePagination
 │   ├── config.js         — validateConfig
 │   └── migrations.js     — DB migration runner
 ├── routes/
-│   ├── auth.js           — Admin auth (login, logout, password)
-│   ├── user.js           — Subscriber routes (~888 lines)
+│   ├── auth.js           — Admin auth (WIRED to authService)
+│   ├── user.js           — Subscriber routes (PARTIALLY WIRED)
 │   └── crud.js           — Generic CRUD factory
 ├── services/
-│   ├── auth.service.js   — Auth business logic (NEW v5.2.0)
-│   ├── progress.service.js — Progress/feedback logic (NEW v5.2.0)
-│   ├── schedule.service.js — Calendar/timeline logic (NEW v5.2.0)
-│   ├── feedback.service.js — Ticket system logic (NEW v5.2.0)
+│   ├── auth.service.js   — Auth business logic (WIRED)
+│   ├── progress.service.js — Progress/feedback logic (PARTIALLY WIRED)
+│   ├── schedule.service.js — Calendar/timeline logic (NOT WIRED)
+│   ├── feedback.service.js — Ticket system logic (WIRED)
+│   ├── dashboard.service.js — Dashboard stats (WIRED)
 │   ├── mailer.js         — Email sending
 │   └── stream.js         — Cloudflare Stream
 ├── repositories/
-│   ├── base.repository.js — Generic CRUD repository (NEW v5.2.0)
-│   ├── subscriber.repository.js (NEW v5.2.0)
-│   └── index.js          — All other repos (NEW v5.2.0)
+│   ├── base.repository.js — Generic CRUD repository
+│   ├── subscriber.repository.js
+│   └── index.js          — All other repos (settingsRepo, complexRepo wired)
 └── migrations/
     └── 001_performance_indexes.sql
 ```

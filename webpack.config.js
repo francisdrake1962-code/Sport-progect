@@ -25,6 +25,7 @@ const pages = [
   'profile',
   'onboarding',
   'dashboard',
+  'payment-status',
 ];
 
 const adminPages = [

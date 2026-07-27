@@ -47,7 +47,14 @@ async function runMigrations() {
       db.run('BEGIN');
       const statements = sql.split(';').map(s => s.trim()).filter(s => s.length > 0);
       for (const stmt of statements) {
-        db.run(stmt);
+        try {
+          db.run(stmt);
+        } catch (stmtErr) {
+          if (stmt.toUpperCase().startsWith('ALTER TABLE') && stmtErr.message && stmtErr.message.includes('duplicate column')) {
+            continue;
+          }
+          throw stmtErr;
+        }
       }
       db.run(`INSERT INTO migrations (name) VALUES (?)`, [file]);
       db.run('COMMIT');

@@ -65,7 +65,7 @@
             <div class="plan-card">
                 <div class="plan-card__name">Ежемесячная</div>
                 <div class="plan-card__price" id="price-monthly">$12</div>
-                <div class="plan-card__period">в месяц</div>
+                <div class="plan-card__period">в месяц • автопродление</div>
                 <ul class="plan-card__features">
                     <li>Полный доступ ко всем 1160+ занятиям</li>
                     <li>Все комплексы и программы</li>
@@ -73,12 +73,12 @@
                     <li>Новые занятия каждый день</li>
                     <li>Отмена подписки в один клик</li>
                 </ul>
-                <button class="plan-btn plan-btn--outline" onclick="handleSubscribe()">Выбрать</button>
+                <button class="plan-btn plan-btn--outline" data-plan="monthly" onclick="handleSubscribe.call(this)">Выбрать</button>
             </div>
             <div class="plan-card plan-card--popular">
                 <div class="plan-card__name">Полная подписка</div>
                 <div class="plan-card__price" id="price-annual">$89</div>
-                <div class="plan-card__period">в год ≈ $7.4/мес • разовая оплата</div>
+                <div class="plan-card__period">в год ≈ $7.4/мес • автопродление</div>
                 <ul class="plan-card__features">
                     <li>Полный доступ ко всем 1160+ занятиям</li>
                     <li>Все комплексы: 8 кусков парчи, И Цзинь Цзин, Малый небесный круг</li>
@@ -88,11 +88,11 @@
                     <li>Отмена подписки в один клик</li>
                     <li>Приоритетная поддержка</li>
                 </ul>
-                <button class="plan-btn plan-btn--primary" onclick="handleSubscribe()">Оформить подписку</button>
+                <button class="plan-btn plan-btn--primary" data-plan="annual" onclick="handleSubscribe.call(this)">Оформить подписку</button>
             </div>
         </div>
 
-        <div class="plans-note">Оплата разовая. Продление — по подписке, отмена в один клик.</div>
+        <div class="plans-note">Подписка с автопродлением. Отмена в один клик — доступ сохраняется до конца оплаченного периода.</div>
         <div class="plans-back"><a href="/">← На главную</a></div>
     </div>
     <script>
@@ -103,13 +103,34 @@
         overlay.className = 'plans-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
         overlay.innerHTML = '<div style="background:#111a14;border:1px solid #2a3a2e;border-radius:16px;padding:2.5rem;max-width:400px;width:90%;text-align:center;">' +
-            '<div style="font-size:2rem;margin-bottom:1rem;">\uD83D\uDCB3</div>' +
-            '<h2 style="color:#fff;margin-bottom:0.5rem;">Оплата скоро</h2>' +
-            '<p style="color:#7a9a80;margin-bottom:1.5rem;">Система оплаты находится в разработке. Скоро вы сможете оформить подписку прямо здесь.</p>' +
-            '<a href="#" style="display:inline-block;padding:0.6rem 1.5rem;background:#1a5e2a;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;" onclick="document.querySelector(\'.plans-overlay\').remove();return false;">Понятно</a>' +
+            '<div style="margin-bottom:1rem;"><div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid #2a3a2e;border-top-color:#1a5e2a;border-radius:50%;animation:spin .8s linear infinite;"></div></div>' +
+            '<h2 style="color:#fff;margin-bottom:0.5rem;">Подождите...</h2>' +
+            '<p style="color:#7a9a80;" id="plans-status">Создаём сессию оплаты...</p>' +
             '</div>';
         overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
         document.body.appendChild(overlay);
+
+        var plan = this.getAttribute('data-plan') || 'annual';
+        fetch('/api/payment/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ plan: plan })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                var statusEl = document.getElementById('plans-status');
+                if (statusEl) statusEl.textContent = data.error || 'Не удалось создать сессию оплаты';
+                setTimeout(function() { overlay.remove(); }, 3000);
+            }
+        })
+        .catch(function() {
+            var statusEl = document.getElementById('plans-status');
+            if (statusEl) statusEl.textContent = 'Ошибка сети. Попробуйте позже.';
+            setTimeout(function() { overlay.remove(); }, 3000);
+        });
     }
     </script>
     <script>
@@ -119,7 +140,7 @@
         if (s.annual_price && s.monthly_price) {
             var yearly = (parseFloat(s.annual_price) / 12).toFixed(1);
             var periodEl = document.querySelector('.plan-card--popular .plan-card__period');
-            if (periodEl) periodEl.textContent = 'в год ≈ $' + yearly + '/мес • разовая оплата';
+            if (periodEl) periodEl.textContent = 'в год ≈ $' + yearly + '/мес • автопродление';
         }
         if (s.trial_days) {
             var trialPeriod = document.querySelector('.plan-card:first-child .plan-card__period');

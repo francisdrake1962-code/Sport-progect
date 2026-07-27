@@ -114,7 +114,7 @@ async function getDb() {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         plan TEXT DEFAULT 'trial' CHECK(plan IN ('trial', 'annual', 'monthly')),
-        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'trial', 'inactive', 'suspended')),
+        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'trial', 'inactive', 'suspended', 'expired', 'cancelled')),
         email_confirmed INTEGER DEFAULT 0,
         confirmation_token TEXT,
         free_sessions_used INTEGER DEFAULT 0,

@@ -315,18 +315,21 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid lesson ID' });
     }
     const db = await getDb();
-    const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed FROM subscribers WHERE id = ?`, [req.user.id]);
+    const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed, subscription_expires_at FROM subscribers WHERE id = ?`, [req.user.id]);
     if (!userResult.length || !userResult[0].values.length) {
       return res.status(404).json({ error: 'User not found' });
     }
     const row = userResult[0].values[0];
-    const plan = row[0], freeUsed = row[2] || 0, emailConfirmed = row[3];
+    const plan = row[0], status = row[1], freeUsed = row[2] || 0, emailConfirmed = row[3], expiresAt = row[4];
 
     if (!emailConfirmed) {
       return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED' });
     }
 
-    if (plan === 'annual' || plan === 'monthly') {
+    const now = new Date();
+    const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
+
+    if (hasPaidAccess) {
       return res.json({ allowed: true, reason: 'paid' });
     }
 
@@ -338,6 +341,10 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
 
     if (isFree) {
       return res.json({ allowed: true, reason: 'free_lesson' });
+    }
+
+    if ((plan === 'monthly' || plan === 'annual') && !hasPaidAccess) {
+      return res.json({ allowed: false, reason: 'subscription_expired' });
     }
 
     if (freeUsed >= FREE_LIMIT) {
@@ -367,7 +374,7 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     }
     const db = await getDb();
 
-    const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed FROM subscribers WHERE id = ?`, [req.user.id]);
+    const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed, subscription_expires_at FROM subscribers WHERE id = ?`, [req.user.id]);
     if (!userResult.length || !userResult[0].values.length) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -385,9 +392,14 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Video not available on Cloudflare Stream' });
     }
 
-    const plan = urow[0], freeUsed = urow[2] || 0;
-    if (plan !== 'annual' && plan !== 'monthly') {
+    const plan = urow[0], status = urow[1], freeUsed = urow[2] || 0, expiresAt = urow[4];
+    const now = new Date();
+    const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
+    if (!hasPaidAccess) {
       if (!isFree) {
+        if ((plan === 'monthly' || plan === 'annual')) {
+          return res.status(403).json({ error: 'subscription_expired' });
+        }
         if (freeUsed >= FREE_LIMIT) {
           return res.status(403).json({ error: 'limit_reached', freeUsed, freeLimit: FREE_LIMIT });
         }
@@ -891,12 +903,13 @@ router.get('/data-export', authMiddleware, requireRole('subscriber'), async (req
 router.delete('/account', authMiddleware, requireRole('subscriber'), requireDangerousActionConfirmation, async (req, res) => {
   try {
     const db = await getDb();
-    db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'trial', status = 'inactive' WHERE id = ?`, [req.user.id]);
+    db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'trial', status = 'inactive', stripe_customer_id = NULL, stripe_subscription_id = NULL, subscription_expires_at = NULL WHERE id = ?`, [req.user.id]);
     db.run(`DELETE FROM user_preferences WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM device_fingerprints WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM watched_lessons WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM workout_feedback WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM free_lesson_selections WHERE subscriber_id = ?`, [req.user.id]);
+    db.run(`DELETE FROM manual_access_grants WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`UPDATE tickets SET subject = '[deleted]', category = 'admin' WHERE subscriber_id = ?`, [req.user.id]);
     const jwt = require('jsonwebtoken');
     const decoded = jwt.decode(req.token);

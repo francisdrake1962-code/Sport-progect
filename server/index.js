@@ -38,6 +38,7 @@ const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+const paymentRoutes = require('./routes/payment');
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGIN
   ? process.env.ALLOWED_ORIGIN.split(',').map(s => s.trim())
   : [];
@@ -77,6 +78,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors(corsOptions));
+
+app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '1mb' }));
 app.use(requestIdMiddleware);
 app.use(apiVersionMiddleware);
@@ -360,6 +364,7 @@ app.get('/api/faq', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/payment', paymentRoutes);
 
 const api = express.Router();
 api.use(authMiddleware);
@@ -541,6 +546,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'promo_discount', 'promo_code', 'promo_expiry_hours',
   'mail_provider', 'gmail_user', 'gmail_app_password', 'email_from',
   'cf_stream_signing_key_id', 'cf_stream_signing_key', 'cf_stream_customer_code',
+  'stripe_monthly_price_id', 'stripe_annual_price_id',
 ]);
 
 api.get('/settings', async (req, res, next) => {
@@ -951,12 +957,19 @@ app.get('/videos/{*splat}', async (req, res) => {
       }
       const isFree = lessonResult[0].values[0][1];
       if (!isFree) {
-        const userResult = db.exec(`SELECT plan, free_sessions_used FROM subscribers WHERE id = ?`, [decoded.id]);
+        const userResult = db.exec(`SELECT plan, status, free_sessions_used, subscription_expires_at FROM subscribers WHERE id = ?`, [decoded.id]);
         if (userResult.length && userResult[0].values.length) {
           const plan = userResult[0].values[0][0];
-          const freeUsed = userResult[0].values[0][1] || 0;
-          if (plan === 'trial' && freeUsed >= FREE_LIMIT) {
+          const status = userResult[0].values[0][1];
+          const freeUsed = userResult[0].values[0][2] || 0;
+          const expiresAt = userResult[0].values[0][3];
+          const now = new Date();
+          const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
+          if (!hasPaidAccess && plan === 'trial' && freeUsed >= FREE_LIMIT) {
             return res.status(403).json({ error: 'Free limit reached. Subscribe to continue.' });
+          }
+          if (!hasPaidAccess && plan !== 'trial') {
+            return res.status(403).json({ error: 'Subscription expired. Renew to continue.' });
           }
         }
       }
@@ -1009,7 +1022,7 @@ app.get('/admin/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'admin', 'index.html'));
 });
 
-const CLEAN_URL_ROUTES = { plans: 'plans.html', lessons: 'lessons.html', login: 'login.html', calendar: 'calendar.html', faq: 'faq.html', contact: 'contact.html', 'is-it-really-free': 'is-it-really-free.html', 'how-to-cancel': 'how-to-cancel.html', 'about-trainer': 'about-trainer.html', '8-pieces-of-brocade': '8-pieces-of-brocade.html', yijinjing: 'yijinjing.html', 'small-circulation': 'small-circulation.html', terms: 'terms.html', refund: 'refund.html', privacy: 'privacy.html', player: 'player.html', picker: 'picker.html', profile: 'profile.html', dashboard: 'dashboard.html', onboarding: 'onboarding.html' };
+const CLEAN_URL_ROUTES = { plans: 'plans.html', lessons: 'lessons.html', login: 'login.html', calendar: 'calendar.html', faq: 'faq.html', contact: 'contact.html', 'is-it-really-free': 'is-it-really-free.html', 'how-to-cancel': 'how-to-cancel.html', 'about-trainer': 'about-trainer.html', '8-pieces-of-brocade': '8-pieces-of-brocade.html', yijinjing: 'yijinjing.html', 'small-circulation': 'small-circulation.html', terms: 'terms.html', refund: 'refund.html', privacy: 'privacy.html', player: 'player.html', picker: 'picker.html', profile: 'profile.html', dashboard: 'dashboard.html', onboarding: 'onboarding.html', 'payment-status': 'payment-status.html' };
 Object.entries(CLEAN_URL_ROUTES).forEach(([route, file]) => {
   app.get('/' + route, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', file));

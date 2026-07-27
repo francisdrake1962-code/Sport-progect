@@ -1,0 +1,1627 @@
+openapi: 3.0.3
+info:
+  title: Qigong & Joint Warm-up API
+  description: |
+    REST API для платформы онлайн-занятий цигун.
+    Аутентификация — JWT (HS256). БД — SQLite (sql.js).
+  version: '5.6.0'
+  contact:
+    name: Qigong Platform
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            requestId:
+              type: string
+
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        duration:
+          type: integer
+        status:
+          type: string
+          enum: [active, draft, archived]
+        description:
+          type: string
+        video_url:
+          type: string
+        cf_video_uid:
+          type: string
+        image_url:
+          type: string
+        is_free:
+          type: integer
+          enum: [0, 1]
+        free_order:
+          type: integer
+        date:
+          type: string
+        tags:
+          type: string
+        direction:
+          type: string
+        direction_source:
+          type: string
+        effect_description:
+          type: string
+        effect_is_draft:
+          type: integer
+        created_at:
+          type: string
+
+    Subscriber:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        plan:
+          type: string
+          enum: [trial, annual, monthly]
+        status:
+          type: string
+          enum: [active, trial, inactive, suspended]
+        email_confirmed:
+          type: integer
+        free_sessions_used:
+          type: integer
+        subscription_started_at:
+          type: string
+        next_billing_date:
+          type: string
+        joined_at:
+          type: string
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+        subscriber_id:
+          type: integer
+        category:
+          type: string
+          enum: [trainer, technical, admin]
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [open, in_progress, resolved]
+        created_at:
+          type: string
+
+    TicketMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticket_id:
+          type: integer
+        sender_type:
+          type: string
+          enum: [subscriber, admin, trainer]
+        sender_id:
+          type: integer
+        message:
+          type: string
+        created_at:
+          type: string
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+        author:
+          type: string
+        text:
+          type: string
+        rating:
+          type: integer
+        status:
+          type: string
+        date:
+          type: string
+
+    Faq:
+      type: object
+      properties:
+        id:
+          type: integer
+        question:
+          type: string
+        answer:
+          type: string
+        sort_order:
+          type: integer
+
+    PaginatedLessons:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lesson'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+
+    PaginatedTickets:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ticket'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        duration:
+          type: integer
+        zones:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+        entity:
+          type: string
+        entity_id:
+          type: integer
+        user_id:
+          type: integer
+        user_role:
+          type: string
+        details:
+          type: string
+        ip_address:
+          type: string
+        created_at:
+          type: string
+
+    DashboardStats:
+      type: object
+      properties:
+        activeUsers:
+          type: integer
+        totalUsers:
+          type: integer
+        totalLessons:
+          type: integer
+        totalReviews:
+          type: integer
+        monthlyRevenue:
+          type: number
+        openTickets:
+          type: integer
+        conversionRate:
+          type: number
+
+paths:
+  # === PUBLIC ===
+  /ready:
+    get:
+      tags: [Public]
+      summary: Readiness probe
+      security: []
+      responses:
+        '200':
+          description: Service ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+                  db:
+                    type: string
+                  uptime:
+                    type: number
+
+  /health:
+    get:
+      tags: [Public]
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: OK
+
+  /health/detailed:
+    get:
+      tags: [Public]
+      summary: Detailed health (admin only)
+      responses:
+        '200':
+          description: Detailed health info
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /lessons:
+    get:
+      tags: [Public]
+      summary: List active lessons (paginated)
+      security: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated lessons
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLessons'
+
+  /lessons/featured:
+    get:
+      tags: [Public]
+      summary: Featured lessons (with images)
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Featured lessons array
+
+  /lessons/{id}:
+    get:
+      tags: [Public]
+      summary: Get lesson by ID
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lesson details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lessons/{id}/complex:
+    get:
+      tags: [Public]
+      summary: Get complex containing this lesson
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Complex info
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /complexes:
+    get:
+      tags: [Public]
+      summary: List complexes (paginated)
+      security: []
+      responses:
+        '200':
+          description: Paginated complexes
+
+  /complexes/{id}:
+    get:
+      tags: [Public]
+      summary: Get complex by ID with lessons
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Complex with lessons
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /schedule:
+    get:
+      tags: [Public]
+      summary: List schedule (paginated)
+      security: []
+      responses:
+        '200':
+          description: Paginated schedule
+
+  /reviews:
+    get:
+      tags: [Public]
+      summary: List reviews
+      security: []
+      responses:
+        '200':
+          description: Reviews array
+
+  /faq:
+    get:
+      tags: [Public]
+      summary: List FAQ items
+      security: []
+      responses:
+        '200':
+          description: FAQ array
+
+  /plans:
+    get:
+      tags: [Public]
+      summary: Get subscription plans
+      security: []
+      responses:
+        '200':
+          description: Available plans
+
+  # === AUTH ===
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Admin login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/password:
+    put:
+      tags: [Auth]
+      summary: Change admin password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password changed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current admin user
+      responses:
+        '200':
+          description: Admin user info
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # === USER (Subscriber) ===
+  /user/register:
+    post:
+      tags: [User]
+      summary: Register subscriber
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                email:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '201':
+          description: Registration successful
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /user/confirm/{token}:
+    post:
+      tags: [User]
+      summary: Confirm email
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email confirmed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /user/login:
+    post:
+      tags: [User]
+      summary: Subscriber login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: JWT token
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/me:
+    get:
+      tags: [User]
+      summary: Get current subscriber profile
+      responses:
+        '200':
+          description: Subscriber profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscriber'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/profile:
+    put:
+      tags: [User]
+      summary: Update profile (name, password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        '200':
+          description: Updated profile
+
+  /user/progress:
+    get:
+      tags: [User]
+      summary: Get watch progress
+      responses:
+        '200':
+          description: Progress data
+
+  /user/calendar:
+    get:
+      tags: [User]
+      summary: Get personal calendar
+      responses:
+        '200':
+          description: Calendar with schedule
+
+  /user/recommendations:
+    get:
+      tags: [User]
+      summary: Get personalized recommendations
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: mood
+          in: query
+          schema:
+            type: string
+            enum: [happy, energized, calm, neutral, tired, disappointed]
+        - name: excludeWatched
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recommendation'
+
+  /user/can-watch/{id}:
+    get:
+      tags: [User]
+      summary: Check if user can watch a lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Watch permission
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allowed:
+                    type: boolean
+                  reason:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/watch-progress:
+    post:
+      tags: [User]
+      summary: Record watch progress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lesson_id]
+              properties:
+                lesson_id:
+                  type: integer
+                position_seconds:
+                  type: integer
+                completed:
+                  type: boolean
+      responses:
+        '200':
+          description: Progress recorded
+        '409':
+          description: Already recorded
+
+  /user/stream-token/{id}:
+    get:
+      tags: [User]
+      summary: Get video stream token
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Stream token
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/workout-feedback:
+    post:
+      tags: [User]
+      summary: Submit workout feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lesson_id, mood]
+              properties:
+                lesson_id:
+                  type: integer
+                mood:
+                  type: string
+                  enum: [happy, energized, calm, neutral, tired, disappointed]
+      responses:
+        '200':
+          description: Feedback saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Already submitted
+
+  /user/free-selections:
+    post:
+      tags: [User]
+      summary: Select free lessons (max 7)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lesson_ids]
+              properties:
+                lesson_ids:
+                  type: array
+                  items:
+                    type: integer
+                  maxItems: 7
+      responses:
+        '200':
+          description: Selections saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /user/fingerprint:
+    post:
+      tags: [User]
+      summary: Submit device fingerprint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fingerprint]
+              properties:
+                fingerprint:
+                  type: string
+      responses:
+        '200':
+          description: Fingerprint saved
+
+  /user/onboarding:
+    post:
+      tags: [User]
+      summary: Complete onboarding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                experience:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+                goals:
+                  type: array
+                  items:
+                    type: string
+                preferred_duration:
+                  type: integer
+                preferred_time:
+                  type: string
+                  enum: [morning, afternoon, evening, anytime]
+                focus_zones:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Onboarding completed
+
+  /user/data-export:
+    get:
+      tags: [User]
+      summary: Export all user data (GDPR)
+      responses:
+        '200':
+          description: User data export
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /user/account:
+    delete:
+      tags: [User]
+      summary: Delete/anonymize account (GDPR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+      responses:
+        '200':
+          description: Account anonymized
+
+  /user/logout:
+    post:
+      tags: [User]
+      summary: Logout (revoke token)
+      responses:
+        '200':
+          description: Token revoked
+
+  # === ADMIN ===
+  /dashboard:
+    get:
+      tags: [Admin]
+      summary: Get dashboard stats
+      responses:
+        '200':
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Get audit logs
+      parameters:
+        - name: entity
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLogEntry'
+                  pagination:
+                    type: object
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/analytics/stats:
+    get:
+      tags: [Admin]
+      summary: Get analytics stats
+      parameters:
+        - name: event_name
+          in: query
+          schema:
+            type: string
+        - name: entity
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Analytics stats array
+
+  /admin/analytics/dashboard:
+    get:
+      tags: [Admin]
+      summary: Analytics dashboard
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Analytics dashboard
+
+  /admin/analytics/event:
+    post:
+      tags: [Admin]
+      summary: Track analytics event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventName]
+              properties:
+                eventName:
+                  type: string
+                userId:
+                  type: integer
+                entity:
+                  type: string
+                entityId:
+                  type: integer
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Event tracked
+
+  # === CRUD Admin Routes ===
+  /subscribers:
+    get:
+      tags: [Admin]
+      summary: List subscribers (paginated)
+      responses:
+        '200':
+          description: Paginated subscribers
+
+  /subscribers/{id}:
+    get:
+      tags: [Admin]
+      summary: Get subscriber by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Subscriber details
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lessons:
+    post:
+      tags: [Admin]
+      summary: Create lesson
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                duration:
+                  type: integer
+                status:
+                  type: string
+                  enum: [active, draft, archived]
+                description:
+                  type: string
+                video_url:
+                  type: string
+                cf_video_uid:
+                  type: string
+                image_url:
+                  type: string
+                is_free:
+                  type: integer
+                tags:
+                  type: string
+                direction:
+                  type: string
+      responses:
+        '201':
+          description: Lesson created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /lessons/{id}:
+    put:
+      tags: [Admin]
+      summary: Update lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                duration:
+                  type: integer
+                status:
+                  type: string
+                description:
+                  type: string
+                video_url:
+                  type: string
+                image_url:
+                  type: string
+                is_free:
+                  type: integer
+                tags:
+                  type: string
+      responses:
+        '200':
+          description: Lesson updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Admin]
+      summary: Delete lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lesson deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /complexes:
+    get:
+      tags: [Admin]
+      summary: List complexes
+      responses:
+        '200':
+          description: Paginated complexes
+    post:
+      tags: [Admin]
+      summary: Create complex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                image_url:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '201':
+          description: Complex created
+
+  /complexes/{id}:
+    put:
+      tags: [Admin]
+      summary: Update complex
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Complex updated
+    delete:
+      tags: [Admin]
+      summary: Delete complex
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Complex deleted
+
+  /complex-lessons:
+    get:
+      tags: [Admin]
+      summary: List complex-lesson associations
+      responses:
+        '200':
+          description: Associations
+    post:
+      tags: [Admin]
+      summary: Add lesson to complex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [complex_id, lesson_id]
+              properties:
+                complex_id:
+                  type: integer
+                lesson_id:
+                  type: integer
+                position:
+                  type: integer
+      responses:
+        '201':
+          description: Added
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /complex-lessons/{complexId}/{lessonId}:
+    put:
+      tags: [Admin]
+      summary: Update lesson position in complex
+      parameters:
+        - name: complexId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Admin]
+      summary: Remove lesson from complex
+      parameters:
+        - name: complexId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Removed
+
+  /schedule:
+    post:
+      tags: [Admin]
+      summary: Create schedule entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date]
+              properties:
+                date:
+                  type: string
+                theme:
+                  type: string
+                complex_id:
+                  type: integer
+                lesson_id:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+
+  /reviews:
+    post:
+      tags: [Admin]
+      summary: Create review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                author:
+                  type: string
+                text:
+                  type: string
+                rating:
+                  type: integer
+                status:
+                  type: string
+      responses:
+        '201':
+          description: Review created
+
+  /faq:
+    post:
+      tags: [Admin]
+      summary: Create FAQ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                answer:
+                  type: string
+                sort_order:
+                  type: integer
+      responses:
+        '201':
+          description: FAQ created
+
+  /promo-codes:
+    get:
+      tags: [Admin]
+      summary: List promo codes
+      responses:
+        '200':
+          description: Promo codes
+    post:
+      tags: [Admin]
+      summary: Create promo code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                discount:
+                  type: string
+                max_uses:
+                  type: integer
+                active:
+                  type: integer
+      responses:
+        '201':
+          description: Promo code created
+
+  /transactions:
+    get:
+      tags: [Admin]
+      summary: List transactions
+      responses:
+        '200':
+          description: Transactions
+    post:
+      tags: [Admin]
+      summary: Create transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subscriber_id:
+                  type: integer
+                type:
+                  type: string
+                amount:
+                  type: number
+                status:
+                  type: string
+      responses:
+        '201':
+          description: Transaction created
+
+  /notifications:
+    get:
+      tags: [Admin]
+      summary: List notifications
+      responses:
+        '200':
+          description: Notifications
+    post:
+      tags: [Admin]
+      summary: Create notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                type:
+                  type: string
+                text:
+                  type: string
+                recipients:
+                  type: string
+      responses:
+        '201':
+          description: Notification created
+
+  /users:
+    get:
+      tags: [Admin]
+      summary: List admin users
+      responses:
+        '200':
+          description: Users list
+
+  /watched-lessons:
+    get:
+      tags: [Admin]
+      summary: List watched lessons
+      responses:
+        '200':
+          description: Watched lessons
+
+  /admin/lessons/{id}/versions:
+    get:
+      tags: [Admin]
+      summary: List lesson versions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Versions array
+
+  /admin/lessons/{id}/versions/{version}:
+    get:
+      tags: [Admin]
+      summary: Get specific lesson version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Version details
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/lessons/{id}/restore/{version}:
+    post:
+      tags: [Admin]
+      summary: Restore lesson to specific version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Version restored
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # === FEEDBACK (Tickets) ===
+  /feedback:
+    get:
+      tags: [Feedback]
+      summary: List tickets (subscriber: own, admin: all)
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tickets list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTickets'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Feedback]
+      summary: Create support ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, subject, message]
+              properties:
+                category:
+                  type: string
+                  enum: [trainer, technical, admin]
+                subject:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  ticketId:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /feedback/{id}:
+    get:
+      tags: [Feedback]
+      summary: Get ticket with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ticket with messages
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Feedback]
+      summary: Delete ticket (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /feedback/{id}/messages:
+    post:
+      tags: [Feedback]
+      summary: Add message to ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Message added
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/feedback/{id}/status:
+    put:
+      tags: [Admin]
+      summary: Update ticket status (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [open, in_progress, resolved]
+      responses:
+        '200':
+          description: Status updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+responses:
+  BadRequest:
+    description: Bad request
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  Unauthorized:
+    description: Not authenticated
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  Forbidden:
+    description: Insufficient permissions
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  NotFound:
+    description: Resource not found
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'

@@ -4,6 +4,9 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { getDb, saveDb } = require('../db');
 const { generateToken, authMiddleware, JWT_SECRET, hashToken } = require('../auth');
+const { requireRole } = require('../middleware/rbac');
+const { validateBody } = require('../middleware/validation');
+const { requireDangerousActionConfirmation } = require('../middleware/confirmation');
 const { sendConfirmationEmail } = require('../services/mailer');
 const { isStreamConfigured, generateSignedToken, getStreamUrl } = require('../services/stream');
 const { parsePagination } = require('../helpers/pagination');
@@ -57,7 +60,11 @@ const resendLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post('/register', authLimiter, async (req, res) => {
+router.post('/register', authLimiter, validateBody({
+  name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
+  email: { required: true, type: 'string', maxLength: 255, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+  password: { required: true, type: 'string', minLength: 8, maxLength: 128 },
+}), async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
@@ -103,7 +110,10 @@ router.post('/register', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/login', authLimiter, async (req, res, next) => {
+router.post('/login', authLimiter, validateBody({
+  email: { required: true, type: 'string', maxLength: 255 },
+  password: { required: true, type: 'string', maxLength: 128 },
+}), async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const result = await authService.loginSubscriber(email, password);
@@ -855,9 +865,8 @@ router.post('/fingerprint', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/data-export', authMiddleware, async (req, res) => {
+router.get('/data-export', authMiddleware, requireRole('subscriber'), async (req, res) => {
   try {
-    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const db = await getDb();
     const profile = queryToObjects(db.exec(`SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, joined_at FROM subscribers WHERE id = ?`, [req.user.id]));
     const watched = queryToObjects(db.exec(`SELECT wl.lesson_id, wl.position_seconds, wl.completed, wl.watched_at FROM watched_lessons wl WHERE wl.subscriber_id = ?`, [req.user.id]));
@@ -880,9 +889,8 @@ router.get('/data-export', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/account', authMiddleware, async (req, res) => {
+router.delete('/account', authMiddleware, requireRole('subscriber'), requireDangerousActionConfirmation, async (req, res) => {
   try {
-    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const db = await getDb();
     db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'deleted', status = 'deleted' WHERE id = ?`, [req.user.id]);
     db.run(`DELETE FROM user_preferences WHERE subscriber_id = ?`, [req.user.id]);

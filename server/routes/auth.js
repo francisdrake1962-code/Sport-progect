@@ -2,6 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { authMiddleware } = require('../auth');
 const authService = require('../services/auth.service');
+const { validateBody } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -13,7 +14,10 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post('/login', loginLimiter, async (req, res, next) => {
+router.post('/login', loginLimiter, validateBody({
+  email: { required: true, type: 'string', maxLength: 255 },
+  password: { required: true, type: 'string', maxLength: 128 },
+}), async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const result = await authService.loginAdmin(email, password);
@@ -37,7 +41,10 @@ router.post('/logout', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
-router.put('/password', authMiddleware, async (req, res, next) => {
+router.put('/password', authMiddleware, validateBody({
+  currentPassword: { required: true, type: 'string', maxLength: 128 },
+  newPassword: { required: true, type: 'string', minLength: 8, maxLength: 128 },
+}), async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     await authService.changeAdminPassword(req.user.id, req.token, currentPassword, newPassword);

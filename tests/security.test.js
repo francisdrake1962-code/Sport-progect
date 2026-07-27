@@ -108,7 +108,6 @@ describe('Security — Authentication Bypass', () => {
   test('subscriber token cannot access admin endpoints (403)', async () => {
     const res = await apiRequest('GET', '/api/dashboard', null, subToken);
     expect(res.status).toBe(403);
-    expect(res.body.error).toContain('Admin');
   });
 
   test('admin token on subscriber endpoint: no role gate (JWT-only auth)', async () => {
@@ -419,7 +418,7 @@ describe('Security — GDPR Account Deletion (P0 Round 1)', () => {
   });
 
   test('account deletion revokes token', async () => {
-    const del = await apiRequest('DELETE', '/api/user/account', null, token);
+    const del = await apiRequest('DELETE', '/api/user/account', { confirm: true }, token);
     expect(del.status).toBe(200);
     expect(del.body.success).toBe(true);
     const me = await apiRequest('GET', '/api/user/me', null, token);
@@ -502,5 +501,123 @@ describe('Security — Content Versioning (P0 Round 1)', () => {
     expect(res.status).toBe(200);
     expect(res.body.recommendations).toBeDefined();
     expect(Array.isArray(res.body.recommendations)).toBe(true);
+  });
+});
+
+describe('Security — RBAC (AUTH-002)', () => {
+  let subscriberToken, adminToken, superAdminToken;
+
+  beforeAll(async () => {
+    const sub = await apiRequest('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    subscriberToken = sub.body.token;
+    const admin = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    adminToken = admin.body.token;
+    const superAdmin = await apiRequest('POST', '/api/auth/login', { email: 'superadmin@qigong.com', password: 'super123' });
+    superAdminToken = superAdmin.body.token;
+  });
+
+  test('subscriber cannot access admin endpoints', async () => {
+    const res = await apiRequest('GET', '/api/admin/audit-logs', null, subscriberToken);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toContain('permissions');
+  });
+
+  test('subscriber cannot access health/detailed', async () => {
+    const res = await apiRequest('GET', '/api/health/detailed', null, subscriberToken);
+    expect(res.status).toBe(403);
+  });
+
+  test('admin can access admin endpoints', async () => {
+    const res = await apiRequest('GET', '/api/admin/audit-logs', null, adminToken);
+    expect(res.status).toBe(200);
+  });
+
+  test('admin can access health/detailed', async () => {
+    const res = await apiRequest('GET', '/api/health/detailed', null, adminToken);
+    expect(res.status).toBe(200);
+  });
+
+  test('super_admin can access admin endpoints', async () => {
+    const res = await apiRequest('GET', '/api/admin/audit-logs', null, superAdminToken);
+    expect(res.status).toBe(200);
+  });
+
+  test('unauthenticated request returns 401', async () => {
+    const res = await apiRequest('GET', '/api/admin/lessons');
+    expect(res.status).toBe(401);
+  });
+
+  test('subscriber can access subscriber endpoints (feedback)', async () => {
+    const res = await apiRequest('GET', '/api/feedback', null, subscriberToken);
+    expect(res.status).toBe(200);
+  });
+
+  test('subscriber can access GDPR endpoints (data-export)', async () => {
+    const res = await apiRequest('GET', '/api/user/data-export', null, subscriberToken);
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('Security — Input Validation (API-008)', () => {
+  test('login rejects empty email', async () => {
+    const res = await apiRequest('POST', '/api/auth/login', { email: '', password: 'admin123' });
+    expect(res.status).toBe(400);
+  });
+
+  test('login rejects empty password', async () => {
+    const res = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: '' });
+    expect(res.status).toBe(400);
+  });
+
+  test('register rejects short password', async () => {
+    const res = await apiRequest('POST', '/api/user/register', { name: 'Test', email: 'test_val@example.com', password: '123' });
+    expect(res.status).toBe(400);
+  });
+
+  test('register rejects invalid email', async () => {
+    const res = await apiRequest('POST', '/api/user/register', { name: 'Test', email: 'not-an-email', password: 'password123' });
+    expect(res.status).toBe(400);
+  });
+
+  test('password change rejects short new password', async () => {
+    const login = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    const res = await apiRequest('PUT', '/api/auth/password', { currentPassword: 'admin123', newPassword: 'short' }, login.body.token);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Security — Readiness & Shutdown (OPS-004, OBS-003)', () => {
+  test('readiness endpoint returns ready', async () => {
+    const res = await apiRequest('GET', '/api/ready');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ready');
+  });
+
+  test('health endpoint returns ok', async () => {
+    const res = await apiRequest('GET', '/api/health');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+  });
+});
+
+describe('Security — Dangerous Action Confirmation (ADMIN-006)', () => {
+  let token;
+
+  beforeAll(async () => {
+    const reg = await apiRequest('POST', '/api/user/register', { name: 'Confirm Test', email: 'confirm_test@example.com', password: 'password12345' });
+    const login = await apiRequest('POST', '/api/user/login', { email: 'confirm_test@example.com', password: 'password12345' });
+    token = login.body.token;
+  });
+
+  test('account deletion without confirmation returns 428', async () => {
+    const res = await apiRequest('DELETE', '/api/user/account', {}, token);
+    expect(res.status).toBe(428);
+    expect(res.body.error).toContain('Confirmation');
+  });
+
+  test('account deletion with confirmation succeeds', async () => {
+    const res = await apiRequest('DELETE', '/api/user/account', { confirm: true }, token);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
   });
 });

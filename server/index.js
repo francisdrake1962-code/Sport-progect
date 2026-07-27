@@ -8,6 +8,8 @@ const path = require('path');
 const fs = require('fs');
 const { getDb, saveDb, transaction, cleanupBlocklist } = require('./db');
 const { authMiddleware, JWT_SECRET } = require('./auth');
+const { requireAdmin, requireRole } = require('./middleware/rbac');
+const { apiVersionMiddleware } = require('./middleware/api-version');
 const { createCrudRoutes, queryToObjects, setAnalyticsTracker, setVersionTracker } = require('./routes/crud');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
@@ -37,16 +39,19 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGIN
+  ? process.env.ALLOWED_ORIGIN.split(',').map(s => s.trim())
+  : [];
 
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGIN && origin === ALLOWED_ORIGIN) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     if (process.env.NODE_ENV !== 'production') return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
+  maxAge: 86400,
 };
 
 app.use(helmet({
@@ -64,11 +69,18 @@ app.use(helmet({
       frameAncestors: ["'none'"],
     },
   },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 app.use(requestIdMiddleware);
+app.use(apiVersionMiddleware);
 app.use(requestLogger);
 
 const globalLimiter = rateLimit({
@@ -129,8 +141,15 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-app.get('/api/health/detailed', authMiddleware, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+let isReady = false;
+app.get('/api/ready', (req, res) => {
+  if (!isReady) {
+    return res.status(503).json({ status: 'not ready', timestamp: Date.now() });
+  }
+  res.json({ status: 'ready', timestamp: Date.now() });
+});
+
+app.get('/api/health/detailed', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
     db.exec(`SELECT 1`);
@@ -345,12 +364,7 @@ app.use('/api/user', userRoutes);
 
 const api = express.Router();
 api.use(authMiddleware);
-api.use((req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-});
+api.use(requireAdmin);
 
 api.use('/lessons', createCrudRoutes('lessons', ['title', 'duration', 'status', 'description', 'video_url', 'cf_video_uid', 'image_url', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft']));
 api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'image_url', 'status']));
@@ -651,9 +665,8 @@ const feedbackRouter = express.Router();
 feedbackRouter.use(authMiddleware);
 
 // Subscriber: create ticket
-feedbackRouter.post('/', async (req, res, next) => {
+feedbackRouter.post('/', requireRole('subscriber'), async (req, res, next) => {
   try {
-    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const { category, subject, message } = req.body;
     const result = await feedbackService.createTicket(req.user.id, category, subject, message);
     res.json({ success: true, ticketId: result.ticketId });
@@ -663,9 +676,8 @@ feedbackRouter.post('/', async (req, res, next) => {
 });
 
 // Subscriber: list my tickets
-feedbackRouter.get('/', async (req, res, next) => {
+feedbackRouter.get('/', requireRole('subscriber'), async (req, res, next) => {
   try {
-    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const { page, limit } = parsePagination(req.query);
     const result = await feedbackService.getSubscriberTickets(req.user.id, page, limit);
     res.json(result);
@@ -675,9 +687,8 @@ feedbackRouter.get('/', async (req, res, next) => {
 });
 
 // Subscriber: get ticket with messages
-feedbackRouter.get('/:id', async (req, res, next) => {
+feedbackRouter.get('/:id', requireRole('subscriber'), async (req, res, next) => {
   try {
-    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const result = await feedbackService.getTicketById(req.params.id, req.user.id);
     res.json(result);
   } catch (err) {
@@ -686,9 +697,8 @@ feedbackRouter.get('/:id', async (req, res, next) => {
 });
 
 // Subscriber: reply to ticket
-feedbackRouter.post('/:id/reply', async (req, res, next) => {
+feedbackRouter.post('/:id/reply', requireRole('subscriber'), async (req, res, next) => {
   try {
-    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const { message } = req.body;
     await feedbackService.replyToTicket(Number(req.params.id), 'subscriber', req.user.id, message);
     res.json({ success: true });
@@ -1067,16 +1077,25 @@ async function start() {
     console.log(`Server running at http://localhost:${PORT}`);
     console.log(`Admin panel at http://localhost:${PORT}/admin/`);
     console.log(`API at http://localhost:${PORT}/api/`);
+    isReady = true;
   });
 
-  const shutdown = () => {
-    console.log('Shutting down gracefully...');
-    saveDb();
-    server.close(() => { process.exit(0); });
-    setTimeout(() => { process.exit(1); }, 5000);
+  const shutdown = (signal) => {
+    console.log(`Received ${signal}. Shutting down gracefully...`);
+    isReady = false;
+    server.close(() => {
+      saveDb();
+      console.log('Server closed.');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      console.error('Forced shutdown after timeout');
+      saveDb();
+      process.exit(1);
+    }, 10000);
   };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 
   return server;
 }

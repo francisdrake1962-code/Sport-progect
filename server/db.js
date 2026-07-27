@@ -364,6 +364,9 @@ async function getDb() {
     const hash = bcrypt.hashSync('admin123', 10);
     db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
       ['admin@qigong.com', hash, 'Admin', 'admin']);
+    const superHash = bcrypt.hashSync('super123', 10);
+    db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
+      ['superadmin@qigong.com', superHash, 'Super Admin', 'super_admin']);
 
     db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`,
       ['app_name', 'Цигун и суставная разминка']);

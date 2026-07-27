@@ -4,6 +4,63 @@
 
 ---
 
+## [5.6.0] - 2026-07-27
+
+### Added — Tech Spec Compliance (AUTH-002, SEC-003/006, API-003/008, OPS-004, OBS-003, ADMIN-006)
+
+#### RBAC (AUTH-002)
+- `server/middleware/rbac.js` — 3 roles: subscriber(1) < admin(2) < super_admin(3)
+- Hierarchy-based access: admin includes subscriber, super_admin includes admin
+- `requireRole()`, `requireAdmin()`, `requireSuperAdmin()` middleware
+- All inline role checks replaced with middleware (index.js, user.js)
+- `superadmin@qigong.com` / `super123` seeded
+
+#### Security Headers (SEC-003/006)
+- HSTS with preload (1 year max-age)
+- Referrer-Policy: strict-origin-when-cross-origin
+- CSP enhanced: frameAncestors 'none', objectSrc 'none'
+- CORS: multi-origin support via comma-separated ALLOWED_ORIGIN env
+
+#### Input Validation (API-008)
+- `server/middleware/validation.js` — validateBody() middleware
+- Applied to: admin login, subscriber login, register, password change
+- Validates: required, type, minLength, maxLength, min, max, enum, pattern
+
+#### API Versioning (API-003)
+- `server/middleware/api-version.js` — X-API-Version header
+- X-API-Version and X-API-Supported in all responses
+- Rejects unsupported versions with 400
+
+#### Graceful Shutdown (OPS-004)
+- SIGTERM/SIGINT: stop accepting → finish requests → save DB → exit
+- 10s forced shutdown timeout
+- Readiness endpoint returns 503 during shutdown
+
+#### Readiness Endpoint (OBS-003)
+- `GET /api/ready` — returns 503 until server is fully started, then 200
+
+#### Session Invalidation (AUTH-006)
+- Password change now revokes current token (was already working, verified)
+
+#### Dangerous Action Confirmation (ADMIN-006)
+- `server/middleware/confirmation.js` — X-Confirm-Action header required
+- DELETE /api/user/account requires `confirm: true` in body or `X-Confirm-Action: true` header
+- Returns 428 (Precondition Required) without confirmation
+
+#### Documentation
+- `docs/ARCHITECTURE.md` — full architecture doc (52KB)
+- `docs/API.md` — complete API reference (42KB, 71 endpoints)
+
+#### Tests (9 new)
+- RBAC: subscriber blocked, admin/super_admin allowed, unauthenticated blocked
+- Input Validation: empty email, empty password, short password, invalid email
+- Readiness endpoint
+- Dangerous action confirmation (428 without, 200 with)
+
+#### Version bump: 5.5.1 → 5.6.0
+
+---
+
 ## [5.5.1] - 2026-07-27
 
 ### Fixed — Devil's Advocate Round 1: Critical Security & Data Integrity (P0)

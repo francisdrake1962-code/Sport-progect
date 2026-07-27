@@ -1,9 +1,7 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
-const jwt = require('jsonwebtoken');
-const { getDb, saveDb, revokeToken } = require('../db');
-const { authMiddleware, generateToken, JWT_SECRET, hashToken } = require('../auth');
+const { authMiddleware } = require('../auth');
+const authService = require('../services/auth.service');
 
 const router = express.Router();
 
@@ -15,93 +13,37 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-function revokeCurrentToken(token) {
-  if (!token) return;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const expiresAt = new Date(decoded.exp * 1000).toISOString();
-    revokeToken(hashToken(token), expiresAt);
-  } catch (_) {}
-}
-
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
-    }
-    const db = await getDb();
-    const result = db.exec(`SELECT * FROM users WHERE email = ?`, [email]);
-    if (!result.length || !result[0].values.length) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    const user = {
-      id: result[0].values[0][0],
-      email: result[0].values[0][1],
-      password: result[0].values[0][2],
-      name: result[0].values[0][3],
-      role: result[0].values[0][4],
-    };
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    const token = generateToken(user);
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    const result = await authService.loginAdmin(email, password);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'Login failed' });
+    next(err);
   }
 });
 
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', authMiddleware, async (req, res, next) => {
   try {
-    const db = await getDb();
-    const result = db.exec(`SELECT id, email, name, role FROM users WHERE id = ?`, [req.user.id]);
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json({
-      id: result[0].values[0][0],
-      email: result[0].values[0][1],
-      name: result[0].values[0][2],
-      role: result[0].values[0][3],
-    });
+    const user = await authService.getAdminProfile(req.user.id);
+    res.json(user);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch user' });
+    next(err);
   }
 });
 
 router.post('/logout', authMiddleware, (req, res) => {
-  revokeCurrentToken(req.token);
+  authService.revokeCurrentToken(req.token);
   res.json({ success: true });
 });
 
-router.put('/password', authMiddleware, async (req, res) => {
+router.put('/password', authMiddleware, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ error: 'Current and new password required' });
-    }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'New password must be at least 8 characters' });
-    }
-    const db = await getDb();
-    const result = db.exec(`SELECT password FROM users WHERE id = ?`, [req.user.id]);
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const currentHash = result[0].values[0][0];
-    const valid = await bcrypt.compare(currentPassword, currentHash);
-    if (!valid) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
-    }
-    const newHash = await bcrypt.hash(newPassword, 10);
-    db.run(`UPDATE users SET password = ? WHERE id = ?`, [newHash, req.user.id]);
-    revokeCurrentToken(req.token);
-    saveDb();
+    await authService.changeAdminPassword(req.user.id, req.token, currentPassword, newPassword);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to change password' });
+    next(err);
   }
 });
 

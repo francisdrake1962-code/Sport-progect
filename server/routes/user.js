@@ -9,19 +9,12 @@ const { isStreamConfigured, generateSignedToken, getStreamUrl } = require('../se
 const { parsePagination } = require('../helpers/pagination');
 const jwt = require('jsonwebtoken');
 const { revokeToken } = require('../db');
+const authService = require('../services/auth.service');
+const progressService = require('../services/progress.service');
 
 const router = express.Router();
 
 const FREE_LIMIT = 7;
-
-function revokeCurrentToken(token) {
-  if (!token) return;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const expiresAt = new Date(decoded.exp * 1000).toISOString();
-    revokeToken(hashToken(token), expiresAt);
-  } catch (_) {}
-}
 
 router.get('/stats', async (req, res) => {
   try {
@@ -102,92 +95,40 @@ router.post('/register', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
-    }
-    const db = await getDb();
-    const result = db.exec(`SELECT id, email, password, name, plan, status, free_sessions_used, email_confirmed FROM subscribers WHERE email = ?`, [email.trim().toLowerCase()]);
-    if (!result.length || !result[0].values.length) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    const row = result[0].values[0];
-    const user = { id: row[0], email: row[1], password: row[2], name: row[3], plan: row[4], status: row[5], free_sessions_used: row[6], email_confirmed: row[7] };
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    if (!user.email_confirmed) {
-      const tokenResult = db.exec(`SELECT confirmation_token FROM subscribers WHERE email = ?`, [email]);
-      const confirmationToken = (tokenResult.length && tokenResult[0].values.length) ? tokenResult[0].values[0][0] : null;
-      if (process.env.MAIL_PROVIDER === 'console' && confirmationToken) {
-        console.log(`[DEV] Confirmation link: http://localhost:${process.env.PORT || 3000}/api/user/confirm/${confirmationToken}`);
-      }
-      return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED', message: 'Подтвердите email перед входом' });
-    }
-    const token = generateToken({ id: user.id, email: user.email, role: 'subscriber' });
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, status: user.status, free_sessions_used: user.free_sessions_used } });
+    const result = await authService.loginSubscriber(email, password);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'Login failed' });
+    next(err);
   }
 });
 
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', authMiddleware, async (req, res, next) => {
   try {
-    const db = await getDb();
-    const result = db.exec(`SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, next_billing_date FROM subscribers WHERE id = ?`, [req.user.id]);
-    if (!result.length || !result[0].values.length) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const row = result[0].values[0];
-    res.json({ id: row[0], email: row[1], name: row[2], plan: row[3], status: row[4], free_sessions_used: row[5], subscription_started_at: row[6], next_billing_date: row[7] });
+    const profile = await progressService.getSubscriberProfile(req.user.id);
+    res.json(profile);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to load profile' });
+    next(err);
   }
 });
 
-router.put('/me', authMiddleware, async (req, res) => {
+router.put('/me', authMiddleware, async (req, res, next) => {
   try {
-    const db = await getDb();
     const { name, current_password, new_password } = req.body;
-    const result = db.exec(`SELECT name, password FROM subscribers WHERE id = ?`, [req.user.id]);
-    if (!result.length || !result[0].values.length) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const row = result[0].values[0];
-    const currentName = row[0];
-    const currentHash = row[1];
+    const updated = await progressService.updateSubscriberProfile(req.user.id, name, current_password, new_password);
     if (new_password) {
-      if (!current_password) {
-        return res.status(400).json({ error: 'Current password required' });
-      }
-      const valid = await bcrypt.compare(current_password, currentHash);
-      if (!valid) {
-        return res.status(401).json({ error: 'Wrong current password' });
-      }
-      if (new_password.length < 8) {
-        return res.status(400).json({ error: 'New password must be at least 8 characters' });
-      }
-      const hash = await bcrypt.hash(new_password, 10);
-      db.run(`UPDATE subscribers SET password = ? WHERE id = ?`, [hash, req.user.id]);
-      revokeCurrentToken(req.token);
+      authService.revokeCurrentToken(req.token);
     }
-    if (name && name.trim()) {
-      db.run(`UPDATE subscribers SET name = ? WHERE id = ?`, [name.trim(), req.user.id]);
-    }
-    saveDb();
-    const updated = db.exec(`SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, next_billing_date FROM subscribers WHERE id = ?`, [req.user.id]);
-    const u = updated[0].values[0];
-    res.json({ id: u[0], email: u[1], name: u[2], plan: u[3], status: u[4], free_sessions_used: u[5], subscription_started_at: u[6], next_billing_date: u[7] });
+    res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update profile' });
+    next(err);
   }
 });
 
 router.post('/logout', authMiddleware, (req, res) => {
-  revokeCurrentToken(req.token);
+  authService.revokeCurrentToken(req.token);
   res.json({ success: true });
 });
 

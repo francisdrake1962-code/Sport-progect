@@ -892,13 +892,13 @@ router.get('/data-export', authMiddleware, requireRole('subscriber'), async (req
 router.delete('/account', authMiddleware, requireRole('subscriber'), requireDangerousActionConfirmation, async (req, res) => {
   try {
     const db = await getDb();
-    db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'deleted', status = 'deleted' WHERE id = ?`, [req.user.id]);
+    db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'trial', status = 'inactive' WHERE id = ?`, [req.user.id]);
     db.run(`DELETE FROM user_preferences WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM device_fingerprints WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM watched_lessons WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM workout_feedback WHERE subscriber_id = ?`, [req.user.id]);
     db.run(`DELETE FROM free_lesson_selections WHERE subscriber_id = ?`, [req.user.id]);
-    db.run(`UPDATE tickets SET subject = '[deleted]', category = 'general' WHERE subscriber_id = ?`, [req.user.id]);
+    db.run(`UPDATE tickets SET subject = '[deleted]', category = 'admin' WHERE subscriber_id = ?`, [req.user.id]);
     const jwt = require('jsonwebtoken');
     const decoded = jwt.decode(req.token);
     const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000).toISOString() : new Date(Date.now() + 86400000).toISOString();

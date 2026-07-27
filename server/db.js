@@ -34,7 +34,7 @@ async function getDb() {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT DEFAULT 'subscriber',
+        role TEXT DEFAULT 'subscriber' CHECK(role IN ('subscriber', 'admin', 'super_admin')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -45,7 +45,7 @@ async function getDb() {
         name TEXT NOT NULL,
         description TEXT,
         image_url TEXT,
-        status TEXT DEFAULT 'active',
+        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'draft', 'archived')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -55,19 +55,19 @@ async function getDb() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         duration INTEGER DEFAULT 27,
-        status TEXT DEFAULT 'active',
+        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'draft', 'archived')),
         description TEXT,
         video_url TEXT,
         cf_video_uid TEXT,
         image_url TEXT,
-        is_free INTEGER DEFAULT 0,
+        is_free INTEGER DEFAULT 0 CHECK(is_free IN (0, 1)),
         free_order INTEGER,
         date TEXT,
         tags TEXT DEFAULT '[]',
         direction TEXT,
         direction_source TEXT DEFAULT 'нет_данных',
         effect_description TEXT,
-        effect_is_draft INTEGER DEFAULT 0,
+        effect_is_draft INTEGER DEFAULT 0 CHECK(effect_is_draft IN (0, 1)),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -78,8 +78,8 @@ async function getDb() {
         lesson_id INTEGER NOT NULL,
         position INTEGER DEFAULT 0,
         PRIMARY KEY (complex_id, lesson_id),
-        FOREIGN KEY (complex_id) REFERENCES complexes(id),
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+        FOREIGN KEY (complex_id) REFERENCES complexes(id) ON DELETE CASCADE,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
       )
     `);
 
@@ -102,8 +102,8 @@ async function getDb() {
         complex_id INTEGER,
         lesson_id INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (complex_id) REFERENCES complexes(id),
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+        FOREIGN KEY (complex_id) REFERENCES complexes(id) ON DELETE SET NULL,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE SET NULL
       )
     `);
 
@@ -113,8 +113,8 @@ async function getDb() {
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        plan TEXT DEFAULT 'trial',
-        status TEXT DEFAULT 'active',
+        plan TEXT DEFAULT 'trial' CHECK(plan IN ('trial', 'annual', 'monthly')),
+        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'trial', 'inactive', 'suspended')),
         email_confirmed INTEGER DEFAULT 0,
         confirmation_token TEXT,
         free_sessions_used INTEGER DEFAULT 0,
@@ -132,8 +132,8 @@ async function getDb() {
         watched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         position_seconds INTEGER DEFAULT 0,
         completed INTEGER DEFAULT 0,
-        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id),
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id),
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
         UNIQUE(subscriber_id, lesson_id)
       )
     `);
@@ -143,8 +143,8 @@ async function getDb() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         author TEXT NOT NULL,
         text TEXT,
-        rating INTEGER DEFAULT 5,
-        status TEXT DEFAULT 'pending',
+        rating INTEGER DEFAULT 5 CHECK(rating BETWEEN 1 AND 5),
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
         date TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -176,12 +176,12 @@ async function getDb() {
       CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         subscriber_id INTEGER,
-        type TEXT NOT NULL,
-        amount REAL NOT NULL,
-        status TEXT DEFAULT 'success',
+        type TEXT NOT NULL CHECK(type IN ('subscription', 'refund', 'promo', 'manual')),
+        amount REAL NOT NULL CHECK(amount >= 0),
+        status TEXT DEFAULT 'success' CHECK(status IN ('pending', 'success', 'failed', 'refunded')),
         date TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE SET NULL
       )
     `);
 
@@ -209,7 +209,7 @@ async function getDb() {
         lesson_id INTEGER NOT NULL,
         zone TEXT NOT NULL,
         PRIMARY KEY (lesson_id, zone),
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
       )
     `);
 
@@ -221,7 +221,7 @@ async function getDb() {
         subject TEXT NOT NULL,
         status TEXT DEFAULT 'open' CHECK(status IN ('open','in_progress','resolved')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE
       )
     `);
 
@@ -233,7 +233,7 @@ async function getDb() {
         sender_id INTEGER,
         message TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (ticket_id) REFERENCES tickets(id)
+        FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
       )
     `);
 
@@ -245,8 +245,8 @@ async function getDb() {
         lesson_id INTEGER NOT NULL,
         selected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (subscriber_id, lesson_id),
-        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id),
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
       )
     `);
 
@@ -257,7 +257,7 @@ async function getDb() {
         ip_address TEXT,
         subscriber_id INTEGER NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE
       )
     `);
 
@@ -268,8 +268,8 @@ async function getDb() {
         lesson_id INTEGER NOT NULL,
         mood TEXT NOT NULL CHECK(mood IN ('happy','energized','calm','neutral','tired','disappointed')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id),
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id),
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
         UNIQUE(subscriber_id, lesson_id)
       )
     `);
@@ -277,15 +277,15 @@ async function getDb() {
     db.run(`
       CREATE TABLE IF NOT EXISTS user_preferences (
         subscriber_id INTEGER PRIMARY KEY,
-        experience TEXT DEFAULT 'beginner',
+        experience TEXT DEFAULT 'beginner' CHECK(experience IN ('beginner', 'intermediate', 'advanced')),
         goals TEXT DEFAULT '[]',
         preferred_duration INTEGER DEFAULT 15,
-        preferred_time TEXT DEFAULT 'anytime',
+        preferred_time TEXT DEFAULT 'anytime' CHECK(preferred_time IN ('morning', 'afternoon', 'evening', 'anytime')),
         focus_zones TEXT DEFAULT '[]',
         onboarding_completed INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+        FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE
       )
     `);
 
@@ -354,7 +354,7 @@ async function getDb() {
         changed_by INTEGER,
         change_summary TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
       )
     `);
     db.run(`CREATE INDEX IF NOT EXISTS idx_lesson_versions_lesson ON lesson_versions(lesson_id)`);

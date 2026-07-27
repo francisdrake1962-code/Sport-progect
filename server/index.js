@@ -38,7 +38,6 @@ const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGIN
   ? process.env.ALLOWED_ORIGIN.split(',').map(s => s.trim())
   : [];
@@ -1051,6 +1050,7 @@ app.use((err, req, res, _next) => {
 });
 
 async function start() {
+  const PORT = process.env.PORT || 3001;
   const { validateConfig } = require('./helpers/config');
   validateConfig();
 

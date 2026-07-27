@@ -20,6 +20,7 @@ const { requestLogger, createLogger } = require('./helpers/logger');
 const { formatError, AppError, ValidationError, NotFoundError, ForbiddenError, PayloadTooLargeError } = require('./helpers/errors');
 const feedbackService = require('./services/feedback.service');
 const dashboardService = require('./services/dashboard.service');
+const auditService = require('./services/audit.service');
 const { settingsRepo, complexRepo } = require('./repositories');
 const jwt = require('jsonwebtoken');
 
@@ -332,6 +333,7 @@ api.post('/complex-lessons', async (req, res, next) => {
     const { complex_id, lesson_id, position } = req.body;
     if (!complex_id || !lesson_id) return res.status(400).json({ error: 'complex_id and lesson_id required' });
     await complexRepo.upsertComplexLesson(complex_id, lesson_id, position);
+    auditService.logAction('create', 'complex_lessons', null, req.user?.id, req.user?.role, { complex_id, lesson_id }, req.ip);
     res.status(201).json({ success: true });
   } catch (err) {
     next(err);
@@ -344,6 +346,7 @@ api.put('/complex-lessons/:key', async (req, res, next) => {
     if (!complexId || !lessonId) return res.status(400).json({ error: 'Invalid key' });
     const { position } = req.body;
     await complexRepo.updateComplexLessonPosition(complexId, lessonId, position);
+    auditService.logAction('update', 'complex_lessons', null, req.user?.id, req.user?.role, { complex_id: complexId, lesson_id: lessonId, position }, req.ip);
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -355,6 +358,7 @@ api.delete('/complex-lessons/:key', async (req, res, next) => {
     const [complexId, lessonId] = req.params.key.split('_').map(Number);
     if (!complexId || !lessonId) return res.status(400).json({ error: 'Invalid key' });
     await complexRepo.deleteComplexLesson(complexId, lessonId);
+    auditService.logAction('delete', 'complex_lessons', null, req.user?.id, req.user?.role, { complex_id: complexId, lesson_id: lessonId }, req.ip);
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -508,6 +512,7 @@ api.put('/settings', async (req, res, next) => {
     for (const [key, value] of entries) {
       await settingsRepo.set(key, value);
     }
+    auditService.logAction('update', 'settings', null, req.user?.id, req.user?.role, { keys: entries.map(e => e[0]) }, req.ip);
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -527,6 +532,7 @@ api.post('/settings', async (req, res, next) => {
         await settingsRepo.set(key, value);
       }
     }
+    auditService.logAction('update', 'settings', null, req.user?.id, req.user?.role, { keys: Object.keys(req.body) }, req.ip);
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -655,6 +661,18 @@ feedbackRouter.post('/:id/reply', async (req, res, next) => {
 
 app.use('/api/feedback', feedbackRouter);
 
+// Admin: audit logs
+api.get('/admin/audit-logs', async (req, res, next) => {
+  try {
+    const { page, limit } = parsePagination(req.query);
+    const { entity, user_id, action } = req.query;
+    const result = await auditService.getAuditLogs({ entity, userId: user_id, action, page, limit });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Admin: list all tickets (with filters)
 api.get('/admin/feedback', async (req, res, next) => {
   try {
@@ -682,6 +700,7 @@ api.put('/admin/feedback/:id', async (req, res, next) => {
   try {
     const { status, assigned_to } = req.body;
     await feedbackService.adminUpdateTicket(req.params.id, { status, assigned_to });
+    auditService.logAction('update', 'ticket', Number(req.params.id), req.user?.id, req.user?.role, { status, assigned_to }, req.ip);
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -693,6 +712,7 @@ api.post('/admin/feedback/:id/reply', async (req, res, next) => {
   try {
     const { message } = req.body;
     await feedbackService.replyToTicket(Number(req.params.id), 'admin', req.user.id, message);
+    auditService.logAction('reply', 'ticket', Number(req.params.id), req.user?.id, req.user?.role, null, req.ip);
     res.json({ success: true });
   } catch (err) {
     next(err);

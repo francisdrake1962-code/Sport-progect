@@ -1,6 +1,7 @@
 const { getDb, saveDb } = require('../db');
 const { parsePagination } = require('../helpers/pagination');
 const { queryToObjects } = require('../helpers/db-utils');
+const { logAction } = require('../services/audit.service');
 
 const VALID_TABLES = new Set([
   'users', 'lessons', 'complexes', 'schedule',
@@ -65,6 +66,7 @@ function createCrudRoutes(tableName, fields) {
         const result = db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
         const items = queryToObjects(result);
         saveDb();
+        logAction('create', tableName, id, req.user?.id, req.user?.role, { fields: cols }, req.ip);
         if (items.length > 0) return res.status(201).json(items[0]);
       }
       saveDb();
@@ -89,6 +91,7 @@ function createCrudRoutes(tableName, fields) {
       vals.push(id);
       db.run(`UPDATE ${tableName} SET ${setClause} WHERE id = ?`, vals);
       saveDb();
+      logAction('update', tableName, id, req.user?.id, req.user?.role, { fields: cols }, req.ip);
       const result = db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
       const items = queryToObjects(result);
       if (items.length === 0) return res.status(404).json({ error: 'Not found' });
@@ -108,6 +111,7 @@ function createCrudRoutes(tableName, fields) {
       const db = await getDb();
       db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
       saveDb();
+      logAction('delete', tableName, id, req.user?.id, req.user?.role, null, req.ip);
       res.json({ success: true });
     } catch (err) {
       console.error(`CRUD DELETE ${tableName}:`, err.message);

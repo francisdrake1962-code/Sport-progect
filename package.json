@@ -1,6 +1,6 @@
 {
   "name": "qigong-landing",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "description": "Лендинг для цигун и суставной разминки",
   "main": "server/index.js",
   "engines": {
@@ -10,6 +10,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "lint": "eslint server/ src/ tests/",
+    "lint:fix": "eslint server/ src/ tests/ --fix",
     "build": "webpack --mode production",
     "dev": "webpack serve --mode development --open",
     "server": "node server/index.js",
@@ -23,9 +25,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@jest/globals": "^29.7.0",
     "copy-webpack-plugin": "^11.0.0",
     "css-loader": "^6.11.0",
+    "eslint": "^10.8.0",
     "html-webpack-plugin": "^5.6.7",
     "jest": "^29.7.0",
     "mini-css-extract-plugin": "^2.10.2",

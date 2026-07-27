@@ -299,6 +299,23 @@ async function getDb() {
 
     db.run(`CREATE INDEX IF NOT EXISTS idx_token_blocklist_expires ON token_blocklist(expires_at)`);
 
+    db.run(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        entity TEXT NOT NULL,
+        entity_id INTEGER,
+        user_id INTEGER,
+        user_role TEXT,
+        details TEXT,
+        ip_address TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity, entity_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)`);
+
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('admin123', 10);
     db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,

@@ -121,6 +121,36 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+app.get('/api/health/detailed', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+  try {
+    const db = await getDb();
+    db.exec(`SELECT 1`);
+    const uptime = process.uptime();
+    const mem = process.memoryUsage();
+    const lessonCount = db.exec(`SELECT COUNT(*) FROM lessons`);
+    const subscriberCount = db.exec(`SELECT COUNT(*) FROM subscribers`);
+    const ticketCount = db.exec(`SELECT COUNT(*) FROM tickets WHERE status != 'resolved'`);
+    const dbPath = path.join(__dirname, '..', 'data', 'qigong.db');
+    let dbSize = 0;
+    try { dbSize = fs.statSync(dbPath).size; } catch (_) {}
+    res.json({
+      status: 'ok', db: 'ok', timestamp: Date.now(),
+      uptime_seconds: Math.floor(uptime),
+      memory: { rss_mb: Math.round(mem.rss / 1024 / 1024), heap_mb: Math.round(mem.heapUsed / 1024 / 1024) },
+      counts: {
+        lessons: lessonCount[0]?.values[0][0] || 0,
+        subscribers: subscriberCount[0]?.values[0][0] || 0,
+        open_tickets: ticketCount[0]?.values[0][0] || 0,
+      },
+      db_size_bytes: dbSize,
+      node_version: process.version,
+    });
+  } catch (err) {
+    res.status(503).json({ status: 'error', db: 'error', timestamp: Date.now() });
+  }
+});
+
 app.get('/api/lessons', async (req, res) => {
   try {
     const { page, limit } = parsePagination(req.query);
@@ -668,6 +698,42 @@ api.get('/admin/audit-logs', async (req, res, next) => {
     const { entity, user_id, action } = req.query;
     const result = await auditService.getAuditLogs({ entity, userId: user_id, action, page, limit });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.post('/admin/backup', async (req, res, next) => {
+  try {
+    const dbPath = path.join(__dirname, '..', 'data', 'qigong.db');
+    if (!fs.existsSync(dbPath)) return res.status(404).json({ error: 'Database not found' });
+    const backupDir = path.join(__dirname, '..', 'data', 'backups');
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const backupPath = path.join(backupDir, `qigong-${timestamp}.db`);
+    fs.copyFileSync(dbPath, backupPath);
+    const stats = fs.statSync(backupPath);
+    auditService.logAction('backup', 'system', null, req.user?.id, req.user?.role, { path: backupPath, size: stats.size }, req.ip);
+    res.json({ success: true, path: backupPath, size_bytes: stats.size });
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.post('/admin/restore', async (req, res, next) => {
+  try {
+    const { backup_path } = req.body;
+    if (!backup_path) return res.status(400).json({ error: 'backup_path required' });
+    const resolvedPath = path.resolve(backup_path);
+    const backupDir = path.join(__dirname, '..', 'data', 'backups');
+    if (!resolvedPath.startsWith(path.resolve(backupDir))) {
+      return res.status(403).json({ error: 'Restore only from backup directory' });
+    }
+    if (!fs.existsSync(resolvedPath)) return res.status(404).json({ error: 'Backup not found' });
+    const dbPath = path.join(__dirname, '..', 'data', 'qigong.db');
+    fs.copyFileSync(resolvedPath, dbPath);
+    auditService.logAction('restore', 'system', null, req.user?.id, req.user?.role, { from: resolvedPath }, req.ip);
+    res.json({ success: true, message: 'Database restored. Restart server to apply.' });
   } catch (err) {
     next(err);
   }

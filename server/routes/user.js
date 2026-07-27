@@ -7,6 +7,7 @@ const { generateToken, authMiddleware, JWT_SECRET, hashToken } = require('../aut
 const { sendConfirmationEmail } = require('../services/mailer');
 const { isStreamConfigured, generateSignedToken, getStreamUrl } = require('../services/stream');
 const { parsePagination } = require('../helpers/pagination');
+const { queryToObjects } = require('../helpers/db-utils');
 const jwt = require('jsonwebtoken');
 const { revokeToken } = require('../db');
 const authService = require('../services/auth.service');
@@ -822,6 +823,45 @@ router.post('/fingerprint', authMiddleware, async (req, res) => {
     res.json({ success: true, accountsFromThisDevice: accountsCount });
   } catch (err) {
     res.status(500).json({ error: 'Failed to save fingerprint' });
+  }
+});
+
+router.get('/data-export', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const db = await getDb();
+    const profile = queryToObjects(db.exec(`SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, joined_at FROM subscribers WHERE id = ?`, [req.user.id]));
+    const watched = queryToObjects(db.exec(`SELECT wl.lesson_id, wl.position_seconds, wl.completed, wl.watched_at FROM watched_lessons wl WHERE wl.subscriber_id = ?`, [req.user.id]));
+    const feedback = queryToObjects(db.exec(`SELECT lesson_id, mood, created_at FROM workout_feedback WHERE subscriber_id = ?`, [req.user.id]));
+    const tickets = queryToObjects(db.exec(`SELECT id, category, subject, status, created_at FROM tickets WHERE subscriber_id = ?`, [req.user.id]));
+    const selections = queryToObjects(db.exec(`SELECT lesson_id, selected_at FROM free_lesson_selections WHERE subscriber_id = ?`, [req.user.id]));
+    const prefs = queryToObjects(db.exec(`SELECT experience, goals, preferred_duration, preferred_time FROM user_preferences WHERE subscriber_id = ?`, [req.user.id]));
+
+    res.json({
+      export_date: new Date().toISOString(),
+      profile: profile[0] || {},
+      watched_lessons: watched,
+      workout_feedback: feedback,
+      tickets: tickets,
+      free_lesson_selections: selections,
+      preferences: prefs[0] || {},
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+router.delete('/account', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'deleted', status = 'deleted' WHERE id = ?`, [req.user.id]);
+    db.run(`DELETE FROM user_preferences WHERE subscriber_id = ?`, [req.user.id]);
+    db.run(`DELETE FROM device_fingerprints WHERE subscriber_id = ?`, [req.user.id]);
+    saveDb();
+    res.json({ success: true, message: 'Account anonymized and deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Account deletion failed' });
   }
 });
 

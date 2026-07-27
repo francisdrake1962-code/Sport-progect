@@ -18,6 +18,9 @@ const { parsePagination } = require('./helpers/pagination');
 const { requestIdMiddleware } = require('./middleware/requestId');
 const { requestLogger, createLogger } = require('./helpers/logger');
 const { formatError, AppError, ValidationError, NotFoundError, ForbiddenError, PayloadTooLargeError } = require('./helpers/errors');
+const feedbackService = require('./services/feedback.service');
+const dashboardService = require('./services/dashboard.service');
+const { settingsRepo, complexRepo } = require('./repositories');
 const jwt = require('jsonwebtoken');
 
 const multer = require('multer');
@@ -314,62 +317,47 @@ api.use('/lessons', createCrudRoutes('lessons', ['title', 'duration', 'status', 
 api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'image_url', 'status']));
 
 // complex_lessons — custom routes (composite PK)
-api.get('/complex-lessons', async (req, res) => {
+api.get('/complex-lessons', async (req, res, next) => {
   try {
     const { page, limit } = parsePagination(req.query);
-    const db = await getDb();
-    const offset = (page - 1) * limit;
-    const countResult = db.exec(`SELECT COUNT(*) FROM complex_lessons`);
-    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
-    const result = db.exec(`SELECT complex_id, lesson_id, position FROM complex_lessons ORDER BY complex_id, position LIMIT ? OFFSET ?`, [limit, offset]);
-    res.json({
-      data: queryToObjects(result),
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
+    const result = await complexRepo.listComplexLessons(page, limit);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-api.post('/complex-lessons', async (req, res) => {
+api.post('/complex-lessons', async (req, res, next) => {
   try {
     const { complex_id, lesson_id, position } = req.body;
     if (!complex_id || !lesson_id) return res.status(400).json({ error: 'complex_id and lesson_id required' });
-    const db = await getDb();
-    db.run(`INSERT OR REPLACE INTO complex_lessons (complex_id, lesson_id, position) VALUES (?, ?, ?)`,
-      [complex_id, lesson_id, position || 0]);
-    saveDb();
+    await complexRepo.upsertComplexLesson(complex_id, lesson_id, position);
     res.status(201).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-api.put('/complex-lessons/:key', async (req, res) => {
+api.put('/complex-lessons/:key', async (req, res, next) => {
   try {
     const [complexId, lessonId] = req.params.key.split('_').map(Number);
     if (!complexId || !lessonId) return res.status(400).json({ error: 'Invalid key' });
     const { position } = req.body;
-    const db = await getDb();
-    db.run(`UPDATE complex_lessons SET position = ? WHERE complex_id = ? AND lesson_id = ?`,
-      [position || 0, complexId, lessonId]);
-    saveDb();
+    await complexRepo.updateComplexLessonPosition(complexId, lessonId, position);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-api.delete('/complex-lessons/:key', async (req, res) => {
+api.delete('/complex-lessons/:key', async (req, res, next) => {
   try {
     const [complexId, lessonId] = req.params.key.split('_').map(Number);
     if (!complexId || !lessonId) return res.status(400).json({ error: 'Invalid key' });
-    const db = await getDb();
-    db.run(`DELETE FROM complex_lessons WHERE complex_id = ? AND lesson_id = ?`, [complexId, lessonId]);
-    saveDb();
+    await complexRepo.deleteComplexLesson(complexId, lessonId);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 api.use('/subscribers', createCrudRoutes('subscribers', ['name', 'email', 'plan', 'status', 'email_confirmed', 'free_sessions_used', 'subscription_started_at', 'next_billing_date']));
@@ -502,58 +490,46 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'cf_stream_signing_key_id', 'cf_stream_signing_key', 'cf_stream_customer_code',
 ]);
 
-api.get('/settings', async (req, res) => {
+api.get('/settings', async (req, res, next) => {
   try {
-    const db = await getDb();
-    const result = db.exec(`SELECT * FROM settings`);
-    const settings = {};
-    if (result.length > 0) {
-      result[0].values.forEach(row => { settings[row[0]] = row[1]; });
-    }
+    const settings = await settingsRepo.getAll();
     res.json(settings);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-api.put('/settings', async (req, res) => {
+api.put('/settings', async (req, res, next) => {
   try {
-    const db = await getDb();
     const entries = Object.entries(req.body).filter(([key]) => ALLOWED_SETTINGS_KEYS.has(key));
     if (entries.length === 0) {
       return res.status(400).json({ error: 'No valid settings provided' });
     }
-    entries.forEach(([key, value]) => {
-      db.run(`INSERT OR REPLACE INTO settings ("key", value) VALUES (?, ?)`, [key, String(value)]);
-    });
-    saveDb();
+    for (const [key, value] of entries) {
+      await settingsRepo.set(key, value);
+    }
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-api.post('/settings', async (req, res) => {
+api.post('/settings', async (req, res, next) => {
   try {
-    const db = await getDb();
     if (req.body.key && req.body.value !== undefined) {
       if (!ALLOWED_SETTINGS_KEYS.has(req.body.key)) {
         return res.status(400).json({ error: 'Invalid settings key' });
       }
-      db.run(`INSERT OR REPLACE INTO settings ("key", value) VALUES (?, ?)`, [req.body.key, String(req.body.value)]);
+      await settingsRepo.set(req.body.key, req.body.value);
     } else {
       const entries = Object.entries(req.body).filter(([key]) => ALLOWED_SETTINGS_KEYS.has(key));
-      entries.forEach(([key, value]) => {
-        db.run(`INSERT OR REPLACE INTO settings ("key", value) VALUES (?, ?)`, [key, String(value)]);
-      });
+      for (const [key, value] of entries) {
+        await settingsRepo.set(key, value);
+      }
     }
-    saveDb();
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
@@ -583,34 +559,12 @@ api.post('/settings/test-stream', async (req, res) => {
   }
 });
 
-api.get('/dashboard', async (req, res) => {
+api.get('/dashboard', async (req, res, next) => {
   try {
-    const db = await getDb();
-    const users = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM subscribers`));
-    const active = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM subscribers WHERE status = 'active'`));
-    const lessons = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM lessons`));
-    const reviews = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM reviews`));
-    const revenue = queryToObjects(db.exec(`SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'success'`));
-    const openTickets = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM tickets WHERE status != 'resolved'`));
-    const subCount = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM subscribers WHERE status = 'active' OR status = 'trial'`));
-    const paidCount = queryToObjects(db.exec(`SELECT COUNT(*) as count FROM subscribers WHERE (plan = 'annual' OR plan = 'monthly') AND status = 'active'`));
-    const revenueNum = revenue[0]?.total || 0;
-    const subscriberCount = subCount[0]?.count || 0;
-    const paidNum = paidCount[0]?.count || 0;
-    const conversionRate = subscriberCount > 0 ? Math.round((paidNum / subscriberCount) * 100) : 0;
-
-    res.json({
-      totalUsers: users[0]?.count || 0,
-      activeUsers: active[0]?.count || 0,
-      totalLessons: lessons[0]?.count || 0,
-      totalReviews: reviews[0]?.count || 0,
-      openTickets: openTickets[0]?.count || 0,
-      monthlyRevenue: revenueNum,
-      conversionRate,
-    });
+    const stats = await dashboardService.getStats();
+    res.json(stats);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
@@ -653,184 +607,95 @@ const feedbackRouter = express.Router();
 feedbackRouter.use(authMiddleware);
 
 // Subscriber: create ticket
-feedbackRouter.post('/', async (req, res) => {
+feedbackRouter.post('/', async (req, res, next) => {
   try {
     if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const { category, subject, message } = req.body;
-    if (!category || !subject || !message) return res.status(400).json({ error: 'category, subject, message required' });
-    if (!['trainer', 'technical', 'admin'].includes(category)) return res.status(400).json({ error: 'Invalid category' });
-    const safeSubject = String(subject).trim().slice(0, 200);
-    const safeMessage = String(message).trim().slice(0, 5000);
-    if (!safeSubject || !safeMessage) return res.status(400).json({ error: 'subject and message required' });
-    const ticketId = await transaction(async (db) => {
-      db.run(`INSERT INTO tickets (subscriber_id, category, subject) VALUES (?, ?, ?)`, [req.user.id, category, safeSubject]);
-      const idResult = db.exec(`SELECT last_insert_rowid()`);
-      const id = idResult[0].values[0][0];
-      db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [id, req.user.id, safeMessage]);
-      return id;
-    });
-    saveDb();
-    res.json({ success: true, ticketId });
+    const result = await feedbackService.createTicket(req.user.id, category, subject, message);
+    res.json({ success: true, ticketId: result.ticketId });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
 // Subscriber: list my tickets
-feedbackRouter.get('/', async (req, res) => {
+feedbackRouter.get('/', async (req, res, next) => {
   try {
     if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
     const { page, limit } = parsePagination(req.query);
-    const db = await getDb();
-    const offset = (page - 1) * limit;
-    const countResult = db.exec(`SELECT COUNT(*) FROM tickets WHERE subscriber_id = ?`, [req.user.id]);
-    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
-    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE subscriber_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, [req.user.id, limit, offset]));
-    res.json({
-      data: tickets,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
+    const result = await feedbackService.getSubscriberTickets(req.user.id, page, limit);
+    res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
 // Subscriber: get ticket with messages
-feedbackRouter.get('/:id', async (req, res) => {
+feedbackRouter.get('/:id', async (req, res, next) => {
   try {
     if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
-    const ticketId = Number(req.params.id);
-    if (!Number.isInteger(ticketId) || ticketId <= 0) {
-      return res.status(400).json({ error: 'Invalid ticket ID' });
-    }
-    const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT * FROM tickets WHERE id = ? AND subscriber_id = ?`, [ticketId, req.user.id]));
-    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [ticketId]));
-    res.json({ ...tickets[0], messages });
+    const result = await feedbackService.getTicketById(req.params.id, req.user.id);
+    res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
 // Subscriber: reply to ticket
-feedbackRouter.post('/:id/reply', async (req, res) => {
+feedbackRouter.post('/:id/reply', async (req, res, next) => {
   try {
     if (req.user.role !== 'subscriber') return res.status(403).json({ error: 'Forbidden' });
-    const ticketId = Number(req.params.id);
-    if (!Number.isInteger(ticketId) || ticketId <= 0) {
-      return res.status(400).json({ error: 'Invalid ticket ID' });
-    }
     const { message } = req.body;
-    if (!message || !message.trim()) return res.status(400).json({ error: 'message required' });
-    const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ? AND subscriber_id = ?`, [ticketId, req.user.id]));
-    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'subscriber', ?, ?)`, [ticketId, req.user.id, message.trim()]);
-    db.run(`UPDATE tickets SET status = 'open' WHERE id = ? AND status = 'resolved'`, [ticketId]);
-    saveDb();
+    await feedbackService.replyToTicket(Number(req.params.id), 'subscriber', req.user.id, message);
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
 app.use('/api/feedback', feedbackRouter);
 
 // Admin: list all tickets (with filters)
-api.get('/admin/feedback', async (req, res) => {
+api.get('/admin/feedback', async (req, res, next) => {
   try {
     const { page, limit } = parsePagination(req.query);
     const { category, status } = req.query;
-    const db = await getDb();
-    let whereSql = ` WHERE 1=1`;
-    const params = [];
-    if (category) { whereSql += ` AND t.category = ?`; params.push(category); }
-    if (status) { whereSql += ` AND t.status = ?`; params.push(status); }
-    const countResult = db.exec(`SELECT COUNT(*) FROM tickets t${whereSql}`, params);
-    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
-    const offset = (page - 1) * limit;
-    let sql = `SELECT t.*, s.name as subscriber_name, s.email as subscriber_email,
-      (SELECT message FROM ticket_messages WHERE ticket_id = t.id ORDER BY created_at DESC LIMIT 1) as last_message,
-      (SELECT COUNT(*) FROM ticket_messages WHERE ticket_id = t.id) as message_count
-      FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id${whereSql} ORDER BY t.created_at DESC LIMIT ? OFFSET ?`;
-    const tickets = queryToObjects(db.exec(sql, [...params, limit, offset]));
-    res.json({
-      data: tickets,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
+    const result = await feedbackService.adminListTickets(page, limit, { category, status });
+    res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
 // Admin: get ticket with messages
-api.get('/admin/feedback/:id', async (req, res) => {
+api.get('/admin/feedback/:id', async (req, res, next) => {
   try {
-    const ticketId = Number(req.params.id);
-    if (!Number.isInteger(ticketId) || ticketId <= 0) {
-      return res.status(400).json({ error: 'Invalid ticket ID' });
-    }
-    const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT t.*, s.name as subscriber_name, s.email as subscriber_email FROM tickets t LEFT JOIN subscribers s ON t.subscriber_id = s.id WHERE t.id = ?`, [ticketId]));
-    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    const messages = queryToObjects(db.exec(`SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC`, [ticketId]));
-    res.json({ ...tickets[0], messages });
+    const result = await feedbackService.adminGetTicketById(req.params.id);
+    res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
 // Admin: update ticket status/assign
-api.put('/admin/feedback/:id', async (req, res) => {
+api.put('/admin/feedback/:id', async (req, res, next) => {
   try {
-    const ticketId = Number(req.params.id);
-    if (!Number.isInteger(ticketId) || ticketId <= 0) {
-      return res.status(400).json({ error: 'Invalid ticket ID' });
-    }
     const { status, assigned_to } = req.body;
-    const db = await getDb();
-    if (status) {
-      if (!['open', 'in_progress', 'resolved'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
-      db.run(`UPDATE tickets SET status = ? WHERE id = ?`, [status, ticketId]);
-    }
-    if (assigned_to !== undefined) {
-      const safeAssignee = String(assigned_to).trim().slice(0, 100);
-      db.run(`UPDATE tickets SET assigned_to = ? WHERE id = ?`, [safeAssignee, ticketId]);
-    }
-    saveDb();
+    await feedbackService.adminUpdateTicket(req.params.id, { status, assigned_to });
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
 // Admin: reply to ticket
-api.post('/admin/feedback/:id/reply', async (req, res) => {
+api.post('/admin/feedback/:id/reply', async (req, res, next) => {
   try {
-    const ticketId = Number(req.params.id);
-    if (!Number.isInteger(ticketId) || ticketId <= 0) {
-      return res.status(400).json({ error: 'Invalid ticket ID' });
-    }
     const { message } = req.body;
-    if (!message || !message.trim()) return res.status(400).json({ error: 'message required' });
-    const db = await getDb();
-    const tickets = queryToObjects(db.exec(`SELECT id FROM tickets WHERE id = ?`, [ticketId]));
-    if (!tickets.length) return res.status(404).json({ error: 'Not found' });
-    db.run(`INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'admin', ?, ?)`, [ticketId, req.user.id, message.trim()]);
-    db.run(`UPDATE tickets SET status = 'in_progress' WHERE id = ? AND status = 'open'`, [ticketId]);
-    saveDb();
+    await feedbackService.replyToTicket(Number(req.params.id), 'admin', req.user.id, message);
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 

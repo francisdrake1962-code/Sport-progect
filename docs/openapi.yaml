@@ -4,7 +4,7 @@ info:
   description: |
     REST API для платформы онлайн-занятий цигун.
     Аутентификация — JWT (HS256). БД — SQLite (sql.js).
-  version: '5.6.0'
+  version: '5.7.0'
   contact:
     name: Qigong Platform
 
@@ -93,11 +93,93 @@ components:
           enum: [trial, annual, monthly]
         status:
           type: string
-          enum: [active, trial, inactive, suspended]
+          enum: [active, trial, inactive, suspended, expired, cancelled]
         email_confirmed:
           type: integer
         free_sessions_used:
           type: integer
+        subscription_expires_at:
+          type: string
+          nullable: true
+        stripe_customer_id:
+          type: string
+          nullable: true
+        stripe_subscription_id:
+          type: string
+          nullable: true
+
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+          enum: [monthly, annual]
+        name:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        interval:
+          type: string
+          enum: [month, year]
+        features:
+          type: array
+          items:
+            type: string
+        popular:
+          type: boolean
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+        subscriber_id:
+          type: integer
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, succeeded, failed, refunded]
+        plan:
+          type: string
+          enum: [monthly, annual]
+        paid_at:
+          type: string
+          nullable: true
+
+    ManualGrant:
+      type: object
+      properties:
+        id:
+          type: integer
+        admin_id:
+          type: integer
+        subscriber_id:
+          type: integer
+        action:
+          type: string
+          enum: [grant, revoke]
+        reason:
+          type: string
+          nullable: true
+        expires_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+        subscription_expires_at:
+          type: string
+          nullable: true
+        stripe_customer_id:
+          type: string
+          nullable: true
+        stripe_subscription_id:
+          type: string
+          nullable: true
         subscription_started_at:
           type: string
         next_billing_date:
@@ -1597,6 +1679,196 @@ paths:
       responses:
         '200':
           description: Status updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /payment/plans:
+    get:
+      tags: [Payment]
+      summary: Get available subscription plans
+      security: []
+      responses:
+        '200':
+          description: Plans list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Plan'
+
+  /payment/create:
+    post:
+      tags: [Payment]
+      summary: Create Stripe Checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan:
+                  type: string
+                  enum: [monthly, annual]
+      responses:
+        '200':
+          description: Checkout session created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payment/status:
+    get:
+      tags: [Payment]
+      summary: Get payment status for current user
+      responses:
+        '200':
+          description: Payment status
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payment/subscription:
+    get:
+      tags: [Payment]
+      summary: Get subscription status for current user
+      responses:
+        '200':
+          description: Subscription status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: string
+                  status:
+                    type: string
+                  active:
+                    type: boolean
+                  expires_at:
+                    type: string
+                    nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payment/cancel:
+    post:
+      tags: [Payment]
+      summary: Cancel current subscription (end of period)
+      responses:
+        '200':
+          description: Cancellation requested
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payment/webhook:
+    post:
+      tags: [Payment]
+      summary: Stripe webhook endpoint (raw body, signature verified)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed
+        '400':
+          description: Invalid signature
+
+  /payment/admin/grants:
+    get:
+      tags: [Payment Admin]
+      summary: List manual access grants (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Grants list
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /payment/admin/grant:
+    post:
+      tags: [Payment Admin]
+      summary: Grant manual access to subscriber (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subscriber_id, expires_at]
+              properties:
+                subscriber_id:
+                  type: integer
+                reason:
+                  type: string
+                expires_at:
+                  type: string
+      responses:
+        '200':
+          description: Access granted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /payment/admin/revoke:
+    post:
+      tags: [Payment Admin]
+      summary: Revoke manual access from subscriber (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subscriber_id]
+              properties:
+                subscriber_id:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Access revoked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /payment/admin/history:
+    get:
+      tags: [Payment Admin]
+      summary: Payment history (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Payment history
         '403':
           $ref: '#/components/responses/Forbidden'
 

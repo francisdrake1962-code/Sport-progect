@@ -30,6 +30,10 @@ npm run dev
 | `GMAIL_USER` | — | Gmail SMTP user |
 | `GMAIL_PASS` | — | Gmail SMTP password |
 | `RESEND_API_KEY` | — | Resend API key |
+| `STRIPE_SECRET_KEY` | — | Stripe secret API key |
+| `STRIPE_WEBHOOK_SECRET` | — | Stripe webhook signing secret |
+| `STRIPE_MONTHLY_PRICE_ID` | — | Stripe Price ID for monthly plan |
+| `STRIPE_ANNUAL_PRICE_ID` | — | Stripe Price ID for annual plan |
 
 ### Production env файл
 
@@ -42,6 +46,10 @@ ALLOWED_ORIGIN=https://qigong-landing.com
 APP_BASE_URL=https://qigong-landing.com
 MAIL_PROVIDER=resend
 RESEND_API_KEY=re_xxxxxxxxxxxx
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxx
+STRIPE_MONTHLY_PRICE_ID=price_xxxxxxxxxxxx
+STRIPE_ANNUAL_PRICE_ID=price_xxxxxxxxxxxx
 ```
 
 ## Production деплой

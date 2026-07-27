@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { getDb, saveDb } = require('../db');
-const { generateToken, authMiddleware, JWT_SECRET, hashToken } = require('../auth');
+const { authMiddleware, hashToken } = require('../auth');
 const { requireRole } = require('../middleware/rbac');
 const { validateBody } = require('../middleware/validation');
 const { requireDangerousActionConfirmation } = require('../middleware/confirmation');
@@ -11,7 +11,6 @@ const { sendConfirmationEmail } = require('../services/mailer');
 const { isStreamConfigured, generateSignedToken, getStreamUrl } = require('../services/stream');
 const { parsePagination } = require('../helpers/pagination');
 const { queryToObjects } = require('../helpers/db-utils');
-const jwt = require('jsonwebtoken');
 const { revokeToken, transaction } = require('../db');
 const authService = require('../services/auth.service');
 const progressService = require('../services/progress.service');
@@ -39,7 +38,7 @@ router.get('/stats', async (req, res) => {
       practiceYears = Math.max(1, Math.floor((now - joined) / (365.25 * 24 * 60 * 60 * 1000)));
     }
     res.json({ lessonsCount, subscribersCount, practiceYears });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load stats' });
   }
 });
@@ -105,7 +104,7 @@ router.post('/register', authLimiter, validateBody({
     };
     if (isConsole) response.confirmation_token = confirmToken;
     res.status(201).json(response);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -176,7 +175,7 @@ router.post('/confirm/resend', resendLimiter, async (req, res) => {
       await sendConfirmationEmail(normalizedEmail, confirmToken);
     }
     res.json({ message: 'Письмо отправлено' });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to resend' });
   }
 });
@@ -191,7 +190,7 @@ router.get('/confirm/:token', async (req, res) => {
     db.run(`UPDATE subscribers SET email_confirmed = 1, confirmation_token = NULL WHERE confirmation_token = ?`, [req.params.token]);
     saveDb();
     res.send('<html><body><h1>Почта подтверждена!</h1><p>Теперь вы можете войти в приложение.</p><p><a href="/">Вернуться на главную</a></p></body></html>');
-  } catch (err) {
+  } catch {
     res.status(500).send('<html><body><h1>Ошибка подтверждения</h1><p><a href="/">Вернуться на главную</a></p></body></html>');
   }
 });
@@ -206,7 +205,7 @@ router.post('/confirm/:token', async (req, res) => {
     db.run(`UPDATE subscribers SET email_confirmed = 1, confirmation_token = NULL WHERE confirmation_token = ?`, [req.params.token]);
     saveDb();
     res.json({ success: true });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Confirmation failed' });
   }
 });
@@ -253,7 +252,7 @@ router.post('/watch-progress', authMiddleware, async (req, res) => {
       analyticsService.trackEvent({ eventName: 'lesson_started', userId: req.user.id, entity: 'lessons', entityId: lessonId, metadata: { position_seconds: posSec }, ipAddress: req.ip }).catch(() => {});
     }
     res.json({ success: true });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to save progress' });
   }
 });
@@ -278,7 +277,7 @@ router.get('/progress', authMiddleware, async (req, res) => {
       data: items,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load progress' });
   }
 });
@@ -301,7 +300,7 @@ router.get('/progress/:lessonId', authMiddleware, async (req, res) => {
     }
     const r = result[0].values[0];
     res.json({ position_seconds: r[0], completed: r[1], watched_at: r[2], duration: r[3] });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load progress' });
   }
 });
@@ -321,7 +320,7 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const row = userResult[0].values[0];
-    const plan = row[0], status = row[1], freeUsed = row[2] || 0, emailConfirmed = row[3];
+    const plan = row[0], freeUsed = row[2] || 0, emailConfirmed = row[3];
 
     if (!emailConfirmed) {
       return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED' });
@@ -352,7 +351,7 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
     const isSelected = selCheck.length && selCheck[0].values.length > 0;
 
     return res.json({ allowed: true, reason: isSelected ? 'selected_free' : 'trial', freeUsed, freeLimit: FREE_LIMIT });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Access check failed' });
   }
 });
@@ -401,7 +400,7 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     }
     const streamUrl = await getStreamUrl(cfUid, signedToken);
     res.json({ streamUrl });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Stream token generation failed' });
   }
 });
@@ -481,7 +480,7 @@ router.get('/calendar', authMiddleware, async (req, res) => {
     }
 
     res.json({ schedule: personalSchedule, user, totalDays, completedDays });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load calendar' });
   }
 });
@@ -498,7 +497,7 @@ router.get('/lessons-filter', authMiddleware, async (req, res) => {
     let lessons = result[0].values.map(row => ({
       id: row[0], title: row[1], duration: row[2], description: row[3],
       video_url: row[4], cf_video_uid: row[5], is_free: row[6],
-      tags: (() => { try { return JSON.parse(row[7] || '[]'); } catch (_) { return []; } })(),
+      tags: (() => { try { return JSON.parse(row[7] || '[]'); } catch { return []; } })(),
       direction: row[8], effect_description: row[9],
     }));
 
@@ -537,7 +536,7 @@ router.get('/lessons-filter', authMiddleware, async (req, res) => {
       data: paged,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to filter lessons' });
   }
 });
@@ -557,12 +556,12 @@ router.get('/onboarding', authMiddleware, async (req, res) => {
     res.json({
       completed: r[5] === 1,
       experience: r[0],
-      goals: (() => { try { return JSON.parse(r[1] || '[]'); } catch (_) { return []; } })(),
+      goals: (() => { try { return JSON.parse(r[1] || '[]'); } catch { return []; } })(),
       preferred_duration: r[2],
       preferred_time: r[3],
-      focus_zones: (() => { try { return JSON.parse(r[4] || '[]'); } catch (_) { return []; } })()
+      focus_zones: (() => { try { return JSON.parse(r[4] || '[]'); } catch { return []; } })()
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load preferences' });
   }
 });
@@ -593,7 +592,7 @@ router.post('/onboarding', authMiddleware, async (req, res) => {
     );
     saveDb();
     res.json({ success: true });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to save preferences' });
   }
 });
@@ -623,7 +622,7 @@ router.get('/categories', authMiddleware, async (req, res) => {
       label: r[0] === 'суставная_разминка' ? 'Суставная разминка' : 'Занятие в потоке'
     })) : [];
     res.json({ zones, directions });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load categories' });
   }
 });
@@ -635,7 +634,7 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
     const recommendations = await recommendationService.getRecommendations(req.user.id, { limit, excludeWatched });
     analyticsService.trackEvent({ eventName: 'recommendation_viewed', userId: req.user.id, metadata: { count: recommendations.length }, ipAddress: req.ip }).catch(() => {});
     res.json({ recommendations });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load recommendations' });
   }
 });
@@ -660,7 +659,7 @@ router.post('/workout-feedback', authMiddleware, async (req, res) => {
     saveDb();
     analyticsService.trackEvent({ eventName: 'feedback_submitted', userId: req.user.id, entity: 'lessons', entityId: lessonId, metadata: { mood }, ipAddress: req.ip }).catch(() => {});
     res.json({ success: true });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to save feedback' });
   }
 });
@@ -695,7 +694,7 @@ router.get('/workout-feedback', authMiddleware, async (req, res) => {
       data: items,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load feedback' });
   }
 });
@@ -715,7 +714,7 @@ router.get('/workout-feedback/:lessonId', authMiddleware, async (req, res) => {
       return res.json({ mood: null });
     }
     res.json({ mood: result[0].values[0][0], created_at: result[0].values[0][1] });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load feedback' });
   }
 });
@@ -781,7 +780,7 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
     })) : [];
 
     res.json({ user, lastWatched, completedCount, todaySchedule, schedule, lessonCount, zoneCount, programs });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load dashboard' });
   }
 });
@@ -802,7 +801,7 @@ router.get('/free-selections', authMiddleware, async (req, res) => {
       lesson_id: r[0], title: r[1], duration: r[2], description: r[3], video_url: r[4], is_free: r[5],
     })) : [];
     res.json({ selections, limit: FREE_LIMIT });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to load selections' });
   }
 });
@@ -835,7 +834,7 @@ router.post('/free-selections', authMiddleware, async (req, res) => {
     saveDb();
     analyticsService.trackEvent({ eventName: 'free_lesson_selected', userId: req.user.id, entity: 'lessons', metadata: { count: validIds.length }, ipAddress: req.ip }).catch(() => {});
     res.json({ success: true, count: validIds.length, limit: FREE_LIMIT });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to save selections' });
   }
 });
@@ -860,7 +859,7 @@ router.post('/fingerprint', authMiddleware, async (req, res) => {
     const accountsCount = dupCount.length && dupCount[0].values.length ? dupCount[0].values[0][0] : 1;
     saveDb();
     res.json({ success: true, accountsFromThisDevice: accountsCount });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to save fingerprint' });
   }
 });
@@ -884,7 +883,7 @@ router.get('/data-export', authMiddleware, requireRole('subscriber'), async (req
       free_lesson_selections: selections,
       preferences: prefs[0] || {},
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Export failed' });
   }
 });
@@ -905,7 +904,7 @@ router.delete('/account', authMiddleware, requireRole('subscriber'), requireDang
     revokeToken(hashToken(req.token), expiresAt);
     saveDb();
     res.json({ success: true, message: 'Account anonymized and deleted' });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Account deletion failed' });
   }
 });

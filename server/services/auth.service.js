@@ -52,7 +52,7 @@ function revokeCurrentToken(token) {
     const decoded = jwt.verify(token, JWT_SECRET);
     const expiresAt = new Date(decoded.exp * 1000).toISOString();
     revokeToken(hashToken(token), expiresAt);
-  } catch (_) {}
+  } catch {}
 }
 
 async function registerSubscriber(name, email, password) {

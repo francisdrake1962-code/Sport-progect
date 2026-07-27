@@ -62,7 +62,7 @@ function parseDate(dateStr) {
   return dateStr;
 }
 
-async function importCatalog(xlsxExtractDir, dbPath) {
+async function importCatalog(xlsxExtractDir, _dbPath) {
   console.log('Reading sharedStrings.xml...');
   const ssXml = fs.readFileSync(path.join(xlsxExtractDir, 'xl', 'sharedStrings.xml'), 'utf8');
   const strings = [];

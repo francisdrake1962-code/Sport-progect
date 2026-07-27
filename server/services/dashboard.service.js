@@ -1,7 +1,4 @@
 const { getDb } = require('../db');
-const { createLogger } = require('../helpers/logger');
-
-const logger = createLogger('dashboard-service');
 
 function queryToScalar(result) {
   if (!result.length || !result[0].values.length) return 0;

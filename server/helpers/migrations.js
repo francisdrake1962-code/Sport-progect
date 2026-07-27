@@ -56,7 +56,7 @@ async function runMigrations() {
         console.log(`Migration applied: ${file}`);
       }
     } catch (err) {
-      try { db.run('ROLLBACK'); } catch (_) {}
+      try { db.run('ROLLBACK'); } catch {}
       console.error(`Migration failed: ${file}`, err.message);
       throw err;
     }

@@ -19,7 +19,7 @@ class LessonRepository extends BaseRepository {
   }
 
   async setZones(lessonId, zones) {
-    const { getDb, saveDb, transaction } = require('../db');
+    const { saveDb, transaction } = require('../db');
     await transaction(async (db) => {
       db.run(`DELETE FROM lesson_zones WHERE lesson_id = ?`, [lessonId]);
       for (const zone of zones) {

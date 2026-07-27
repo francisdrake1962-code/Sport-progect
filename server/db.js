@@ -237,7 +237,7 @@ async function getDb() {
       )
     `);
 
-    try { db.run(`ALTER TABLE tickets ADD COLUMN assigned_to TEXT`); } catch (_) {}
+    try { db.run(`ALTER TABLE tickets ADD COLUMN assigned_to TEXT`); } catch {}
 
     db.run(`
       CREATE TABLE IF NOT EXISTS free_lesson_selections (
@@ -391,7 +391,7 @@ function resetDb() {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   savePending = false;
   initPromise = null;
-  if (db) { try { db.close(); } catch (_) {} db = null; }
+  if (db) { try { db.close(); } catch {} db = null; }
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
 }
 
@@ -421,7 +421,7 @@ async function getSetting(key, fallback) {
     if (result.length > 0 && result[0].values.length > 0 && result[0].values[0][0] != null) {
       return result[0].values[0][0];
     }
-  } catch (_) {}
+  } catch {}
   return fallback !== undefined ? fallback : null;
 }
 
@@ -440,7 +440,7 @@ function isTokenRevoked(tokenHash) {
   try {
     const result = db.exec(`SELECT 1 FROM token_blocklist WHERE token_hash = ?`, [tokenHash]);
     return result.length > 0 && result[0].values.length > 0;
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -450,7 +450,7 @@ function cleanupBlocklist() {
   try {
     db.run(`DELETE FROM token_blocklist WHERE expires_at < datetime('now')`);
     saveDb();
-  } catch (_) {}
+  } catch {}
 }
 
 async function transaction(fn) {
@@ -461,7 +461,7 @@ async function transaction(fn) {
     d.run('COMMIT');
     return result;
   } catch (err) {
-    try { d.run('ROLLBACK'); } catch (_) {}
+    try { d.run('ROLLBACK'); } catch {}
     throw err;
   }
 }

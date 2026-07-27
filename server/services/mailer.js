@@ -94,7 +94,7 @@ async function resolveProvider() {
         console.warn('[mailer] MAIL_PROVIDER=resend but API key not set — falling back to console');
         resolvedProvider = 'console';
       }
-    } catch (e) {
+    } catch {
       console.warn('[mailer] resend package not installed — falling back to console');
       resolvedProvider = 'console';
     }
@@ -152,32 +152,6 @@ async function sendViaConsole(toEmail, subject, html) {
   console.log(`[mailer] Subject: ${subject}`);
   console.log(`[mailer] (HTML logged, ${html.length} chars)`);
   return { id: 'dev-mode', status: 'logged' };
-}
-
-async function sendViaGmail(toEmail, subject, html) {
-  if (!gmailTransporter) return sendViaConsole(toEmail, subject, html);
-  const fromUser = await getSetting('gmail_user', process.env.GMAIL_USER);
-  const result = await gmailTransporter.sendMail({
-    from: `Цигун <${fromUser}>`,
-    to: toEmail,
-    subject,
-    html,
-  });
-  console.log(`[mailer] Gmail sent to ${toEmail}, id: ${result.messageId}`);
-  return result;
-}
-
-async function sendViaResend(toEmail, subject, html) {
-  if (!resendClient) return sendViaConsole(toEmail, subject, html);
-  const fromEmail = await getSetting('email_from', process.env.EMAIL_FROM || 'noreply@qigong.app');
-  const result = await resendClient.emails.send({
-    from: `Цигун <${fromEmail}>`,
-    to: toEmail,
-    subject,
-    html,
-  });
-  console.log(`[mailer] Resend sent to ${toEmail}, id: ${result.data?.id || result.id}`);
-  return result;
 }
 
 async function sendConfirmationEmail(toEmail, token) {

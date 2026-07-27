@@ -3,17 +3,6 @@ const REQUIRED_IN_PRODUCTION = [
   'ALLOWED_ORIGIN',
 ];
 
-const OPTIONAL = [
-  'PORT',
-  'VIDEOS_DIR',
-  'CF_STREAM_SIGNING_KEY_ID',
-  'CF_STREAM_SIGNING_KEY',
-  'CF_STREAM_CUSTOMER_CODE',
-  'GMAIL_USER',
-  'GMAIL_APP_PASSWORD',
-  'EMAIL_FROM',
-];
-
 function validateConfig() {
   const env = process.env.NODE_ENV;
   if (env === 'test') return { valid: true, warnings: [] };

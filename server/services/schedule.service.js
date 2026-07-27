@@ -1,8 +1,5 @@
 const { getDb } = require('../db');
 const { NotFoundError } = require('../helpers/errors');
-const { createLogger } = require('../helpers/logger');
-
-const logger = createLogger('schedule-service');
 
 async function getSchedule() {
   const db = await getDb();

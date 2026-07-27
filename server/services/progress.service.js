@@ -1,8 +1,5 @@
 const { getDb, saveDb } = require('../db');
 const { NotFoundError, ValidationError, UnauthorizedError } = require('../helpers/errors');
-const { createLogger } = require('../helpers/logger');
-
-const logger = createLogger('progress-service');
 
 async function recordWatchProgress(subscriberId, lessonId, positionSeconds, completed) {
   if (!lessonId) throw new ValidationError('lesson_id required');
@@ -95,7 +92,6 @@ async function updateSubscriberProfile(subscriberId, name, currentPassword, newP
   const result = db.exec(`SELECT name, password FROM subscribers WHERE id = ?`, [subscriberId]);
   if (!result.length || !result[0].values.length) throw new NotFoundError('User');
   const row = result[0].values[0];
-  const currentName = row[0];
   const currentHash = row[1];
 
   if (newPassword) {

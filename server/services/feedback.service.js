@@ -1,5 +1,5 @@
 const { getDb, saveDb, transaction } = require('../db');
-const { NotFoundError, ValidationError, ForbiddenError } = require('../helpers/errors');
+const { NotFoundError, ValidationError } = require('../helpers/errors');
 const { createLogger } = require('../helpers/logger');
 const { queryToObjects } = require('../helpers/db-utils');
 

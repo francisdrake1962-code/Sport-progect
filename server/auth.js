@@ -24,13 +24,13 @@ function authMiddleware(req, res, next) {
       if (isTokenRevoked(hashToken(token))) {
         return res.status(401).json({ error: 'Token has been revoked' });
       }
-    } catch (_) {
+    } catch {
       return res.status(401).json({ error: 'Auth service unavailable' });
     }
     req.user = decoded;
     req.token = token;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'Invalid token' });
   }
 }

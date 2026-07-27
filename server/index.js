@@ -19,7 +19,7 @@ const { resetStreamConfig, isStreamConfigured: checkStreamConfigured } = require
 const { parsePagination } = require('./helpers/pagination');
 const { requestIdMiddleware } = require('./middleware/requestId');
 const { requestLogger, createLogger } = require('./helpers/logger');
-const { formatError, AppError, ValidationError, NotFoundError, ForbiddenError, PayloadTooLargeError } = require('./helpers/errors');
+const { formatError, AppError, PayloadTooLargeError } = require('./helpers/errors');
 const feedbackService = require('./services/feedback.service');
 const dashboardService = require('./services/dashboard.service');
 const auditService = require('./services/audit.service');
@@ -133,9 +133,9 @@ app.use('/uploads', express.static(uploadsDir));
 app.get('/api/health', async (req, res) => {
   try {
     const db = await getDb();
-    const result = db.exec(`SELECT 1`);
+    db.exec(`SELECT 1`);
     res.json({ status: 'ok', db: 'ok', timestamp: Date.now() });
-  } catch (err) {
+  } catch {
     res.status(503).json({ status: 'error', db: 'error', timestamp: Date.now() });
   }
 });
@@ -159,7 +159,7 @@ app.get('/api/health/detailed', authMiddleware, requireAdmin, async (req, res) =
     const ticketCount = db.exec(`SELECT COUNT(*) FROM tickets WHERE status != 'resolved'`);
     const dbPath = path.join(__dirname, '..', 'data', 'qigong.db');
     let dbSize = 0;
-    try { dbSize = fs.statSync(dbPath).size; } catch (_) {}
+    try { dbSize = fs.statSync(dbPath).size; } catch {}
     res.json({
       status: 'ok', db: 'ok', timestamp: Date.now(),
       uptime_seconds: Math.floor(uptime),
@@ -172,7 +172,7 @@ app.get('/api/health/detailed', authMiddleware, requireAdmin, async (req, res) =
       db_size_bytes: dbSize,
       node_version: process.version,
     });
-  } catch (err) {
+  } catch {
     res.status(503).json({ status: 'error', db: 'error', timestamp: Date.now() });
   }
 });
@@ -456,8 +456,6 @@ api.put('/lessons/:id/zones', async (req, res) => {
   }
 });
 
-const VALID_SCHEDULE_FIELDS = ['date', 'theme', 'complex_id', 'lesson_id'];
-
 api.post('/schedule', async (req, res) => {
   try {
     const { date, theme, complex_id, lesson_id } = req.body;
@@ -642,7 +640,7 @@ api.post('/upload-trainer-photo', (req, res) => {
     const buffer = Buffer.from(data, 'base64');
     fs.writeFileSync(path.join(uploadDir, safeName), buffer);
     res.json({ success: true, url: '/images/trainers/' + safeName });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Upload failed' });
   }
 });
@@ -653,7 +651,7 @@ api.post('/upload', uploadImage.single('file'), (req, res) => {
     const sub = req.query.type || 'general';
     const url = '/uploads/' + sub + '/' + req.file.filename;
     res.json({ success: true, url });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Upload failed' });
   }
 });
@@ -918,7 +916,7 @@ app.get('/videos/{*splat}', async (req, res) => {
   let filename;
   try {
     filename = decodeURIComponent(req.params.splat);
-  } catch (e) {
+  } catch {
     return res.status(400).json({ error: 'Invalid filename' });
   }
   const filePath = path.join(videosDir, filename);
@@ -951,7 +949,6 @@ app.get('/videos/{*splat}', async (req, res) => {
       if (!lessonResult.length || !lessonResult[0].values.length) {
         return res.status(403).json({ error: 'Access denied: video not linked to any lesson' });
       }
-      const lessonId = lessonResult[0].values[0][0];
       const isFree = lessonResult[0].values[0][1];
       if (!isFree) {
         const userResult = db.exec(`SELECT plan, free_sessions_used FROM subscribers WHERE id = ?`, [decoded.id]);
@@ -964,7 +961,7 @@ app.get('/videos/{*splat}', async (req, res) => {
         }
       }
     }
-  } catch (e) {
+  } catch {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
@@ -972,7 +969,7 @@ app.get('/videos/{*splat}', async (req, res) => {
   try {
     const stat = fs.statSync(filePath);
     fileSize = stat.size;
-  } catch (e) {
+  } catch {
     return res.status(404).json({ error: 'Video not found' });
   }
   const range = req.headers.range;

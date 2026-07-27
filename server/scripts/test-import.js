@@ -12,8 +12,7 @@ function req(method, path, body, token) {
 }
 
 start().then(async () => {
-  const login = await req('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
-  const token = login.body.token;
+  await req('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
   console.log('=== AFTER SEED ===');
 
   const gl = await req('GET', '/api/lessons');

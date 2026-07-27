@@ -20,7 +20,7 @@ class RecommendationService {
     const scored = candidates.map(lesson => {
       let score = 0;
       let tags;
-      try { tags = lesson.tags ? JSON.parse(lesson.tags) : []; } catch (_) { tags = []; }
+      try { tags = lesson.tags ? JSON.parse(lesson.tags) : []; } catch { tags = []; }
       const zones = lesson.zones ? lesson.zones.split(',').filter(Boolean) : [];
 
       if (preferences.focus_zones && preferences.focus_zones.length > 0 && zones.some(z => preferences.focus_zones.includes(z))) score += 30;
@@ -91,12 +91,12 @@ class RecommendationService {
     const vals = result[0].values[0];
     const prefs = {};
     cols.forEach((c, i) => { prefs[c] = vals[i]; });
-    if (prefs.focus_zones) try { prefs.focus_zones = JSON.parse(prefs.focus_zones); } catch (_) { prefs.focus_zones = []; }
-    if (prefs.goals) try { prefs.goals = JSON.parse(prefs.goals); } catch (_) { prefs.goals = []; }
+    if (prefs.focus_zones) try { prefs.focus_zones = JSON.parse(prefs.focus_zones); } catch { prefs.focus_zones = []; }
+    if (prefs.goals) try { prefs.goals = JSON.parse(prefs.goals); } catch { prefs.goals = []; }
     return prefs;
   }
 
-  _getScheduleInfo(db, subscriberId) {
+  _getScheduleInfo(db, _subscriberId) {
     const today = new Date().toISOString().slice(0, 10);
     const result = db.exec(`SELECT theme, lesson_id, complex_id FROM schedule WHERE date = ?`, [today]);
     if (!result.length || !result[0].values.length) {

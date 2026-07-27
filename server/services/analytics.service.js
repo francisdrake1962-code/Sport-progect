@@ -8,7 +8,7 @@ class AnalyticsService {
   async trackEvent({ eventName, userId = null, entity = null, entityId = null, metadata = null, ipAddress = null, userAgent = null }) {
     const db = await this.getDb();
     let metaStr = null;
-    if (metadata) { try { metaStr = JSON.stringify(metadata); } catch (_) { metaStr = '{}'; } }
+    if (metadata) { try { metaStr = JSON.stringify(metadata); } catch { metaStr = '{}'; } }
     db.run(
       `INSERT INTO analytics_events (event_name, user_id, entity, entity_id, metadata, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [eventName, userId, entity, entityId, metaStr, ipAddress, userAgent]

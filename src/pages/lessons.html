@@ -85,12 +85,14 @@
         function localDateStr(d) { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+day; }
 
         async function api(path) {
-            const token = localStorage.getItem('user_token') || localStorage.getItem('admin_token');
+            const token = localStorage.getItem('user_token');
             const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = 'Bearer ' + token;
             const res = await fetch(path, { headers });
             if (!res.ok) throw new Error('API error ' + res.status);
-            return res.json();
+            const json = await res.json();
+            if (json && Array.isArray(json.data) && json.pagination) return json.data;
+            return json;
         }
 
         const complexIcons = { 'Основной комплекс': '🧘', 'Утренняя разминка': '🌅', 'Здоровая шея': '💆', 'Крепкая спина': '🦴', 'Суставы и гибкость': '🤸' };

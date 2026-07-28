@@ -4,6 +4,32 @@
 
 ---
 
+## [5.9.0] - 2026-07-28
+
+### Fixed — Comprehensive Audit: API Response Unwrap + Frontend Bug Fixes
+
+#### Systemic Fix: Paginated Response Unwrap
+- **Root cause:** All CRUD endpoints return `{data: [...], pagination: {...}}` but frontend code treated responses as raw arrays
+- `src/admin/js/api.js` — `api()` now auto-unwraps `{data, pagination}` → array for all admin pages
+- `src/pages/lessons.html` — same unwrap pattern + removed `admin_token` fallback (security)
+- `src/pages/player.html` — unwrap for lessons/schedule arrays
+- `src/pages/faq.html` — unwrap FAQ paginated response before `.map()`
+- `src/index.html` — unwrap reviews and FAQ responses on landing page
+- `src/pages/profile.html` — unwrap feedback tickets + removed duplicate language API call
+
+#### Frontend Bug Fixes
+- `src/pages/dashboard.html` — progress percentage: `position_seconds / (duration * 60)` (was `/ duration / 60` — duration in minutes, position in seconds)
+- `src/pages/onboarding.html` — `arr.indexOf(value)` instead of `arr.indexOf(step.value)` (step object has no `.value`)
+
+#### Test Fix
+- `tests/regression.test.js` — PORT changed from 3003 → 3006 (was colliding with e2e.test.js)
+
+### Stats
+- 863/863 tests passing (13 suites)
+- Версия: 5.8.0 → 5.9.0
+
+---
+
 ## [5.6.0] - 2026-07-27
 
 ### Added — Tech Spec Compliance (AUTH-002, SEC-003/006, API-003/008, OPS-004, OBS-003, ADMIN-006)

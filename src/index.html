@@ -342,8 +342,9 @@
                 document.getElementById('stat-subscribers').textContent = '10+';
             });
 
-            fetch('/api/reviews').then(function(r) { return r.json(); }).then(function(data) {
-                var reviews = (data.value || data || []).filter(function(r) { return r.status === 'approved'; }).slice(0, 6);
+            fetch('/api/reviews').then(function(r) { return r.json(); }).then(function(resp) {
+                var data = (resp && Array.isArray(resp.data)) ? resp.data : (resp || []);
+                var reviews = data.filter(function(r) { return r.status === 'approved'; }).slice(0, 6);
                 if (reviews.length === 0) return;
                 var grid = document.getElementById('testimonials-grid');
                 grid.innerHTML = reviews.map(function(r) {
@@ -361,7 +362,8 @@
                 grid.innerHTML = '<p style="color:#5a7a60;text-align:center;padding:1rem;">Отзывы загружаются...</p>';
             });
 
-            fetch('/api/faq').then(function(r) { return r.json(); }).then(function(items) {
+            fetch('/api/faq').then(function(r) { return r.json(); }).then(function(resp) {
+                var items = (resp && Array.isArray(resp.data)) ? resp.data : (resp || []);
                 var list = document.getElementById('faq-list');
                 if (!items || items.length === 0) { list.innerHTML = ''; return; }
                 list.innerHTML = items.map(function(i) {

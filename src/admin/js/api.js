@@ -32,7 +32,9 @@ class ApiClient {
       throw new Error(err.error || `Request failed: ${res.status}`);
     }
 
-    return res.json();
+    const json = await res.json();
+    if (json && Array.isArray(json.data) && json.pagination) return json.data;
+    return json;
   }
 
   get(path) { return this.request('GET', path); }

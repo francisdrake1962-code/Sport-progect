@@ -213,7 +213,7 @@
                     var step = STEPS[stepIdx];
                     if (step.type === 'multi') {
                         var arr = state.data[step.key] || [];
-                        var idx = arr.indexOf(step.value !== undefined ? step.value : value);
+                        var idx = arr.indexOf(value);
                         if (idx === -1) {
                             arr.push(value);
                         } else {

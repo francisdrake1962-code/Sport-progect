@@ -118,7 +118,8 @@
         function nl2br(s) { return esc(s).replace(/\n/g, '<br>'); }
         fetch('/api/faq')
             .then(function(r) { return r.json(); })
-            .then(function(items) {
+            .then(function(resp) {
+                var items = (resp && Array.isArray(resp.data)) ? resp.data : (resp || []);
                 var list = document.getElementById('faq-list');
                 if (!items || items.length === 0) {
                     list.innerHTML = '<p style="color:#9fc5a8;text-align:center;padding:2rem 0;">Вопросов пока нет</p>';

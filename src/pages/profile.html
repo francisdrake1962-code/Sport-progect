@@ -197,21 +197,16 @@
             if (langSelect) {
                 langSelect.addEventListener('change', function() {
                     var lang = langSelect.value;
-                    fetch('/api/user/language', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                        body: JSON.stringify({ language: lang })
-                    }).then(function(r) { return r.json(); }).then(function(d) {
-                        if (d.error) {
-                            document.getElementById('lang-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
-                        } else {
-                            document.getElementById('lang-msg').innerHTML = '<div class="message message--success">Язык сохранён</div>';
-                            localStorage.setItem('preferred_language', lang);
-                            if (window.i18n) window.i18n.setLanguage(lang);
-                        }
-                    }).catch(function() {
-                        document.getElementById('lang-msg').innerHTML = '<div class="message message--error">Ошибка сети</div>';
-                    });
+                    document.getElementById('lang-msg').innerHTML = '<div class="message message--success">Язык сохранён</div>';
+                    localStorage.setItem('preferred_language', lang);
+                    if (window.i18n) window.i18n.setLanguage(lang);
+                    else {
+                        fetch('/api/user/language', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify({ language: lang })
+                        }).catch(function() {});
+                    }
                 });
             }
         }
@@ -277,7 +272,8 @@
         function loadFeedbackSection() {
             fetch('/api/feedback', { headers: { 'Authorization': 'Bearer ' + token } })
                 .then(function(r) { return r.json(); })
-                .then(function(tickets) {
+                .then(function(resp) {
+                    var tickets = (resp && Array.isArray(resp.data)) ? resp.data : (resp || []);
                     var section = document.getElementById('feedback-section');
                     section.innerHTML =
                         '<button class="btn btn--primary" id="new-ticket-btn" style="margin-bottom:0.75rem;width:100%;">Задать вопрос</button>' +

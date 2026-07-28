@@ -195,6 +195,9 @@
                     });
                 }
                 return res.json();
+            }).then(function(json) {
+                if (json && Array.isArray(json.data) && json.pagination) return json.data;
+                return json;
             });
         }
 

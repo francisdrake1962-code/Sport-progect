@@ -133,7 +133,7 @@
             html+='</div></div>';
 
             if(d.lastWatched){
-                var pct=d.lastWatched.duration?Math.min(100,Math.round(d.lastWatched.position_seconds/d.lastWatched.duration/60*100)):0;
+                var pct=d.lastWatched.duration?Math.min(100,Math.round(d.lastWatched.position_seconds/(d.lastWatched.duration*60)*100)):0;
                 html+='<div class="dash-section">';
                 html+='<div class="dash-section__title">Продолжить</div>';
                 html+='<a href="player.html?id='+d.lastWatched.lesson_id+'" class="dash-continue">';

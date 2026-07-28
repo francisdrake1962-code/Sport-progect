@@ -2,7 +2,7 @@ const http = require('http');
 const { start } = require('../server/index');
 const { resetDb } = require('../server/db');
 
-const PORT = 3003;
+const PORT = 3006;
 let server, adminToken;
 
 function api(method, path, body, token) {

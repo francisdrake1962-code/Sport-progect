@@ -19,6 +19,8 @@ const analyticsService = new AnalyticsService(getDb);
 const RecommendationService = require('../services/recommendation.service');
 const recommendationService = new RecommendationService(getDb);
 
+const { RUSSIAN_COUNTRIES, VALID_LANGUAGES } = require('./i18n');
+
 const router = express.Router();
 
 const FREE_LIMIT = 7;
@@ -374,19 +376,41 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     }
     const db = await getDb();
 
-    const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed, subscription_expires_at FROM subscribers WHERE id = ?`, [req.user.id]);
+    const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed, subscription_expires_at, preferred_language FROM subscribers WHERE id = ?`, [req.user.id]);
     if (!userResult.length || !userResult[0].values.length) {
       return res.status(404).json({ error: 'User not found' });
     }
     const urow = userResult[0].values[0];
     if (!urow[3]) return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED' });
 
+    const userLang = urow[5] || 'ru';
+
     const lessonResult = db.exec(`SELECT is_free, cf_video_uid FROM lessons WHERE id = ?`, [lessonId]);
     if (!lessonResult.length || !lessonResult[0].values.length) {
       return res.status(404).json({ error: 'Lesson not found' });
     }
     const lrow = lessonResult[0].values[0];
-    const isFree = lrow[0], cfUid = lrow[1];
+    const isFree = lrow[0], originalCfUid = lrow[1];
+
+    let cfUid = originalCfUid;
+    let videoLanguage = 'ru';
+    let isOriginal = true;
+
+    if (userLang !== 'ru' && originalCfUid) {
+      const mediaResult = db.exec(`SELECT cf_video_uid FROM lesson_media WHERE lesson_id = ? AND language = ? AND status = 'ready'`, [lessonId, userLang]);
+      if (mediaResult.length && mediaResult[0].values.length && mediaResult[0].values[0][0]) {
+        cfUid = mediaResult[0].values[0][0];
+        videoLanguage = userLang;
+        isOriginal = false;
+      } else {
+        const defaultResult = db.exec(`SELECT cf_video_uid FROM lesson_media WHERE lesson_id = ? AND language = 'en' AND status = 'ready'`, [lessonId]);
+        if (defaultResult.length && defaultResult[0].values.length && defaultResult[0].values[0][0]) {
+          cfUid = defaultResult[0].values[0][0];
+          videoLanguage = 'en';
+          isOriginal = false;
+        }
+      }
+    }
 
     if (!cfUid) {
       return res.status(404).json({ error: 'Video not available on Cloudflare Stream' });
@@ -411,7 +435,7 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       return res.status(500).json({ error: 'Failed to generate stream token' });
     }
     const streamUrl = await getStreamUrl(cfUid, signedToken);
-    res.json({ streamUrl });
+    res.json({ streamUrl, videoLanguage, isOriginal });
   } catch {
     res.status(500).json({ error: 'Stream token generation failed' });
   }
@@ -919,6 +943,48 @@ router.delete('/account', authMiddleware, requireRole('subscriber'), requireDang
     res.json({ success: true, message: 'Account anonymized and deleted' });
   } catch {
     res.status(500).json({ error: 'Account deletion failed' });
+  }
+});
+
+/* ── i18n: detect language by IP ── */
+router.get('/detect-language', async (req, res) => {
+  try {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = forwarded ? forwarded.split(',')[0].trim() : req.ip;
+    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') {
+      return res.json({ language: 'ru', source: 'localhost' });
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    try {
+      const resp = await fetch('http://ip-api.com/json/' + encodeURIComponent(ip) + '?fields=countryCode', { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!resp.ok) return res.json({ language: 'ru', source: 'api_error' });
+      const data = await resp.json();
+      const lang = RUSSIAN_COUNTRIES.includes(data.countryCode) ? 'ru' : 'en';
+      res.json({ language: lang, country: data.countryCode, source: 'ip' });
+    } catch {
+      clearTimeout(timeout);
+      res.json({ language: 'ru', source: 'timeout' });
+    }
+  } catch {
+    res.json({ language: 'ru', source: 'error' });
+  }
+});
+
+/* ── i18n: save language preference ── */
+router.put('/language', authMiddleware, requireRole('subscriber'), async (req, res) => {
+  try {
+    const { language } = req.body;
+    if (!language || !VALID_LANGUAGES.includes(language)) {
+      return res.status(400).json({ error: 'Invalid language. Supported: ' + VALID_LANGUAGES.join(', ') });
+    }
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET preferred_language = ? WHERE id = ?`, [language, req.user.id]);
+    saveDb();
+    res.json({ success: true, language });
+  } catch {
+    res.status(500).json({ error: 'Failed to save language preference' });
   }
 });
 

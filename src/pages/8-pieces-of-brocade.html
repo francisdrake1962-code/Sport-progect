@@ -33,13 +33,17 @@
                 <span class="header__menu-toggle-bar"></span>
             </button>
             <nav class="header__nav" role="navigation" aria-label="Основная навигация">
-                <div class="header__language">
+                <div class="header__language" id="lang-switcher">
                     <button class="language-switcher" aria-label="Выбрать язык">
-                        RU
+                        <span class="language-switcher__current">RU</span>
                     </button>
+                    <div class="language-switcher__dropdown">
+                        <button class="language-switcher__option" data-lang="ru">Русский</button>
+                        <button class="language-switcher__option" data-lang="en">English</button>
+                    </div>
                 </div>
                 
-                <a href="/login.html" class="header__login">Войти</a>
+                <a href="/login.html" class="header__login" data-i18n="header.login">Войти</a>
             </nav>
         </div>
     </header>

@@ -340,9 +340,15 @@
                 }
 
                 var streamUrl = null;
+                var videoLanguage = 'ru';
+                var isOriginal = true;
                 try {
                     var tokenData = await api('/api/user/stream-token/' + lesson.id);
                     if (tokenData && tokenData.streamUrl) streamUrl = tokenData.streamUrl;
+                    if (tokenData) {
+                        videoLanguage = tokenData.videoLanguage || 'ru';
+                        isOriginal = tokenData.isOriginal !== undefined ? tokenData.isOriginal : true;
+                    }
                 } catch(_) {}
 
                 var directVideoUrl = (function() {
@@ -352,7 +358,15 @@
                     return vUrl + (vUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(t);
                 })();
 
-                root.innerHTML = renderHeader(lesson, complexName) + renderPlayer(lesson) + renderInfo(lesson, [], complexName, allLessons, currentIndex);
+                var langNote = '';
+                var userLang = localStorage.getItem('preferred_language') || 'ru';
+                if (isOriginal && userLang !== 'ru') {
+                    langNote = '<div style="background:#2a2a1a;border:1px solid #5a5a2e;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;color:#e0d070;font-size:0.85rem;">⚠️ <span data-i18n="player.lang_note">Доступно на русском. Сейчас показывается оригинал с русской озвучкой.</span></div>';
+                }
+
+                root.innerHTML = renderHeader(lesson, complexName) + '<div id="lang-note-slot"></div>' + renderPlayer(lesson) + renderInfo(lesson, [], complexName, allLessons, currentIndex);
+                var noteSlot = document.getElementById('lang-note-slot');
+                if (noteSlot && langNote) noteSlot.innerHTML = langNote;
                 bindControls(lesson, allLessons, currentIndex, streamUrl, directVideoUrl);
             } catch(err) {
                 root.innerHTML = renderHeader() + '<div class="player-empty"><div class="player-empty__icon">⚠️</div><div class="player-empty__title">Ошибка загрузки</div><div class="player-empty__text">' + esc(err.message) + '</div><a href="/" class="btn btn--primary">На главную</a></div>';

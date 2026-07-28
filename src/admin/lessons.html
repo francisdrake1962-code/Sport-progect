@@ -53,6 +53,17 @@
                 <div class="form-group"><label for="f-video-url">URL видео</label><input type="text" class="form-control" id="f-video-url" placeholder="/videos/filename.mp4"></div>
                 <div class="form-group"><label for="f-cf-uid">Cloudflare Stream UID</label><input type="text" class="form-control" id="f-cf-uid" placeholder="cf-video-uid (опционально)"></div>
                 <div class="form-group">
+                    <label style="font-weight:600;">Языковые версии (lesson_media)</label>
+                    <div id="f-media-list" style="margin-top:0.4rem;font-size:0.85rem;">
+                        <div style="color:var(--admin-text-muted);">Загрузка...</div>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:end;">
+                        <div class="form-group" style="margin:0;flex:1;"><label for="f-media-lang" style="font-size:0.8rem;">Язык</label><select class="form-control" id="f-media-lang"><option value="en">en</option><option value="ru">ru</option></select></div>
+                        <div class="form-group" style="margin:0;flex:2;"><label for="f-media-cf" style="font-size:0.8rem;">CF Video UID</label><input type="text" class="form-control" id="f-media-cf" placeholder="cf-video-uid"></div>
+                        <button class="btn btn--primary btn--sm" onclick="addLessonMedia()" style="white-space:nowrap;">+ Добавить</button>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>Картинка</label>
                     <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
                         <input type="file" id="f-image" accept=".jpg,.jpeg,.png,.webp" style="font-size:0.85rem;">
@@ -126,6 +137,8 @@
         document.getElementById('f-image-preview').style.display = 'none';
         document.querySelectorAll('input[name="f-direction"]').forEach(r => r.checked = false);
         document.querySelectorAll('#f-zones input[type="checkbox"]').forEach(c => c.checked = false);
+        var mediaList = document.getElementById('f-media-list');
+        if (mediaList) mediaList.innerHTML = '<div style="color:var(--admin-text-muted);">Сначала сохраните урок</div>';
         document.getElementById('modal-lesson').classList.add('is-open');
     }
 
@@ -165,6 +178,7 @@
         } catch (_) {}
 
         document.getElementById('modal-lesson').classList.add('is-open');
+        loadLessonMedia(lesson.id);
     }
 
     document.getElementById('btn-save').addEventListener('click', async () => {
@@ -228,6 +242,54 @@
         } catch (err) {
             alert('Ошибка удаления: ' + err.message);
         }
+    }
+
+    async function loadLessonMedia(lessonId) {
+        const list = document.getElementById('f-media-list');
+        if (!list) return;
+        if (!lessonId) { list.innerHTML = '<div style="color:var(--admin-text-muted);">Сначала сохраните урок</div>'; return; }
+        try {
+            const res = await window.api.get('/api/lessons/' + lessonId + '/media');
+            const items = res && res.data ? res.data : [];
+            if (!items.length) { list.innerHTML = '<div style="color:var(--admin-text-muted);">Нет языковых версий</div>'; return; }
+            const statusLabels = { pending: '⏳ Ожидает', processing: '⚙️ Обработка', ready: '✅ Готово' };
+            list.innerHTML = items.map(m => '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--admin-border);">' +
+                '<span><strong>' + esc(m.language.toUpperCase()) + '</strong> — ' + esc(m.cf_video_uid || '—') + ' <span style="opacity:0.6;">' + (statusLabels[m.status] || m.status) + '</span></span>' +
+                '<div style="display:flex;gap:0.3rem;">' +
+                '<select onchange="updateMediaStatus(' + m.id + ', this.value)" style="padding:0.15rem 0.3rem;font-size:0.75rem;background:var(--admin-bg);color:var(--admin-text);border:1px solid var(--admin-border);border-radius:3px;">' +
+                '<option value="pending"' + (m.status === 'pending' ? ' selected' : '') + '>Ожидает</option>' +
+                '<option value="processing"' + (m.status === 'processing' ? ' selected' : '') + '>Обработка</option>' +
+                '<option value="ready"' + (m.status === 'ready' ? ' selected' : '') + '>Готово</option>' +
+                '</select>' +
+                '<button class="btn btn--danger btn--sm" onclick="deleteMedia(' + m.id + ')" style="padding:0.15rem 0.4rem;font-size:0.75rem;">✕</button>' +
+                '</div></div>').join('');
+        } catch (_) { list.innerHTML = '<div style="color:var(--admin-danger);">Ошибка загрузки</div>'; }
+    }
+
+    async function addLessonMedia() {
+        const lessonId = document.getElementById('edit-id').value;
+        if (!lessonId) { alert('Сначала сохраните урок'); return; }
+        const lang = document.getElementById('f-media-lang').value;
+        const cfUid = document.getElementById('f-media-cf').value.trim();
+        if (!cfUid) { alert('Укажите CF Video UID'); return; }
+        try {
+            await window.api.post('/api/lesson-media', { lesson_id: parseInt(lessonId), language: lang, cf_video_uid: cfUid, status: 'ready' });
+            document.getElementById('f-media-cf').value = '';
+            loadLessonMedia(lessonId);
+        } catch (err) { alert('Ошибка: ' + err.message); }
+    }
+
+    async function updateMediaStatus(id, status) {
+        try { await window.api.put('/api/lesson-media/' + id, { status: status }); } catch (_) {}
+    }
+
+    async function deleteMedia(id) {
+        if (!confirm('Удалить языковую версию?')) return;
+        const lessonId = document.getElementById('edit-id').value;
+        try {
+            await window.api.del('/api/lesson-media/' + id);
+            if (lessonId) loadLessonMedia(lessonId);
+        } catch (err) { alert('Ошибка: ' + err.message); }
     }
 
     loadLessons();

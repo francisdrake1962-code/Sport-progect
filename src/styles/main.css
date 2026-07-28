@@ -197,6 +197,7 @@ p {
 
 .header__language {
     margin-right: var(--spacing-sm);
+    position: relative;
 }
 
 .language-switcher {
@@ -206,6 +207,57 @@ p {
     border-radius: var(--border-radius);
     cursor: pointer;
     font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--color-text);
+}
+
+.language-switcher::after {
+    content: '\25BE';
+    font-size: 0.7rem;
+    opacity: 0.6;
+}
+
+.language-switcher__dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 100;
+    min-width: 100%;
+}
+
+.language-switcher__dropdown.open {
+    display: block;
+}
+
+.language-switcher__option {
+    display: block;
+    width: 100%;
+    padding: 0.4rem 0.8rem;
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.language-switcher__option:hover {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.language-switcher__option.active {
+    font-weight: 700;
+    color: var(--color-primary);
 }
 
 .header__login {

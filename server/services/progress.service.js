@@ -79,12 +79,12 @@ async function recordWorkoutFeedback(subscriberId, lessonId, mood) {
 async function getSubscriberProfile(subscriberId) {
   const db = await getDb();
   const result = db.exec(
-    `SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, next_billing_date FROM subscribers WHERE id = ?`,
+    `SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, next_billing_date, preferred_language FROM subscribers WHERE id = ?`,
     [subscriberId]
   );
   if (!result.length || !result[0].values.length) throw new NotFoundError('User');
   const row = result[0].values[0];
-  return { id: row[0], email: row[1], name: row[2], plan: row[3], status: row[4], free_sessions_used: row[5], subscription_started_at: row[6], next_billing_date: row[7] };
+  return { id: row[0], email: row[1], name: row[2], plan: row[3], status: row[4], free_sessions_used: row[5], subscription_started_at: row[6], next_billing_date: row[7], preferred_language: row[8] || 'ru' };
 }
 
 async function updateSubscriberProfile(subscriberId, name, currentPassword, newPassword) {

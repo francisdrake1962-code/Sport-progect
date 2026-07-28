@@ -39,6 +39,7 @@ module.exports = [
         atob: 'readonly',
         btoa: 'readonly',
         fetch: 'readonly',
+        AbortController: 'readonly',
       },
     },
     rules: {

@@ -128,6 +128,15 @@
                 '<div id="pw-msg"></div>' +
                 '</div>' +
                 '<div class="profile-card">' +
+                '<div class="profile-card__title">Язык</div>' +
+                '<div class="form-group"><label for="lang-select">Язык интерфейса</label>' +
+                '<select id="lang-select" style="width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;">' +
+                '<option value="ru">Русский</option>' +
+                '<option value="en">English</option>' +
+                '</select></div>' +
+                '<div id="lang-msg"></div>' +
+                '</div>' +
+                '<div class="profile-card">' +
                 '<button class="btn btn--danger" id="logout-btn">Выйти</button>' +
                 '</div>';
             document.getElementById('content').innerHTML = html;
@@ -180,6 +189,31 @@
                 localStorage.removeItem('user_data');
                 window.location.href = 'login.html';
             });
+
+            var langSelect = document.getElementById('lang-select');
+            if (langSelect && user.preferred_language) {
+                langSelect.value = user.preferred_language;
+            }
+            if (langSelect) {
+                langSelect.addEventListener('change', function() {
+                    var lang = langSelect.value;
+                    fetch('/api/user/language', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                        body: JSON.stringify({ language: lang })
+                    }).then(function(r) { return r.json(); }).then(function(d) {
+                        if (d.error) {
+                            document.getElementById('lang-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
+                        } else {
+                            document.getElementById('lang-msg').innerHTML = '<div class="message message--success">Язык сохранён</div>';
+                            localStorage.setItem('preferred_language', lang);
+                            if (window.i18n) window.i18n.setLanguage(lang);
+                        }
+                    }).catch(function() {
+                        document.getElementById('lang-msg').innerHTML = '<div class="message message--error">Ошибка сети</div>';
+                    });
+                });
+            }
         }
 
         var MOOD_EMOJI = { happy:'😊', energized:'⚡', calm:'🧘', neutral:'😐', tired:'😴', disappointed:'😞' };

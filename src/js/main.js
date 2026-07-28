@@ -1,6 +1,38 @@
 import '../styles/main.css';
+import './i18n.js';
 
 document.addEventListener('DOMContentLoaded', function() {
+    if (window.i18n) window.i18n.init();
+
+    // Language switcher dropdown
+    var langBtn = document.querySelector('.language-switcher');
+    var langDropdown = document.querySelector('.language-switcher__dropdown');
+    if (langBtn && langDropdown) {
+        langBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            langDropdown.classList.toggle('open');
+        });
+        document.addEventListener('click', function() {
+            langDropdown.classList.remove('open');
+        });
+        langDropdown.querySelectorAll('.language-switcher__option').forEach(function(opt) {
+            opt.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var lang = opt.getAttribute('data-lang');
+                if (window.i18n) window.i18n.setLanguage(lang);
+                langDropdown.classList.remove('open');
+                document.querySelectorAll('.language-switcher__option').forEach(function(o) {
+                    o.classList.toggle('active', o.getAttribute('data-lang') === lang);
+                });
+            });
+        });
+        // Mark current language active
+        var curLang = window.i18n ? window.i18n.getCurrentLang() : 'ru';
+        document.querySelectorAll('.language-switcher__option').forEach(function(o) {
+            o.classList.toggle('active', o.getAttribute('data-lang') === curLang);
+        });
+    }
+
     // FAQ accordion functionality
     document.querySelectorAll('.faq__item').forEach(item => {
         item.addEventListener('toggle', function() {

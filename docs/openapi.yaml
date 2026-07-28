@@ -4,7 +4,7 @@ info:
   description: |
     REST API для платформы онлайн-занятий цигун.
     Аутентификация — JWT (HS256). БД — SQLite (sql.js).
-  version: '5.7.0'
+  version: '5.8.0'
   contact:
     name: Qigong Platform
 
@@ -107,6 +107,29 @@ components:
         stripe_subscription_id:
           type: string
           nullable: true
+        preferred_language:
+          type: string
+          enum: [en, ru]
+          default: ru
+
+    LessonMedia:
+      type: object
+      properties:
+        id:
+          type: integer
+        lesson_id:
+          type: integer
+        language:
+          type: string
+        cf_video_uid:
+          type: string
+          nullable: true
+        video_url:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, processing, ready]
 
     Plan:
       type: object
@@ -1869,6 +1892,179 @@ paths:
       responses:
         '200':
           description: Payment history
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /i18n/{lang}:
+    get:
+      tags: [i18n]
+      summary: Get translations for a language
+      parameters:
+        - name: lang
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [en, ru]
+      responses:
+        '200':
+          description: Translation dictionary
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Language not found
+
+  /user/detect-language:
+    get:
+      tags: [i18n]
+      summary: Detect language by IP (for first visit)
+      responses:
+        '200':
+          description: Detected language
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  language:
+                    type: string
+                  country:
+                    type: string
+                  source:
+                    type: string
+
+  /user/language:
+    put:
+      tags: [i18n]
+      summary: Save language preference for subscriber
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language]
+              properties:
+                language:
+                  type: string
+                  enum: [en, ru]
+      responses:
+        '200':
+          description: Language saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /lessons/{id}/media:
+    get:
+      tags: [i18n]
+      summary: Get lesson media versions (public)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lesson media entries
+        '404':
+          description: Lesson not found
+
+  /lesson-media:
+    get:
+      tags: [i18n Admin]
+      summary: List all lesson_media entries (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: lesson_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lesson media list
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [i18n Admin]
+      summary: Create lesson_media entry (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lesson_id, language]
+              properties:
+                lesson_id:
+                  type: integer
+                language:
+                  type: string
+                cf_video_uid:
+                  type: string
+                video_url:
+                  type: string
+                status:
+                  type: string
+                  enum: [pending, processing, ready]
+      responses:
+        '201':
+          description: Created
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /lesson-media/{id}:
+    put:
+      tags: [i18n Admin]
+      summary: Update lesson_media entry (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cf_video_uid:
+                  type: string
+                video_url:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [i18n Admin]
+      summary: Delete lesson_media entry (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
         '403':
           $ref: '#/components/responses/Forbidden'
 

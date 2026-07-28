@@ -39,6 +39,7 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const paymentRoutes = require('./routes/payment');
+const i18nRoutes = require('./routes/i18n');
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGIN
   ? process.env.ALLOWED_ORIGIN.split(',').map(s => s.trim())
   : [];
@@ -365,6 +366,7 @@ app.get('/api/faq', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/i18n', i18nRoutes);
 
 const api = express.Router();
 api.use(authMiddleware);
@@ -420,7 +422,7 @@ api.delete('/complex-lessons/:key', async (req, res, next) => {
     next(err);
   }
 });
-api.use('/subscribers', createCrudRoutes('subscribers', ['name', 'email', 'plan', 'status', 'email_confirmed', 'free_sessions_used', 'subscription_started_at', 'next_billing_date']));
+api.use('/subscribers', createCrudRoutes('subscribers', ['name', 'email', 'plan', 'status', 'email_confirmed', 'free_sessions_used', 'subscription_started_at', 'next_billing_date', 'preferred_language']));
 api.use('/reviews', createCrudRoutes('reviews', ['author', 'text', 'rating', 'status', 'date']));
 api.use('/faq', createCrudRoutes('faq', ['question', 'answer', 'sort_order']));
 api.use('/promo-codes', createCrudRoutes('promo_codes', ['code', 'discount', 'max_uses', 'current_uses', 'active']));
@@ -428,6 +430,80 @@ api.use('/transactions', createCrudRoutes('transactions', ['subscriber_id', 'typ
 api.use('/notifications', createCrudRoutes('notifications', ['title', 'type', 'text', 'recipients', 'sent_at']));
 api.use('/users', createCrudRoutes('users', ['email', 'name', 'role']));
 api.use('/watched-lessons', createCrudRoutes('watched_lessons', ['subscriber_id', 'lesson_id', 'position_seconds', 'completed']));
+
+/* ── lesson_media admin routes ── */
+api.get('/lesson-media', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const { page, limit } = parsePagination(req.query);
+    const lessonId = req.query.lesson_id;
+    let countSql = 'SELECT COUNT(*) FROM lesson_media';
+    let dataSql = 'SELECT lm.*, l.title as lesson_title FROM lesson_media lm LEFT JOIN lessons l ON lm.lesson_id = l.id';
+    const params = [];
+    const where = [];
+    if (lessonId) { where.push('lm.lesson_id = ?'); params.push(Number(lessonId)); }
+    if (where.length) { countSql += ' WHERE ' + where.join(' AND '); dataSql += ' WHERE ' + where.join(' AND '); }
+    const countResult = db.exec(countSql, params);
+    const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
+    dataSql += ' ORDER BY lm.lesson_id ASC, lm.language ASC LIMIT ? OFFSET ?';
+    const dataResult = db.exec(dataSql, [...params, limit, (page - 1) * limit]);
+    res.json({ data: queryToObjects(dataResult), pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  } catch (err) { next(err); }
+});
+
+api.post('/lesson-media', async (req, res, next) => {
+  try {
+    const { lesson_id, language, cf_video_uid, video_url, status } = req.body;
+    if (!lesson_id || !language) return res.status(400).json({ error: 'lesson_id and language required' });
+    const db = await getDb();
+    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, cf_video_uid, video_url, status) VALUES (?, ?, ?, ?, ?)`,
+      [lesson_id, language, cf_video_uid || null, video_url || null, status || 'pending']);
+    saveDb();
+    auditService.logAction('create', 'lesson_media', null, req.user?.id, req.user?.role, { lesson_id, language }, req.ip);
+    res.status(201).json({ success: true });
+  } catch (err) { next(err); }
+});
+
+api.put('/lesson-media/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const { cf_video_uid, video_url, status } = req.body;
+    const db = await getDb();
+    const check = db.exec(`SELECT id FROM lesson_media WHERE id = ?`, [id]);
+    if (!check.length || !check[0].values.length) return res.status(404).json({ error: 'Not found' });
+    if (cf_video_uid !== undefined) db.run(`UPDATE lesson_media SET cf_video_uid = ? WHERE id = ?`, [cf_video_uid, id]);
+    if (video_url !== undefined) db.run(`UPDATE lesson_media SET video_url = ? WHERE id = ?`, [video_url, id]);
+    if (status !== undefined) db.run(`UPDATE lesson_media SET status = ? WHERE id = ?`, [status, id]);
+    saveDb();
+    auditService.logAction('update', 'lesson_media', id, req.user?.id, req.user?.role, req.body, req.ip);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+api.delete('/lesson-media/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const db = await getDb();
+    db.run(`DELETE FROM lesson_media WHERE id = ?`, [id]);
+    saveDb();
+    auditService.logAction('delete', 'lesson_media', id, req.user?.id, req.user?.role, {}, req.ip);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+/* ── Public: get lesson media for a specific lesson ── */
+app.get('/api/lessons/:id/media', async (req, res) => {
+  try {
+    const lessonId = Number(req.params.id);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) return res.status(400).json({ error: 'Invalid lesson ID' });
+    const db = await getDb();
+    const result = db.exec(`SELECT id, lesson_id, language, cf_video_uid, video_url, status FROM lesson_media WHERE lesson_id = ?`, [lessonId]);
+    const rows = queryToObjects(result);
+    res.json({ data: rows });
+  } catch {
+    res.status(500).json({ error: 'Failed to load lesson media' });
+  }
+});
 
 api.put('/lessons/:id/zones', async (req, res) => {
   try {

@@ -67,7 +67,7 @@ router.post('/register', authLimiter, validateBody({
   password: { required: true, type: 'string', minLength: 8, maxLength: 128 },
 }), async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, fingerprint } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email and password required' });
     }
@@ -83,6 +83,30 @@ router.post('/register', authLimiter, validateBody({
     if (existing.length > 0 && existing[0].values.length > 0) {
       return res.status(409).json({ error: 'Email already registered' });
     }
+
+    let prefillFreeUsed = 0;
+    let deviceWarning = null;
+    if (fingerprint) {
+      const deviceAccounts = db.exec(
+        `SELECT d.subscriber_id, s.free_sessions_used, s.plan
+         FROM device_fingerprints d
+         JOIN subscribers s ON s.id = d.subscriber_id
+         WHERE d.fingerprint = ? AND d.subscriber_id != 0`,
+        [fingerprint]
+      );
+      if (deviceAccounts.length && deviceAccounts[0].values.length) {
+        const rows = deviceAccounts[0].values;
+        const uniqueIds = [...new Set(rows.map(r => r[0]))];
+        if (uniqueIds.length > 0) {
+          const maxFreeUsed = Math.max(...rows.map(r => r[1] || 0));
+          if (maxFreeUsed > 0) {
+            prefillFreeUsed = maxFreeUsed;
+            deviceWarning = 'Обнаружена другая учётная запись на этом устройстве. Бесплатные занятия будут зачислены с учётом предыдущего использования.';
+          }
+        }
+      }
+    }
+
     const hash = await bcrypt.hash(password, 10);
     const confirmToken = crypto.randomBytes(32).toString('hex');
     const { resolveProvider } = require('../services/mailer');
@@ -91,12 +115,22 @@ router.post('/register', authLimiter, validateBody({
     const mailProvider = _getProvider();
     const isConsole = mailProvider === 'console';
     db.run(
-      `INSERT INTO subscribers (name, email, password, confirmation_token, email_confirmed, free_sessions_used, status) VALUES (?, ?, ?, ?, ?, 0, 'trial')`,
-      [name.trim(), normalizedEmail, hash, confirmToken, isConsole ? 1 : 0]
+      `INSERT INTO subscribers (name, email, password, confirmation_token, email_confirmed, free_sessions_used, status) VALUES (?, ?, ?, ?, ?, ?, 'trial')`,
+      [name.trim(), normalizedEmail, hash, confirmToken, isConsole ? 1 : 0, prefillFreeUsed]
     );
     saveDb();
     const newSub = db.exec(`SELECT id FROM subscribers WHERE email = ?`, [normalizedEmail]);
     const newId = newSub.length > 0 && newSub[0].values.length > 0 ? newSub[0].values[0][0] : null;
+
+    if (fingerprint && newId) {
+      const ipAddr = req.ip || req.connection.remoteAddress || '';
+      db.run(
+        `INSERT INTO device_fingerprints (fingerprint, ip_address, subscriber_id) VALUES (?, ?, ?)`,
+        [fingerprint, ipAddr, newId]
+      );
+      saveDb();
+    }
+
     analyticsService.trackEvent({ eventName: 'user_registered', userId: newId, ipAddress: req.ip }).catch(() => {});
     await sendConfirmationEmail(normalizedEmail, confirmToken);
     const response = {
@@ -105,6 +139,7 @@ router.post('/register', authLimiter, validateBody({
         : 'Проверьте почту для подтверждения регистрации',
     };
     if (isConsole) response.confirmation_token = confirmToken;
+    if (deviceWarning) response.deviceWarning = deviceWarning;
     res.status(201).json(response);
   } catch {
     res.status(500).json({ error: 'Registration failed' });
@@ -881,20 +916,39 @@ router.post('/fingerprint', authMiddleware, async (req, res) => {
   try {
     const { fingerprint } = req.body;
     if (!fingerprint) return res.status(400).json({ error: 'fingerprint required' });
+    if (typeof fingerprint !== 'string' || fingerprint.length > 200) return res.status(400).json({ error: 'Invalid fingerprint' });
     const db = await getDb();
     const ipAddr = req.ip || req.connection.remoteAddress || '';
+
     db.run(
       `INSERT INTO device_fingerprints (fingerprint, ip_address, subscriber_id) VALUES (?, ?, ?)`,
       [fingerprint, ipAddr, req.user.id]
     );
-    const dupCount = db.exec(
-      `SELECT COUNT(DISTINCT subscriber_id) FROM device_fingerprints
-       WHERE fingerprint = ?`,
-      [fingerprint]
+
+    const dupResult = db.exec(
+      `SELECT d.subscriber_id, s.free_sessions_used, s.plan, s.status
+       FROM device_fingerprints d
+       JOIN subscribers s ON s.id = d.subscriber_id
+       WHERE d.fingerprint = ? AND d.subscriber_id != ?`,
+      [fingerprint, req.user.id]
     );
-    const accountsCount = dupCount.length && dupCount[0].values.length ? dupCount[0].values[0][0] : 1;
+
+    let accountsFromThisDevice = 1;
+    let otherAccounts = [];
+    if (dupResult.length && dupResult[0].values.length) {
+      const rows = dupResult[0].values;
+      const uniqueIds = [...new Set(rows.map(r => r[0]))];
+      accountsFromThisDevice = uniqueIds.length + 1;
+      otherAccounts = rows.map(r => ({
+        subscriber_id: r[0],
+        free_sessions_used: r[1] || 0,
+        plan: r[2],
+        status: r[3]
+      }));
+    }
+
     saveDb();
-    res.json({ success: true, accountsFromThisDevice: accountsCount });
+    res.json({ success: true, accountsFromThisDevice, otherAccounts });
   } catch {
     res.status(500).json({ error: 'Failed to save fingerprint' });
   }

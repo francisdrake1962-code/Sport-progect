@@ -103,29 +103,28 @@
                 new Date().getTimezoneOffset(),
                 navigator.language,
                 navigator.platform,
-                !!window.sessionStorage,
-                !!window.localStorage
+                navigator.hardwareConcurrency || '',
+                navigator.maxTouchPoints || 0
             ];
-            var hash = 0;
+            var hash = 5381;
             var str = components.join('|||');
             for (var i = 0; i < str.length; i++) {
-                var ch = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + ch;
+                hash = ((hash << 5) + hash) + str.charCodeAt(i);
                 hash |= 0;
             }
             return 'fp_' + Math.abs(hash).toString(36);
         }
 
         function sendFingerprint(token) {
-            var fp = localStorage.getItem('device_fingerprint');
-            if (!fp) {
-                fp = generateFingerprint();
-                localStorage.setItem('device_fingerprint', fp);
-            }
+            var fp = generateFingerprint();
             fetch('/api/user/fingerprint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                 body: JSON.stringify({ fingerprint: fp })
+            }).then(function(r) { return r.json(); }).then(function(d) {
+                if (d.accountsFromThisDevice > 1) {
+                    console.warn('[anti-abuse] Multiple accounts on this device:', d.accountsFromThisDevice);
+                }
             }).catch(function() {});
         }
 
@@ -193,15 +192,19 @@
             const btn = document.getElementById('reg-btn');
             btn.disabled = true; btn.textContent = 'Регистрация...';
             try {
+                var fpAtReg = generateFingerprint();
                 const res = await fetch('/api/user/register', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ name, email, password })
+                    body: JSON.stringify({ name, email, password, fingerprint: fpAtReg })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Registration failed');
                 regSuccess.innerHTML = 'Письмо отправлено! Проверьте почту <b>' + escHtml(email) + '</b> и перейдите по ссылке для подтверждения.';
                 if (data.confirmation_token && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
                     regSuccess.innerHTML += '<br><a href="/confirm/' + escHtml(data.confirmation_token) + '" style="color:#7acc8a;display:inline-block;margin-top:0.5rem;">Подтвердить email (dev)</a>';
+                }
+                if (data.deviceWarning) {
+                    regSuccess.innerHTML += '<div style="margin-top:0.5rem;padding:0.5rem;background:#2a2a1a;border:1px solid #5a5a2e;border-radius:6px;color:#e0d070;font-size:0.85rem;">' + escHtml(data.deviceWarning) + '</div>';
                 }
                 regSuccess.style.display = 'block';
                 registerForm.reset();

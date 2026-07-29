@@ -7,6 +7,25 @@ const DB_PATH = path.join(__dirname, '..', 'data', 'qigong.db');
 let db = null;
 let initPromise = null;
 
+function getBootstrapAdminCredentials() {
+  if (process.env.NODE_ENV === 'test') {
+    return { email: 'admin@qigong.com', password: 'admin123', name: 'Test Admin', role: 'admin' };
+  }
+
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  if (!email || !password) {
+    throw new Error('A new database requires BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD; no default administrator is created.');
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('BOOTSTRAP_ADMIN_EMAIL must be a valid email address.');
+  }
+  if (password.length < 12) {
+    throw new Error('BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters.');
+  }
+  return { email, password, name: 'Bootstrap Administrator', role: 'super_admin' };
+}
+
 async function getDb() {
   if (db) return db;
   if (initPromise) return initPromise;
@@ -361,12 +380,23 @@ async function getDb() {
     db.run(`CREATE INDEX IF NOT EXISTS idx_lesson_versions_version ON lesson_versions(lesson_id, version)`);
 
     const bcrypt = require('bcryptjs');
-    const hash = bcrypt.hashSync('admin123', 10);
+    const bootstrapAdmin = getBootstrapAdminCredentials();
+    if (process.env.NODE_ENV !== 'test') {
+      for (const [email, defaultPassword] of [['admin@qigong.com', 'admin123'], ['superadmin@qigong.com', 'super123']]) {
+        const existing = db.exec(`SELECT id, password FROM users WHERE email = ?`, [email]);
+        if (existing[0]?.values[0] && bcrypt.compareSync(defaultPassword, existing[0].values[0][1])) {
+          db.run(`DELETE FROM users WHERE id = ?`, [existing[0].values[0][0]]);
+        }
+      }
+    }
+    const hash = bcrypt.hashSync(bootstrapAdmin.password, 10);
     db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
-      ['admin@qigong.com', hash, 'Admin', 'admin']);
-    const superHash = bcrypt.hashSync('super123', 10);
-    db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
-      ['superadmin@qigong.com', superHash, 'Super Admin', 'super_admin']);
+      [bootstrapAdmin.email, hash, bootstrapAdmin.name, bootstrapAdmin.role]);
+    if (process.env.NODE_ENV === 'test') {
+      const superHash = bcrypt.hashSync('super123', 10);
+      db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
+        ['superadmin@qigong.com', superHash, 'Test Super Admin', 'super_admin']);
+    }
 
     db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`,
       ['app_name', 'Цигун и суставная разминка']);

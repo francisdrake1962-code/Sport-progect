@@ -40,6 +40,35 @@ module.exports = [
         btoa: 'readonly',
         fetch: 'readonly',
         AbortController: 'readonly',
+        // Browser scripts are loaded directly by the HTML pages.
+        window: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        location: 'readonly',
+        navigator: 'readonly',
+        self: 'readonly',
+        caches: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Event: 'readonly',
+        CustomEvent: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        HTMLTextAreaElement: 'readonly',
+        HTMLSelectElement: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
+        // Admin pages deliberately expose these helpers as browser globals.
+        esc: 'readonly',
+        // Jest exposes these globals at runtime.
+        describe: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        jest: 'readonly',
       },
     },
     rules: {
@@ -55,7 +84,12 @@ module.exports = [
       'eqeqeq': ['warn', 'smart'],
       'no-caller': 'error',
       'no-eval': 'error',
+      'preserve-caught-error': 'off',
     },
+  },
+  {
+    files: ['src/js/main.js'],
+    languageOptions: { sourceType: 'module' },
   },
   {
     ignores: [

@@ -1,7 +1,17 @@
 const REQUIRED_IN_PRODUCTION = [
   'JWT_SECRET',
   'ALLOWED_ORIGIN',
+  'BOOTSTRAP_ADMIN_EMAIL',
+  'BOOTSTRAP_ADMIN_PASSWORD',
 ];
+
+class ConfigError extends Error {
+  constructor(errors) {
+    super(`Configuration validation failed: ${errors.join('; ')}`);
+    this.name = 'ConfigError';
+    this.errors = errors;
+  }
+}
 
 function validateConfig() {
   const env = process.env.NODE_ENV;
@@ -16,6 +26,12 @@ function validateConfig() {
         errors.push(`Missing required env var: ${key}`);
       }
     }
+    if (process.env.BOOTSTRAP_ADMIN_EMAIL && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(process.env.BOOTSTRAP_ADMIN_EMAIL)) {
+      errors.push('BOOTSTRAP_ADMIN_EMAIL must be a valid email address');
+    }
+    if (process.env.BOOTSTRAP_ADMIN_PASSWORD && process.env.BOOTSTRAP_ADMIN_PASSWORD.length < 12) {
+      errors.push('BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters');
+    }
   } else {
     for (const key of REQUIRED_IN_PRODUCTION) {
       if (!process.env[key]) {
@@ -25,9 +41,7 @@ function validateConfig() {
   }
 
   if (errors.length > 0) {
-    console.error('CONFIG VALIDATION FAILED:');
-    errors.forEach(e => console.error(`  FATAL: ${e}`));
-    process.exit(1);
+    throw new ConfigError(errors);
   }
 
   if (warnings.length > 0) {
@@ -38,4 +52,4 @@ function validateConfig() {
   return { valid: true, warnings };
 }
 
-module.exports = { validateConfig };
+module.exports = { validateConfig, ConfigError };

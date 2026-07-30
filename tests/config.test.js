@@ -26,6 +26,8 @@ describe('production configuration', () => {
       ALLOWED_ORIGIN: 'https://app.example.com',
       BOOTSTRAP_ADMIN_EMAIL: 'owner@example.com',
       BOOTSTRAP_ADMIN_PASSWORD: 'a-strong-password',
+      STRIPE_SECRET_KEY: 'placeholder_sk_key_for_tests',
+      STRIPE_WEBHOOK_SECRET: 'placeholder_whsec_key_for_tests',
     };
 
     expect(validateConfig()).toEqual({ valid: true, warnings: [] });

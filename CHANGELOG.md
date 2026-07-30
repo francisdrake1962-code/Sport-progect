@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased] - 2026-07-29
+
+### Fixed — Devil's Advocate audit round 3
+- Removed hard-coded production administrator credentials. A new production database now requires `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` (minimum 12 characters).
+- Added configuration tests, a secret-free `.env.example`, and required Render bootstrap variables.
+- Repaired the ESLint environment configuration so `npm run lint` completes without errors.
+
 Все заметные изменения проекта «Цигун и суставная разминка».
 
 ---

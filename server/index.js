@@ -1146,7 +1146,12 @@ app.use((err, req, res, _next) => {
 async function start() {
   const PORT = process.env.PORT || 3001;
   const { validateConfig } = require('./helpers/config');
-  validateConfig();
+  try {
+    validateConfig();
+  } catch (err) {
+    console.error(err.message);
+    throw err;
+  }
 
   await getDb();
   console.log('Database initialized');

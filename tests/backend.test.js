@@ -729,6 +729,8 @@ describe('API Integration — Feedback Ticket Flow', () => {
     adminToken = adminLogin.body.token;
   });
 
+  let adminTicketId;
+
   test('subscriber can create ticket', async () => {
     const res = await apiRequest('POST', '/api/feedback', {
       category: 'technical', subject: 'Test issue', message: 'Something broke'
@@ -736,6 +738,7 @@ describe('API Integration — Feedback Ticket Flow', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.ticketId).toBeDefined();
+    adminTicketId = res.body.ticketId;
   });
 
   test('subscriber can list tickets', async () => {
@@ -755,26 +758,20 @@ describe('API Integration — Feedback Ticket Flow', () => {
   });
 
   test('admin can reply to ticket', async () => {
-    const list = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
-    if (list.body.data && list.body.data.length > 0) {
-      const ticketId = list.body.data[0].id;
-      const res = await apiRequest('POST', `/api/admin/feedback/${ticketId}/reply`, {
-        message: 'We are looking into this'
-      }, adminToken);
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-    }
+    expect(adminTicketId).toBeDefined();
+    const res = await apiRequest('POST', `/api/admin/feedback/${adminTicketId}/reply`, {
+      message: 'We are looking into this'
+    }, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
   });
 
   test('admin can update ticket status', async () => {
-    const list = await apiRequest('GET', '/api/admin/feedback', null, adminToken);
-    if (list.body.data && list.body.data.length > 0) {
-      const ticketId = list.body.data[0].id;
-      const res = await apiRequest('PUT', `/api/admin/feedback/${ticketId}`, {
-        status: 'in_progress'
-      }, adminToken);
-      expect(res.status).toBe(200);
-    }
+    expect(adminTicketId).toBeDefined();
+    const res = await apiRequest('PUT', `/api/admin/feedback/${adminTicketId}`, {
+      status: 'in_progress'
+    }, adminToken);
+    expect(res.status).toBe(200);
   });
 });
 

@@ -1,6 +1,8 @@
 const REQUIRED_IN_PRODUCTION = [
   'JWT_SECRET',
   'ALLOWED_ORIGIN',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
 ];
 
 function validateConfig() {

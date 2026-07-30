@@ -343,12 +343,14 @@
                 }
 
                 var streamUrl = null;
+                var videoAccessToken = null;
                 var videoLanguage = 'ru';
                 var isOriginal = true;
                 try {
                     var tokenData = await api('/api/user/stream-token/' + lesson.id);
                     if (tokenData && tokenData.streamUrl) streamUrl = tokenData.streamUrl;
                     if (tokenData) {
+                        videoAccessToken = tokenData.videoAccessToken || null;
                         videoLanguage = tokenData.videoLanguage || 'ru';
                         isOriginal = tokenData.isOriginal !== undefined ? tokenData.isOriginal : true;
                     }
@@ -357,7 +359,7 @@
                 var directVideoUrl = (function() {
                     var vUrl = lesson.video_url || lesson.video || '';
                     if (!vUrl) return '';
-                    var t = localStorage.getItem('user_token') || '';
+                    var t = videoAccessToken || '';
                     return vUrl + (vUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(t);
                 })();
 

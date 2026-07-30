@@ -1,9 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { getDb, saveDb } = require('../db');
-const { authMiddleware, hashToken } = require('../auth');
+const { authMiddleware, hashToken, JWT_SECRET } = require('../auth');
 const { requireRole } = require('../middleware/rbac');
 const { validateBody } = require('../middleware/validation');
 const { requireDangerousActionConfirmation } = require('../middleware/confirmation');
@@ -60,6 +61,25 @@ const resendLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+const userApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 120,
+  message: { error: 'Too many requests. Try again in 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/register' || req.path === '/login' || req.path.startsWith('/confirm/'),
+});
+
+const confirmLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 10,
+  message: { error: 'Too many confirmation attempts. Try again in 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.use(userApiLimiter);
 
 router.post('/register', authLimiter, validateBody({
   name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
@@ -217,7 +237,7 @@ router.post('/confirm/resend', resendLimiter, async (req, res) => {
   }
 });
 
-router.get('/confirm/:token', async (req, res) => {
+router.get('/confirm/:token', confirmLimiter, async (req, res) => {
   try {
     const db = await getDb();
     const check = db.exec(`SELECT id FROM subscribers WHERE confirmation_token = ?`, [req.params.token]);
@@ -470,7 +490,14 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       return res.status(500).json({ error: 'Failed to generate stream token' });
     }
     const streamUrl = await getStreamUrl(cfUid, signedToken);
-    res.json({ streamUrl, videoLanguage, isOriginal });
+
+    const videoAccessToken = jwt.sign(
+      { scope: 'stream', lessonId, subscriberId: req.user.id, jti: crypto.randomUUID() },
+      JWT_SECRET,
+      { algorithm: 'HS256', expiresIn: '15m' }
+    );
+
+    res.json({ streamUrl, videoLanguage, isOriginal, videoAccessToken });
   } catch {
     res.status(500).json({ error: 'Stream token generation failed' });
   }

@@ -92,7 +92,7 @@ const globalLimiter = rateLimit({
   max: process.env.NODE_ENV === 'test' ? 10000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith('/api/auth') || req.path.startsWith('/api/user'),
+  skip: (req) => req.path.startsWith('/api/auth'),
 });
 app.use('/api', globalLimiter);
 
@@ -1022,31 +1022,39 @@ app.get('/videos/{*splat}', async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
-    if (decoded.role === 'subscriber') {
-      const db = await getDb();
-      const escapedFilename = filename.replace(/%/g, '\\%').replace(/_/g, '\\_');
-      const lessonResult = db.exec(`SELECT id, is_free FROM lessons WHERE video_url LIKE ? ESCAPE '\\'`, ['%' + escapedFilename + '%']);
-      if (!lessonResult.length || !lessonResult[0].values.length) {
-        return res.status(403).json({ error: 'Access denied: video not linked to any lesson' });
-      }
-      const isFree = lessonResult[0].values[0][1];
-      if (!isFree) {
-        const userResult = db.exec(`SELECT plan, status, free_sessions_used, subscription_expires_at FROM subscribers WHERE id = ?`, [decoded.id]);
-        if (userResult.length && userResult[0].values.length) {
-          const plan = userResult[0].values[0][0];
-          const status = userResult[0].values[0][1];
-          const freeUsed = userResult[0].values[0][2] || 0;
-          const expiresAt = userResult[0].values[0][3];
-          const now = new Date();
-          const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
-          if (!hasPaidAccess && plan === 'trial' && freeUsed >= FREE_LIMIT) {
-            return res.status(403).json({ error: 'Free limit reached. Subscribe to continue.' });
-          }
-          if (!hasPaidAccess && plan !== 'trial') {
-            return res.status(403).json({ error: 'Subscription expired. Renew to continue.' });
-          }
+    if (decoded.scope !== 'stream') {
+      return res.status(403).json({ error: 'Video access requires a stream token' });
+    }
+
+    const db = await getDb();
+    const escapedFilename = filename.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const lessonResult = db.exec(`SELECT id, is_free FROM lessons WHERE video_url LIKE ? ESCAPE '\\'`, ['%' + escapedFilename + '%']);
+    if (!lessonResult.length || !lessonResult[0].values.length) {
+      return res.status(403).json({ error: 'Access denied: video not linked to any lesson' });
+    }
+    const lessonId = lessonResult[0].values[0][0];
+    const isFree = lessonResult[0].values[0][1];
+
+    if (decoded.lessonId && decoded.lessonId !== lessonId) {
+      return res.status(403).json({ error: 'Token not valid for this video' });
+    }
+
+    if (!isFree) {
+      const userResult = db.exec(`SELECT plan, status, free_sessions_used, subscription_expires_at FROM subscribers WHERE id = ?`, [decoded.subscriberId]);
+      if (userResult.length && userResult[0].values.length) {
+        const plan = userResult[0].values[0][0];
+        const status = userResult[0].values[0][1];
+        const freeUsed = userResult[0].values[0][2] || 0;
+        const expiresAt = userResult[0].values[0][3];
+        const now = new Date();
+        const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
+        if (!hasPaidAccess && plan === 'trial' && freeUsed >= FREE_LIMIT) {
+          return res.status(403).json({ error: 'Free limit reached. Subscribe to continue.' });
+        }
+        if (!hasPaidAccess && plan !== 'trial') {
+          return res.status(403).json({ error: 'Subscription expired. Renew to continue.' });
         }
       }
     }

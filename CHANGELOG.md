@@ -4,7 +4,101 @@
 
 ---
 
-## [5.9.0] - 2026-07-28
+## [5.10.0] - 2026-07-30
+
+### Fixed — Security Hardening Round 4
+
+#### P1-1: Stream-Scoped JWT for Video Streaming
+- **Before:** Main 24h JWT accepted via `?token=` in `/videos/*` URL — leakage via logs, Referer, CDN
+- **After:** `/videos/*` rejects tokens without `scope: 'stream'` claim
+- `server/routes/user.js` — `stream-token/:lessonId` endpoint now returns `videoAccessToken` (15min, scope:stream, subscriberId, lessonId)
+- `server/index.js` — `/videos/*` verifies `scope === 'stream'`, compares `decoded.lessonId` against DB lesson, uses `decoded.subscriberId` for access checks
+- `src/pages/player.html` — uses `videoAccessToken` from stream-token response instead of `localStorage.getItem('user_token')` (main JWT)
+
+#### P1-2: Rate Limiting on /api/user/*
+- `globalLimiter` no longer skips `/api/user` (was completely unrated)
+- `server/routes/user.js` — added `userApiLimiter` (120/min) applied to all user routes except those with stricter limits
+- Added `confirmLimiter` (10/min) for `GET /confirm/:token` (no auth required, token-guessing vector)
+
+#### P1-3: Stripe Config Validation
+- `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` added to `REQUIRED_IN_PRODUCTION` — server won't start without them in production
+
+#### P2-4: Dead Code Removal
+- `server/services/schedule.service.js` — removed entirely (`getPersonalTimeline()` referenced nonexistent columns `day_of_week` and `title`, always returned empty result silently)
+- Working calendar logic lives inline in `server/routes/user.js`
+
+#### P2-5: user.js Service Layer Audit
+- PROGRESS.md updated with accurate per-route audit of all 27 routes vs service layer
+- `schedule.service.js` removed from architecture diagram
+
+#### P2-6: Fixed pages.test.js Retention Test
+- Now checks `expect(html).toMatch(/не будем предлагать[^.]*скидк/i)` — verifies actual negative statement, not just word presence
+
+#### P2-7: Fixed backend.test.js Conditional Tests
+- "admin can reply to ticket" and "admin can update ticket status" now create their own ticket in `beforeAll` — no longer silently skip expectations when DB state doesn't contain tickets
+
+### Stats
+- All tests passing (TBD after all fixes)
+- Версия: 5.9.0 → 5.10.0
+
+---
+
+## [5.8.0] - 2026-07-29
+
+### Added — i18n Internationalization
+
+#### Multi-Language UI
+- `src/locales/ru.json`, `src/locales/en.json` — translation files for Russian and English
+- `src/js/i18n.js` — frontend i18n module with language detection, storage, and DOM translation
+- `src/js/main.js` — i18n init + language switcher dropdown
+- `src/styles/main.css` — language dropdown CSS
+- `server/routes/i18n.js` — `GET /api/i18n/:lang` endpoint serving locale files
+- IP-based language detection via ip-api.com (RU/BY/KZ/UA/UZ/KG/TJ/MD/AM/AZ/TM/GE → ru, else → en)
+
+#### Multi-Language Video Tracks (lesson_media)
+- `lesson_media` table — alternative video tracks per lesson per language
+- `server/migrations/003_i18n_lesson_media.sql` — DB migration
+- `server/routes/user.js` — `stream-token/:lessonId` returns `videoLanguage` and `isOriginal` flags
+- Frontend player displays language note when showing original audio for non-Russian users
+
+#### Device Fingerprint Fix
+- Fingerprint computed fresh from device attributes at registration and login
+- No localStorage caching for fingerprints
+
+### Stats
+- 840/840 tests passing (12 suites)
+- Версия: 5.7.0 → 5.8.0
+
+---
+
+## [5.7.0] - 2026-07-28
+
+### Added — Payment Module (Stripe Recurring)
+
+#### Stripe Integration
+- `server/routes/payment.js` — subscription checkout, cancellation, webhook handling
+- `server/services/payment.service.js` — Stripe API client, session creation, event handling
+- `server/db.js` — `payments` and `payment_events` tables via migration 002
+- `POST /api/payment/create-checkout-session` — creates Stripe Checkout Session (monthly $12/yr or annual $89/yr)
+- `POST /api/webhook` — Stripe webhook with signature verification, idempotency via payment_events table
+- Webhook handler is BEFORE `express.json()` global middleware (uses `express.raw()`)
+
+#### Subscription Management
+- Auto-renewal via Stripe subscription model
+- Cancellation: Stripe subscription cancel + continue access until period end
+- `manual_access_grants` table — admin override for subscriber access
+- `server/migrations/002_payment_module.sql` — schema migration
+
+#### Admin Panel Updates
+- Admin can view/manage subscriber subscriptions
+- Manual access grant functionality
+- Transaction history viewing
+
+### Stats
+- 800/800 tests passing (11 suites)
+- Версия: 5.6.0 → 5.7.0
+
+---
 
 ### Fixed — Comprehensive Audit: API Response Unwrap + Frontend Bug Fixes
 

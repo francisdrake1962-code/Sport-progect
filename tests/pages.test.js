@@ -54,8 +54,8 @@ describe('Sub-pages — Actual HTML Validation', () => {
       expect(html).toMatch(/<li/i);
     });
 
-    test('should mention no retention tactics', () => {
-      expect(html).toMatch(/скидк/i);
+    test('should explicitly state no retention tactics are used', () => {
+      expect(html).toMatch(/не будем предлагать[^.]*скидк/i);
     });
 
     test('should have page-content class', () => {

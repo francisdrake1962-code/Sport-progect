@@ -47,36 +47,23 @@ afterAll(() => {
 
 // Сценарий 1: Registration → Onboarding
 describe('E2E — Scenario 1: Registration → Onboarding', () => {
-  let regToken;
-
-  test('1.1 subscriber registers', async () => {
-    const res = await api('POST', '/api/user/register', {
+  test('subscriber registers, confirms email, logs in and gets profile', async () => {
+    const reg = await api('POST', '/api/user/register', {
       name: 'E2E User', email: 'e2e_user@example.com', password: 'password123'
     });
-    expect(res.status).toBe(201);
-    expect(res.body.message).toBeDefined();
-    regToken = res.body.confirmation_token;
-  });
+    expect(reg.status).toBe(201);
+    expect(reg.body.message).toBeDefined();
+    const regToken = reg.body.confirmation_token;
 
-  test('1.2 confirm email', async () => {
-    if (regToken) {
-      const res = await api('POST', `/api/user/confirm/${regToken}`);
-      expect(res.status).toBe(200);
-    }
-  });
+    const confirmRes = await api('POST', `/api/user/confirm/${regToken}`);
+    expect(confirmRes.status).toBe(200);
 
-  test('1.3 login after confirmation', async () => {
-    const res = await api('POST', '/api/user/login', {
-      email: 'e2e_user@example.com', password: 'password123'
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
-  });
-
-  test('1.4 get profile', async () => {
     const login = await api('POST', '/api/user/login', {
       email: 'e2e_user@example.com', password: 'password123'
     });
+    expect(login.status).toBe(200);
+    expect(login.body.token).toBeDefined();
+
     const me = await api('GET', '/api/user/me', null, login.body.token);
     expect(me.status).toBe(200);
     expect(me.body.name).toBe('E2E User');
@@ -197,20 +184,18 @@ describe('E2E — Scenario 5: Calendar → Scheduled Lesson', () => {
 
 // Сценарий 6: Admin → Create Lesson
 describe('E2E — Scenario 6: Admin → Create Lesson', () => {
-  test('6.1 admin creates lesson', async () => {
-    const res = await api('POST', '/api/lessons', {
+  test('admin creates lesson and it appears in list', async () => {
+    const createRes = await api('POST', '/api/lessons', {
       title: 'E2E Test Lesson', duration: 15, status: 'active',
       description: 'Created during E2E test', video_url: '/videos/test.mp4',
       is_free: 0, tags: '["test"]', direction: 'тест', direction_source: 'тест', effect_description: 'тест'
     }, adminToken);
-    expect(res.status).toBe(201);
-    expect(res.body.id).toBeDefined();
-  });
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.id).toBeDefined();
 
-  test('6.2 lesson appears in list', async () => {
-    const res = await api('GET', '/api/lessons');
-    expect(res.status).toBe(200);
-    const found = res.body.data.find(l => l.title === 'E2E Test Lesson');
+    const listRes = await api('GET', '/api/lessons');
+    expect(listRes.status).toBe(200);
+    const found = listRes.body.data.find(l => l.title === 'E2E Test Lesson');
     expect(found).toBeDefined();
   });
 });
@@ -221,22 +206,31 @@ describe('E2E — Scenario 7: Admin → Publish Lesson', () => {
 
   beforeAll(async () => {
     const list = await api('GET', '/api/lessons');
-    const draft = list.body.data.find(l => l.title === 'E2E Test Lesson');
+    let draft = list.body.data.find(l => l.title === 'E2E Test Lesson');
+    if (!draft) {
+      const createRes = await api('POST', '/api/lessons', {
+        title: 'E2E Test Lesson', duration: 15, status: 'active',
+        description: 'Created during E2E test', video_url: '/videos/test.mp4',
+        is_free: 0, tags: '["test"]', direction: 'тест', direction_source: 'тест', effect_description: 'тест'
+      }, adminToken);
+      expect(createRes.status).toBe(201);
+      const afterCreate = await api('GET', '/api/lessons');
+      draft = afterCreate.body.data.find(l => l.title === 'E2E Test Lesson');
+    }
     lessonId = draft?.id;
   });
 
-  test('7.1 admin publishes lesson', async () => {
+  test('admin publishes lesson and it becomes visible', async () => {
+    expect(lessonId).toBeDefined();
     const res = await api('PUT', `/api/lessons/${lessonId}`, {
       status: 'active'
     }, adminToken);
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('active');
-  });
 
-  test('7.2 published lesson is visible', async () => {
-    const res = await api('GET', `/api/lessons/${lessonId}`);
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('active');
+    const getRes = await api('GET', `/api/lessons/${lessonId}`);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.status).toBe('active');
   });
 });
 

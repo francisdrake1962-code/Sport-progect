@@ -1,12 +1,5 @@
 # Changelog
 
-## [Unreleased] - 2026-07-29
-
-### Fixed — Devil's Advocate audit round 3
-- Removed hard-coded production administrator credentials. A new production database now requires `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` (minimum 12 characters).
-- Added configuration tests, a secret-free `.env.example`, and required Render bootstrap variables.
-- Repaired the ESLint environment configuration so `npm run lint` completes without errors.
-
 Все заметные изменения проекта «Цигун и суставная разминка».
 
 ---
@@ -44,9 +37,53 @@
 #### P2-7: Fixed backend.test.js Conditional Tests
 - "admin can reply to ticket" and "admin can update ticket status" now create their own ticket in `beforeAll` — no longer silently skip expectations when DB state doesn't contain tickets
 
+#### P3-8: Devil's Advocate audit round 3 (bootstrap + test infra)
+- Removed hard-coded production administrator credentials. A new production database now requires `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` (minimum 12 characters).
+- Added configuration tests, a secret-free `.env.example`, and required Render bootstrap variables.
+- Repaired the ESLint environment configuration so `npm run lint` completes without errors.
+- `server/auth.js` — `JWT_SECRET` now resolved dynamically via `getJwtSecret()` (reads `process.env.JWT_SECRET` at call time instead of module load)
+- `jest.config.js` — added `setupFiles: ['./tests/setup.js']`; `tests/setup.js` sets test env vars before any module loads
+- `tests/regression.test.js`, `tests/payment.test.js` — `require('../server/index')` moved into `beforeAll` after env vars are set
+- `server/routes/user.js` — `stream-token/:lessonId` returns 503 when Cloudflare Stream is not configured (was 200 with `streamUrl: null`)
+- Zombie Node.js process cleanup — killed stale listener on port 3001 that was returning 401 to integration tests
+- CHANGELOG — added missing v5.7.0 (payment) and v5.8.0 (i18n) entries
+
+#### Tests Added (v5.10.0)
+- `tests/security.test.js` — 7 stream-scoped JWT tests: no token → 401, main JWT rejected (header + query), valid `scope:stream` token → 200, wrong lesson → 403, wrong scope → 403, expired → 401
+- `tests/ratelimit.test.js` (new suite, port 3007) — verifies `RATE_LIMIT_MAX_USER_API`/`RATE_LIMIT_MAX_CONFIRM` env overrides return 429 when exceeded; all `/api/user/*` routes covered by `userApiLimiter`
+- `tests/config.test.js` — Stripe config tests: production refuses to start without both `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`, rejects partial config
+- `tests/backend.test.js` — asserts `server/services/schedule.service.js` no longer exists (P2-4)
+- Order-dependence eliminated across all 15 suites (verified with `jest --randomize`): merged stateful test flows into self-contained tests (ratelimit, e2e Scenario 1/6/7, security GDPR/confirmation/versioning, backend user-auth/me, i18n DB defaults, payment grant/revoke)
+
 ### Stats
-- All tests passing (TBD after all fixes)
+- 868/868 tests passing (15 suites)
 - Версия: 5.9.0 → 5.10.0
+
+---
+
+## [5.9.0] - 2026-07-29
+
+### Fixed — Comprehensive Audit: API Response Unwrap + Frontend Bug Fixes
+
+#### Systemic Fix: Paginated Response Unwrap
+- **Root cause:** All CRUD endpoints return `{data: [...], pagination: {...}}` but frontend code treated responses as raw arrays
+- `src/admin/js/api.js` — `api()` now auto-unwraps `{data, pagination}` → array for all admin pages
+- `src/pages/lessons.html` — same unwrap pattern + removed `admin_token` fallback (security)
+- `src/pages/player.html` — unwrap for lessons/schedule arrays
+- `src/pages/faq.html` — unwrap FAQ paginated response before `.map()`
+- `src/index.html` — unwrap reviews and FAQ responses on landing page
+- `src/pages/profile.html` — unwrap feedback tickets + removed duplicate language API call
+
+#### Frontend Bug Fixes
+- `src/pages/dashboard.html` — progress percentage: `position_seconds / (duration * 60)` (was `/ duration / 60` — duration in minutes, position in seconds)
+- `src/pages/onboarding.html` — `arr.indexOf(value)` instead of `arr.indexOf(step.value)` (step object has no `.value`)
+
+#### Test Fix
+- `tests/regression.test.js` — PORT changed from 3003 → 3006 (was colliding with e2e.test.js)
+
+### Stats
+- 863/863 tests passing (13 suites)
+- Версия: 5.8.0 → 5.9.0
 
 ---
 
@@ -104,30 +141,6 @@
 ### Stats
 - 800/800 tests passing (11 suites)
 - Версия: 5.6.0 → 5.7.0
-
----
-
-### Fixed — Comprehensive Audit: API Response Unwrap + Frontend Bug Fixes
-
-#### Systemic Fix: Paginated Response Unwrap
-- **Root cause:** All CRUD endpoints return `{data: [...], pagination: {...}}` but frontend code treated responses as raw arrays
-- `src/admin/js/api.js` — `api()` now auto-unwraps `{data, pagination}` → array for all admin pages
-- `src/pages/lessons.html` — same unwrap pattern + removed `admin_token` fallback (security)
-- `src/pages/player.html` — unwrap for lessons/schedule arrays
-- `src/pages/faq.html` — unwrap FAQ paginated response before `.map()`
-- `src/index.html` — unwrap reviews and FAQ responses on landing page
-- `src/pages/profile.html` — unwrap feedback tickets + removed duplicate language API call
-
-#### Frontend Bug Fixes
-- `src/pages/dashboard.html` — progress percentage: `position_seconds / (duration * 60)` (was `/ duration / 60` — duration in minutes, position in seconds)
-- `src/pages/onboarding.html` — `arr.indexOf(value)` instead of `arr.indexOf(step.value)` (step object has no `.value`)
-
-#### Test Fix
-- `tests/regression.test.js` — PORT changed from 3003 → 3006 (was colliding with e2e.test.js)
-
-### Stats
-- 863/863 tests passing (13 suites)
-- Версия: 5.8.0 → 5.9.0
 
 ---
 

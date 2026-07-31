@@ -1,9 +1,7 @@
 const http = require('http');
-const { start } = require('../server/index');
-const { resetDb } = require('../server/db');
 
 const PORT = 3006;
-let server, adminToken;
+let server, adminToken, start, resetDb;
 
 function api(method, path, body, token) {
   return new Promise((resolve, reject) => {
@@ -26,10 +24,12 @@ function api(method, path, body, token) {
 }
 
 beforeAll(async () => {
-  resetDb();
   process.env.NODE_ENV = 'test';
   process.env.PORT = PORT;
   process.env.JWT_SECRET = 'regression-test-secret';
+  resetDb = require('../server/db').resetDb;
+  start = require('../server/index').start;
+  resetDb();
   server = await start();
   await new Promise(r => setTimeout(r, 800));
   const login = await api('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });

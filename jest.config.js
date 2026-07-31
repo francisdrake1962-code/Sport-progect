@@ -3,5 +3,6 @@ module.exports = {
     '/node_modules/',
     '/references/',
     '/dist/'
-  ]
+  ],
+  setupFiles: ['./tests/setup.js']
 };

@@ -1,10 +1,8 @@
 const path = require('path');
 const http = require('http');
-const { start } = require('../server/index');
-const { resetDb, getDb, saveDb, transaction } = require('../server/db');
 
 const PORT = 3004;
-let server;
+let server, start, resetDb, getDb, saveDb, transaction;
 let subscriberToken, adminToken;
 
 function api(method, urlPath, body, token, raw) {
@@ -33,10 +31,12 @@ function api(method, urlPath, body, token, raw) {
 }
 
 beforeAll(async () => {
-  resetDb();
   process.env.NODE_ENV = 'test';
   process.env.PORT = PORT;
   process.env.JWT_SECRET = 'payment-test-secret';
+  ({ resetDb, getDb, saveDb, transaction } = require('../server/db'));
+  ({ start } = require('../server/index'));
+  resetDb();
   server = await start();
   await new Promise(r => setTimeout(r, 800));
 
@@ -265,7 +265,7 @@ describe('Payment Module — Manual access grants', () => {
     testSubscriberId = result[0].values[0][0];
   });
 
-  test('admin can grant access', async () => {
+  test('admin can grant access and subscriber becomes active', async () => {
     const res = await api('POST', '/api/payment/admin/grant', {
       subscriber_id: testSubscriberId,
       reason: 'Test grant',
@@ -273,9 +273,7 @@ describe('Payment Module — Manual access grants', () => {
     }, adminToken);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-  });
 
-  test('granted subscriber is now active', async () => {
     const db = await getDb();
     const result = db.exec(`SELECT status, plan, subscription_expires_at FROM subscribers WHERE id = ?`, [testSubscriberId]);
     const row = result[0].values[0];
@@ -283,16 +281,19 @@ describe('Payment Module — Manual access grants', () => {
     expect(row[2]).toBeTruthy();
   });
 
-  test('admin can revoke access', async () => {
+  test('admin can revoke access and subscriber becomes expired', async () => {
+    await api('POST', '/api/payment/admin/grant', {
+      subscriber_id: testSubscriberId,
+      reason: 'Test grant before revoke',
+      expires_at: '2027-12-31T23:59:59Z'
+    }, adminToken);
     const res = await api('POST', '/api/payment/admin/revoke', {
       subscriber_id: testSubscriberId,
       reason: 'Test revoke'
     }, adminToken);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-  });
 
-  test('revoked subscriber is now expired', async () => {
     const db = await getDb();
     const result = db.exec(`SELECT status FROM subscribers WHERE id = ?`, [testSubscriberId]);
     expect(result[0].values[0][0]).toBe('expired');

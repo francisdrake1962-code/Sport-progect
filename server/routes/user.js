@@ -26,6 +26,41 @@ const router = express.Router();
 
 const FREE_LIMIT = 7;
 
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 15,
+  message: { error: 'Too many attempts. Try again in 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const resendLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 3,
+  message: { error: 'Too many resend attempts. Try again in 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const userApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.RATE_LIMIT_MAX_USER_API ? parseInt(process.env.RATE_LIMIT_MAX_USER_API, 10) : (process.env.NODE_ENV === 'test' ? 10000 : 120),
+  message: { error: 'Too many requests. Try again in 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/register' || req.path === '/login' || req.path.startsWith('/confirm/'),
+});
+
+const confirmLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.RATE_LIMIT_MAX_CONFIRM ? parseInt(process.env.RATE_LIMIT_MAX_CONFIRM, 10) : (process.env.NODE_ENV === 'test' ? 10000 : 10),
+  message: { error: 'Too many confirmation attempts. Try again in 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.use(userApiLimiter);
+
 router.get('/stats', async (req, res) => {
   try {
     const db = await getDb();
@@ -45,41 +80,6 @@ router.get('/stats', async (req, res) => {
     res.status(500).json({ error: 'Failed to load stats' });
   }
 });
-
-const authLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: process.env.NODE_ENV === 'test' ? 10000 : 15,
-  message: { error: 'Too many attempts. Try again in 1 minute.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const resendLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: process.env.NODE_ENV === 'test' ? 10000 : 3,
-  message: { error: 'Too many resend attempts. Try again in 1 minute.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const userApiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: process.env.NODE_ENV === 'test' ? 10000 : 120,
-  message: { error: 'Too many requests. Try again in 1 minute.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === '/register' || req.path === '/login' || req.path.startsWith('/confirm/'),
-});
-
-const confirmLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: process.env.NODE_ENV === 'test' ? 10000 : 10,
-  message: { error: 'Too many confirmation attempts. Try again in 1 minute.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-router.use(userApiLimiter);
 
 router.post('/register', authLimiter, validateBody({
   name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
@@ -426,9 +426,6 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     if (!Number.isInteger(lessonId) || lessonId <= 0) {
       return res.status(400).json({ error: 'Invalid lesson ID' });
     }
-    if (!(await isStreamConfigured())) {
-      return res.status(503).json({ error: 'Streaming not configured' });
-    }
     const db = await getDb();
 
     const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed, subscription_expires_at, preferred_language FROM subscribers WHERE id = ?`, [req.user.id]);
@@ -438,14 +435,18 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     const urow = userResult[0].values[0];
     if (!urow[3]) return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED' });
 
+    if (!(await isStreamConfigured())) {
+      return res.status(503).json({ error: 'Streaming not configured' });
+    }
+
     const userLang = urow[5] || 'ru';
 
-    const lessonResult = db.exec(`SELECT is_free, cf_video_uid FROM lessons WHERE id = ?`, [lessonId]);
+    const lessonResult = db.exec(`SELECT is_free, cf_video_uid, video_url FROM lessons WHERE id = ?`, [lessonId]);
     if (!lessonResult.length || !lessonResult[0].values.length) {
       return res.status(404).json({ error: 'Lesson not found' });
     }
     const lrow = lessonResult[0].values[0];
-    const isFree = lrow[0], originalCfUid = lrow[1];
+    const isFree = lrow[0], originalCfUid = lrow[1], videoUrl = lrow[2];
 
     let cfUid = originalCfUid;
     let videoLanguage = 'ru';
@@ -467,10 +468,6 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       }
     }
 
-    if (!cfUid) {
-      return res.status(404).json({ error: 'Video not available on Cloudflare Stream' });
-    }
-
     const plan = urow[0], status = urow[1], freeUsed = urow[2] || 0, expiresAt = urow[4];
     const now = new Date();
     const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
@@ -485,11 +482,13 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       }
     }
 
-    const signedToken = await generateSignedToken(cfUid);
-    if (!signedToken) {
-      return res.status(500).json({ error: 'Failed to generate stream token' });
+    let streamUrl = null;
+    if (cfUid && (await isStreamConfigured())) {
+      const signedToken = await generateSignedToken(cfUid);
+      if (signedToken) {
+        streamUrl = await getStreamUrl(cfUid, signedToken);
+      }
     }
-    const streamUrl = await getStreamUrl(cfUid, signedToken);
 
     const videoAccessToken = jwt.sign(
       { scope: 'stream', lessonId, subscriberId: req.user.id, jti: crypto.randomUUID() },
@@ -498,7 +497,8 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     );
 
     res.json({ streamUrl, videoLanguage, isOriginal, videoAccessToken });
-  } catch {
+  } catch (err) {
+    req.log && req.log.error('stream-token error', err.message);
     res.status(500).json({ error: 'Stream token generation failed' });
   }
 });

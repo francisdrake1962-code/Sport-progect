@@ -389,7 +389,7 @@
         function renderPlayer(lesson) {
             var posterUrl = lesson.poster_url || 'images/hero-poster.jpg';
             return '<div class="player-wrap" id="player-wrap">' +
-                '<video id="video" preload="metadata" playsinline muted poster="' + esc(posterUrl) + '"></video>' +
+                '<video id="video" preload="metadata" playsinline poster="' + esc(posterUrl) + '"></video>' +
                 '<div class="player-loading" id="player-loading"><div class="player-loading__spinner"></div></div>' +
                 '<div class="player-error" id="player-error" style="display:none;">' +
                 '<div class="player-error__icon">⚠️</div>' +
@@ -577,33 +577,33 @@
                 video.load();
             });
 
-            /* HLS / direct source */
-            video.muted = true;
-            video.volume = 1;
-            if (streamUrl) {
-                if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = streamUrl;
-                } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                    var hls = new Hls();
-                    hls.loadSource(streamUrl);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.ERROR, function(event, data) {
-                        if (data.fatal) {
-                            if (playerLoading) playerLoading.style.display = 'none';
-                            if (playerError) playerError.style.display = 'flex';
-                        }
-                    });
-                } else {
-                    video.src = streamUrl;
-                }
-            } else if (directVideoUrl) {
-                video.src = directVideoUrl;
-                video.load();
+            /* Volume — attach listeners first so initial state sync fires into them */
+            var unmutedSvg = '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v7a4.5 4.5 0 004.5-3.5zM12 1v2a8 8 0 010 16v2a10 10 0 000-20z"/></svg>';
+            var mutedSvg = '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v7a4.5 4.5 0 004.5-3.5z"/><line x1="18" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="2"/><line x1="22" y1="9" x2="18" y2="15" stroke="currentColor" stroke-width="2"/></svg>';
+
+            function updateMuteIcon() {
+                btnMute.innerHTML = video.muted || video.volume === 0 ? mutedSvg : unmutedSvg;
             }
 
-            video.addEventListener('loadedmetadata', function() {
-                video.volume = 1;
-            }, { once: true });
+            btnMute.addEventListener('click', function() {
+                video.muted = !video.muted;
+                updateMuteIcon();
+            });
+
+            volumeSlider.addEventListener('input', function() {
+                video.volume = parseFloat(volumeSlider.value);
+                video.muted = video.volume === 0;
+                updateMuteIcon();
+            });
+
+            video.addEventListener('volumechange', function() {
+                volumeSlider.value = video.muted ? 0 : video.volume;
+                updateMuteIcon();
+            });
+
+            /* Init volume UI to match default state */
+            volumeSlider.value = video.muted ? 0 : video.volume;
+            updateMuteIcon();
 
             /* Play/pause */
             var playIcon = '<svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>';
@@ -613,17 +613,11 @@
                 if (video.paused) {
                     video.muted = false;
                     video.volume = video.volume || 1;
-                    video.play().then(function() {
-                        btnPlay.innerHTML = pauseIcon;
-                        overlay.classList.add('hidden');
-                    }).catch(function() {
-                        video.muted = true;
-                        video.play().then(function() {
-                            btnPlay.innerHTML = pauseIcon;
-                            overlay.classList.add('hidden');
-                            video.muted = false;
-                        }).catch(function() {});
+                    video.play().catch(function() {
+                        video.play().catch(function() {});
                     });
+                    btnPlay.innerHTML = pauseIcon;
+                    overlay.classList.add('hidden');
                 }
                 else { video.pause(); btnPlay.innerHTML = playIcon; overlay.classList.remove('hidden'); }
             }
@@ -637,8 +631,8 @@
                 getLocalProgress(lesson.id).then(function(saved) {
                     if (saved && !saved.completed && saved.position > 10 && saved.position < video.duration * 0.9) {
                         showResumePrompt(video, saved.position, video.duration,
-                            function() { video.currentTime = saved.position; video.muted = false; video.volume = video.volume || 1; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }).catch(function() { video.muted = true; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); video.muted = false; }).catch(function() {}); }); },
-                            function() { video.muted = false; video.volume = video.volume || 1; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }).catch(function() { video.muted = true; video.play().then(function() { btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); video.muted = false; }).catch(function() {}); }); }
+                            function() { video.currentTime = saved.position; video.muted = false; video.volume = video.volume || 1; video.play().catch(function() { video.play().catch(function() {}); }); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); },
+                            function() { video.muted = false; video.volume = video.volume || 1; video.play().catch(function() { video.play().catch(function() {}); }); btnPlay.innerHTML = pauseIcon; overlay.classList.add('hidden'); }
                         );
                     }
                 });
@@ -646,6 +640,8 @@
 
             /* Time update + progress bar */
             video.addEventListener('timeupdate', function() {
+                console.log('TIMEUPDATE: duration=' + video.duration + ' currentTime=' + video.currentTime);
+                if (video.currentTime > 0.5) video._sawProgress = true;
                 if (video.duration) {
                     progressFill.style.width = (video.currentTime / video.duration * 100) + '%';
                     timeDisplay.textContent = fmt(video.currentTime) + ' / ' + fmt(video.duration);
@@ -680,6 +676,9 @@
 
             /* Video ended → completion overlay */
             video.addEventListener('ended', function() {
+                console.log('VIDEO ENDED: duration=' + video.duration + ' currentTime=' + video.currentTime + ' paused=' + video.paused + ' ended=' + video.ended);
+                if (!video.duration || video.currentTime <= 0) return;
+                if (video.duration > 5 && !video._sawProgress) return;
                 stopHeartbeat();
                 if (video._progressSent) return;
                 video._progressSent = true;
@@ -707,7 +706,7 @@
             });
 
             /* Heartbeat: save position every 10s */
-            video.addEventListener('play', function() { startHeartbeat(lesson.id, video); });
+            video.addEventListener('play', function() { console.log('VIDEO PLAY: duration=' + video.duration + ' currentTime=' + video.currentTime); startHeartbeat(lesson.id, video); });
             video.addEventListener('pause', function() { stopHeartbeat(); });
             video.addEventListener('seeked', function() {
                 if (!video.paused) startHeartbeat(lesson.id, video);
@@ -721,36 +720,37 @@
                 }
             });
 
+            /* HLS / direct source — attach AFTER all event listeners */
+            video.volume = 1;
+            video.addEventListener('loadedmetadata', function() {
+                video.volume = 1;
+            }, { once: true });
+            if (streamUrl) {
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = streamUrl;
+                } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    var hls = new Hls();
+                    hls.loadSource(streamUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                            if (playerLoading) playerLoading.style.display = 'none';
+                            if (playerError) playerError.style.display = 'flex';
+                        }
+                    });
+                } else {
+                    video.src = streamUrl;
+                }
+                } else if (directVideoUrl) {
+                    video.src = directVideoUrl;
+                }
+
             /* Fullscreen */
             btnFullscreen.addEventListener('click', function() {
                 var wrap = document.getElementById('player-wrap');
                 if (document.fullscreenElement) document.exitFullscreen();
                 else if (wrap.requestFullscreen) wrap.requestFullscreen();
                 else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen();
-            });
-
-            /* Volume */
-var unmutedSvg = '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v7a4.5 4.5 0 004.5-3.5zM12 1v2a8 8 0 010 16v2a10 10 0 000-20z"/></svg>';
-var mutedSvg = '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v7a4.5 4.5 0 004.5-3.5z"/><line x1="18" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="2"/><line x1="22" y1="9" x2="18" y2="15" stroke="currentColor" stroke-width="2"/></svg>';
-
-            function updateMuteIcon() {
-                btnMute.innerHTML = video.muted || video.volume === 0 ? mutedSvg : unmutedSvg;
-            }
-
-            btnMute.addEventListener('click', function() {
-                video.muted = !video.muted;
-                updateMuteIcon();
-            });
-
-            volumeSlider.addEventListener('input', function() {
-                video.volume = parseFloat(volumeSlider.value);
-                video.muted = video.volume === 0;
-                updateMuteIcon();
-            });
-
-            video.addEventListener('volumechange', function() {
-                volumeSlider.value = video.muted ? 0 : video.volume;
-                updateMuteIcon();
             });
 
             /* Cast to TV */

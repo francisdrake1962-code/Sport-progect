@@ -2,15 +2,16 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-30 v5.10.0
+> Last updated: 2026-07-31 v5.10.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.10.0 (in-progress — security hardening round)
-**Tests**: TBD after all fixes
-**Lint**: 0 errors, 8 warnings (pre-existing: Jest globals in ESLint config)
+**Version**: 5.10.0 (complete — security hardening round)
+**Tests**: 868/868 passing (15 suites), order-independent (verified with `jest --randomize`)
+**Lint**: 0 errors, 14 warnings (pre-existing: Jest globals in ESLint config)
+**Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
@@ -40,7 +41,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Payment Module | Stripe recurring, webhooks, manual grants, admin panel | ✅ DONE (v5.6.1–v5.7.0) |
 | i18n Internationalization | Multi-language UI + lesson_media | ✅ DONE (v5.8.0) |
 | Audit Fixes v5.9.0 | API response unwrap, frontend bugs, test port | ✅ DONE (v5.9.0) |
-| Security Hardening Round 4 | Stream-scoped JWT, rate limiting, Stripe config, dead code, test fixes | 🔄 IN PROGRESS (v5.10.0) |
+| Security Hardening Round 4 | Stream-scoped JWT, rate limiting, Stripe config, dead code, test fixes | ✅ DONE (v5.10.0) |
 
 ---
 
@@ -142,10 +143,12 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - [x] P2-4: schedule.service.js removed (dead code — getPersonalTimeline() referenced nonexistent columns)
 - [x] P2-6: pages.test.js:57 — test now checks for negative ("не будем предлагать...скидк") not just word presence
 - [x] P2-7: backend.test.js:757-778 — admin ticket reply/update tests create own ticket, no longer conditional
+- [x] P3-8: CHANGELOG.md — added payment (5.7.0) + i18n (5.8.0) entries; structure fixed (descending order)
+- [x] Tests: 7 stream-scoped JWT tests (security.test.js), ratelimit.test.js suite (port 3007, env-override 429 checks), Stripe config tests (config.test.js), schedule.service.js-removed assertion (backend.test.js)
+- [x] Order-independence: all 15 suites pass under `jest --randomize` (merged stateful flows — e2e Scenario 1/6/7, security GDPR/confirmation/versioning, backend user-auth/me/free-lesson-counter, i18n DB default, payment grant/revoke, ratelimit)
 
 ### Remaining (P3 / process):
-- [ ] P3-8: CHANGELOG.md add payment/i18n entries (v5.7.0, v5.8.0 missing)
-- [ ] 8 lint warnings (pre-existing — Jest globals in ESLint config)
+- [ ] 14 lint warnings (pre-existing — Jest globals in ESLint config)
 - [ ] user.js: ~23 routes still inline (not in service layer — documented above)
 
 ---
@@ -192,17 +195,22 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 5. ✅ P2-5: user.js inline vs service layer audit + PROGRESS.md updated
 6. ✅ P2-6: pages.test.js:57 fixed
 7. ✅ P2-7: backend.test.js conditional tests fixed
-8. ⬜ P3-8: CHANGELOG.md — add payment + i18n entries
-9. ⬜ Run full test suite after all fixes, verify lint + build
+8. ✅ P3-8: CHANGELOG.md — add payment + i18n entries
+9. ✅ Run full test suite after all fixes, verify lint + build
+10. ✅ Stream-scoped JWT tests added (security.test.js)
+11. ✅ Rate limit tests added (ratelimit.test.js)
+12. ✅ Stripe config tests added (config.test.js)
+13. ✅ schedule.service.js removal test added (backend.test.js)
+14. ✅ Order-independence verified: `jest --randomize` — 10+ consecutive green runs (868/868, 15 suites)
 
 ### Next session options:
 
-### Option A: Testing & Quality (Recommended)
-- Add stream-scoped JWT tests to backend.test.js (verify main token rejected, stream token accepted, stream token expired)
-- Add rate limit tests to security.test.js (verify 429 on /api/user/stats, /api/user/confirm/:token)
-- Add config.test.js to verify Stripe env vars required in production
-- Add tests for schedule.service.js removal (verify it no longer exists)
-- Add test randomizer run to verify no order-dependent tests
+### Option A: Testing & Quality (DONE in v5.10.0)
+- ✅ Stream-scoped JWT tests added (main token rejected, stream token accepted, expired/wrong-scope rejected)
+- ✅ Rate limit tests (429 on /api/user/* when env limits exceeded, confirm limiter)
+- ✅ Stripe config tests (production refuses partial/missing Stripe env vars)
+- ✅ schedule.service.js removal test (file no longer exists)
+- ✅ Randomizer runs green — no order-dependent tests remain
 
 ### Option B: Frontend UX
 - Unified API client with global error handling
@@ -216,7 +224,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - Rollback procedure documentation
 
 ### Option D: Documentation
-- P3-8: CHANGELOG.md payment + i18n entries
+- ✅ P3-8: CHANGELOG.md payment + i18n entries (done in v5.10.0)
 - P3-9: Review robots.txt/sitemap.xml (already reviewed — matches SEO test spec)
 - docs/openapi.yaml — update to current version
 
@@ -248,7 +256,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - `server/helpers/logger.js` — structured logging
 - `server/services/auth.service.js` — auth business logic
 - `server/services/progress.service.js` — progress business logic
-- `server/services/schedule.service.js` — calendar business logic
+- `server/services/schedule.service.js` — REMOVED in v5.10.0 (P2-4, dead code — calendar logic lives inline in user.js)
 - `server/services/feedback.service.js` — ticket business logic
 - `server/services/dashboard.service.js` — dashboard aggregation
 - `server/repositories/base.repository.js` — generic CRUD repo
@@ -256,9 +264,13 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - `server/repositories/index.js` — all other repos
 
 ### Test files (run after changes):
-- `tests/backend.test.js` (132 tests — main API tests)
-- `tests/security.test.js` (38 tests — security tests)
+- `tests/backend.test.js` (main API tests — user auth, /me, free-lesson counter, token revocation, CRUD)
+- `tests/security.test.js` (security tests — stream-scoped JWT, rate limits, GDPR, confirmation, versioning)
+- `tests/ratelimit.test.js` (port 3007 — rate limit env-override + 429 behavior)
+- `tests/config.test.js` (config validation — Stripe vars required in production)
+- `tests/e2e.test.js` (port 3003 — end-to-end scenarios), `tests/payment.test.js` (port 3004), `tests/i18n.test.js` (port 3005), `tests/regression.test.js` (port 3006)
 - All other test suites (landing, components, pages, integrity, admin, build, seo)
+- Port map: 3001 backend, 3002 security, 3003 e2e, 3004 payment, 3005 i18n, 3006 regression, 3007 ratelimit
 
 ---
 
@@ -315,7 +327,7 @@ server/
 
 1. **User communicates in Russian** — respond in Russian
 2. **One step forward, two steps back** — always verify before moving on
-3. **744/744 tests must pass** after every change
+3. **868/868 tests must pass** after every change (15 suites)
 4. **Push to GitHub** after every commit
 5. **Never modify MWH APK** — illegal (DRM)
 6. **Subscription model**: 7 days free WITHOUT payment card

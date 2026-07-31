@@ -117,8 +117,9 @@ describe('i18n — DB: subscribers.preferred_language', () => {
   });
 
   test('default preferred_language should be ru', async () => {
+    await apiRequest('POST', '/api/user/register', { name: 'Lang Default', email: 'langdefault@test.com', password: 'password123' });
     const db = await require('../server/db').getDb();
-    const result = db.exec(`SELECT preferred_language FROM subscribers LIMIT 1`);
+    const result = db.exec(`SELECT preferred_language FROM subscribers WHERE email = 'langdefault@test.com'`);
     expect(result.length).toBe(1);
     expect(result[0].values[0][0]).toBe('ru');
   });
@@ -169,6 +170,8 @@ describe('i18n — API: PUT /api/user/language', () => {
   });
 
   test('GET /api/user/me should return preferred_language', async () => {
+    const setRes = await apiRequest('PUT', '/api/user/language', { language: 'en' }, subscriberToken);
+    expect(setRes.status).toBe(200);
     const res = await apiRequest('GET', '/api/user/me', null, subscriberToken);
     expect(res.status).toBe(200);
     expect(res.body.preferred_language).toBe('en');

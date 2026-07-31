@@ -44,4 +44,32 @@ describe('production configuration', () => {
 
     expect(() => validateConfig()).toThrow('at least 12 characters');
   });
+
+  test('rejects production startup without Stripe credentials', () => {
+    process.env = {
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a'.repeat(64),
+      ALLOWED_ORIGIN: 'https://app.example.com',
+      BOOTSTRAP_ADMIN_EMAIL: 'owner@example.com',
+      BOOTSTRAP_ADMIN_PASSWORD: 'a-strong-password',
+    };
+
+    expect(() => validateConfig()).toThrow(ConfigError);
+    expect(() => validateConfig()).toThrow('STRIPE_SECRET_KEY');
+    expect(() => validateConfig()).toThrow('STRIPE_WEBHOOK_SECRET');
+  });
+
+  test('rejects production startup with only one Stripe credential', () => {
+    process.env = {
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a'.repeat(64),
+      ALLOWED_ORIGIN: 'https://app.example.com',
+      BOOTSTRAP_ADMIN_EMAIL: 'owner@example.com',
+      BOOTSTRAP_ADMIN_PASSWORD: 'a-strong-password',
+      STRIPE_SECRET_KEY: 'placeholder_sk_key_for_tests',
+    };
+
+    expect(() => validateConfig()).toThrow(ConfigError);
+    expect(() => validateConfig()).toThrow('STRIPE_WEBHOOK_SECRET');
+  });
 });

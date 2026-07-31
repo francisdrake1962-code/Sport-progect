@@ -52,6 +52,7 @@
                 <div class="form-group"><label for="f-description">Описание</label><textarea class="form-control" id="f-description"></textarea></div>
                 <div class="form-group"><label for="f-video-url">URL видео</label><input type="text" class="form-control" id="f-video-url" placeholder="/videos/filename.mp4"></div>
                 <div class="form-group"><label for="f-cf-uid">Cloudflare Stream UID</label><input type="text" class="form-control" id="f-cf-uid" placeholder="cf-video-uid (опционально)"></div>
+                <div id="stream-upload-container"></div>
                 <div class="form-group">
                     <label style="font-weight:600;">Языковые версии (lesson_media)</label>
                     <div id="f-media-list" style="margin-top:0.4rem;font-size:0.85rem;">
@@ -84,6 +85,7 @@
     <script src="js/sidebar.js"></script>
     <script src="js/api.js"></script>
     <script src="js/admin.js"></script>
+    <script src="js/stream-upload.js"></script>
     <script>
     async function loadLessons() {
         if (!localStorage.getItem('admin_token')) { window.location.href = 'login.html'; return; }
@@ -179,6 +181,9 @@
 
         document.getElementById('modal-lesson').classList.add('is-open');
         loadLessonMedia(lesson.id);
+        if (typeof initStreamUpload === 'function') {
+            initStreamUpload(lesson.id, 'ru');
+        }
     }
 
     document.getElementById('btn-save').addEventListener('click', async () => {

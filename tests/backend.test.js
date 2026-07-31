@@ -32,6 +32,10 @@ describe('Backend — File Structure', () => {
   test('server/services/stream.js should exist', () => {
     expect(fs.existsSync(path.join(serverDir, 'services', 'stream.js'))).toBe(true);
   });
+
+  test('server/services/schedule.service.js should NOT exist (removed in v5.10.0, P2-4)', () => {
+    expect(fs.existsSync(path.join(serverDir, 'services', 'schedule.service.js'))).toBe(false);
+  });
 });
 
 describe('Backend — db.js module', () => {
@@ -362,15 +366,16 @@ describe('API Integration — Access Control', () => {
 });
 
 describe('API Integration — User Auth', () => {
-  let confirmToken;
+  beforeAll(async () => {
+    await apiRequest('POST', '/api/user/register', { name: 'Тест Юзер', email: 'testuser@test.com', password: 'password123' });
+  });
 
   test('POST /api/user/register should create subscriber and return confirmation token', async () => {
-    const res = await apiRequest('POST', '/api/user/register', { name: 'Тест Юзер', email: 'testuser@test.com', password: 'password123' });
+    const res = await apiRequest('POST', '/api/user/register', { name: 'Новый Юзер', email: 'freshuser@test.com', password: 'password123' });
     expect(res.status).toBe(201);
     expect(res.body.message).toBeDefined();
     expect(res.body.confirmation_token).toBeDefined();
     expect(res.body.token).toBeUndefined();
-    confirmToken = res.body.confirmation_token;
   });
 
   test('POST /api/user/register should normalize email', async () => {
@@ -400,6 +405,9 @@ describe('API Integration — User Auth', () => {
   });
 
   test('POST /api/user/confirm/:token should confirm email', async () => {
+    const reg = await apiRequest('POST', '/api/user/register', { name: 'Confirm Me', email: 'confirmme@test.com', password: 'password123' });
+    const confirmToken = reg.body.confirmation_token || reg.body.confirmationToken;
+    expect(confirmToken).toBeDefined();
     const res = await apiRequest('POST', `/api/user/confirm/${confirmToken}`);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -433,6 +441,7 @@ describe('API Integration — User Me', () => {
   let userToken;
 
   beforeAll(async () => {
+    await apiRequest('POST', '/api/user/register', { name: 'Тест Юзер', email: 'testuser@test.com', password: 'password123' });
     const login = await apiRequest('POST', '/api/user/login', { email: 'testuser@test.com', password: 'password123' });
     userToken = login.body.token;
   });
@@ -581,7 +590,7 @@ describe('API Integration — Free Lesson Counter', () => {
     const before = await apiRequest('GET', '/api/user/me', null, trialToken);
     const usedBefore = before.body.free_sessions_used || 0;
 
-    await apiRequest('POST', '/api/user/watch-progress', { lesson_id: 8, position_seconds: 300, completed: true }, trialToken);
+    await apiRequest('POST', '/api/user/watch-progress', { lesson_id: 9, position_seconds: 300, completed: true }, trialToken);
 
     const after = await apiRequest('GET', '/api/user/me', null, trialToken);
     expect(after.body.free_sessions_used).toBe(usedBefore + 1);
@@ -591,10 +600,13 @@ describe('API Integration — Free Lesson Counter', () => {
     const before = await apiRequest('GET', '/api/user/me', null, trialToken);
     const usedBefore = before.body.free_sessions_used || 0;
 
-    await apiRequest('POST', '/api/user/watch-progress', { lesson_id: 8, position_seconds: 600, completed: true }, trialToken);
+    await apiRequest('POST', '/api/user/watch-progress', { lesson_id: 10, position_seconds: 300, completed: true }, trialToken);
+    const mid = await apiRequest('GET', '/api/user/me', null, trialToken);
+    expect(mid.body.free_sessions_used).toBe(usedBefore + 1);
 
+    await apiRequest('POST', '/api/user/watch-progress', { lesson_id: 10, position_seconds: 600, completed: true }, trialToken);
     const after = await apiRequest('GET', '/api/user/me', null, trialToken);
-    expect(after.body.free_sessions_used).toBe(usedBefore);
+    expect(after.body.free_sessions_used).toBe(usedBefore + 1);
   });
 });
 
@@ -721,15 +733,18 @@ describe('API Integration — Security Hardening', () => {
 describe('API Integration — Feedback Ticket Flow', () => {
   let subToken;
   let adminToken;
+  let adminTicketId;
 
   beforeAll(async () => {
     const subLogin = await apiRequest('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
     subToken = subLogin.body.token;
     const adminLogin = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
     adminToken = adminLogin.body.token;
+    const create = await apiRequest('POST', '/api/feedback', {
+      category: 'technical', subject: 'Test issue', message: 'Something broke'
+    }, subToken);
+    adminTicketId = create.body.ticketId;
   });
-
-  let adminTicketId;
 
   test('subscriber can create ticket', async () => {
     const res = await apiRequest('POST', '/api/feedback', {
@@ -738,7 +753,6 @@ describe('API Integration — Feedback Ticket Flow', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.ticketId).toBeDefined();
-    adminTicketId = res.body.ticketId;
   });
 
   test('subscriber can list tickets', async () => {
@@ -832,31 +846,28 @@ describe('API Integration — Lessons Public Endpoints', () => {
 });
 
 describe('API Integration — Token Revocation', () => {
-  let token;
+  test('logout revokes the token, revoked token is rejected', async () => {
+    const loginRes = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    const token = loginRes.body.token;
+    expect(token).toBeDefined();
 
-  beforeAll(async () => {
-    const res = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
-    token = res.body.token;
-  });
+    const logoutRes = await apiRequest('POST', '/api/auth/logout', null, token);
+    expect(logoutRes.status).toBe(200);
+    expect(logoutRes.body.success).toBe(true);
 
-  test('POST /api/auth/logout should revoke token', async () => {
-    const res = await apiRequest('POST', '/api/auth/logout', null, token);
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-  });
-
-  test('revoked token should be rejected', async () => {
-    const res = await apiRequest('GET', '/api/auth/me', null, token);
-    expect(res.status).toBe(401);
-    expect(res.body.error).toContain('revoked');
+    const meRes = await apiRequest('GET', '/api/auth/me', null, token);
+    expect(meRes.status).toBe(401);
+    expect(meRes.body.error).toContain('revoked');
   });
 
   test('subscriber logout should revoke token', async () => {
     const regRes = await apiRequest('POST', '/api/user/register', {
       name: 'LogoutTest', email: 'logouttest@test.com', password: 'password123'
     });
-    const confirmToken = regRes.body.confirmationToken;
-    await apiRequest('POST', `/api/user/confirm/${confirmToken}`);
+    const confirmToken = regRes.body.confirmation_token || regRes.body.confirmationToken;
+    if (confirmToken) {
+      await apiRequest('POST', `/api/user/confirm/${confirmToken}`);
+    }
     const loginRes = await apiRequest('POST', '/api/user/login', { email: 'logouttest@test.com', password: 'password123' });
     const subToken = loginRes.body.token;
     const logoutRes = await apiRequest('POST', '/api/user/logout', null, subToken);

@@ -39,6 +39,8 @@ module.exports = [
         atob: 'readonly',
         btoa: 'readonly',
         fetch: 'readonly',
+        FormData: 'readonly',
+        XMLHttpRequest: 'readonly',
         AbortController: 'readonly',
         // Browser scripts are loaded directly by the HTML pages.
         window: 'readonly',

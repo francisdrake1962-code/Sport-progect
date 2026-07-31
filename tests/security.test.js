@@ -294,6 +294,74 @@ describe('Security — Video Access Control', () => {
   });
 });
 
+describe('Security — Stream-Scoped JWT for Video Access (P1-1)', () => {
+  const jwt = require('jsonwebtoken');
+  const { JWT_SECRET } = require('../server/auth');
+  let testLessonId;
+  let subId;
+
+  beforeAll(async () => {
+    const db = await require('../server/db').getDb();
+    const subRes = db.exec(`SELECT id FROM subscribers WHERE email = 'sectest@test.com'`);
+    subId = subRes[0].values[0][0];
+
+    db.run(`INSERT INTO lessons (title, duration, status, video_url, is_free) VALUES ('Stream Token Test Lesson', 27, 'active', '/videos/placeholder.mp4', 1)`);
+    testLessonId = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+  });
+
+  afterAll(async () => {
+    const db = await require('../server/db').getDb();
+    db.exec(`DELETE FROM lessons WHERE id = ?`, [testLessonId]);
+  });
+
+  const streamToken = (opts = {}) => jwt.sign(
+    { scope: 'stream', lessonId: opts.lessonId || testLessonId, subscriberId: opts.subscriberId || subId, jti: 'test-jti-' + Math.random() },
+    JWT_SECRET,
+    { algorithm: 'HS256', expiresIn: opts.expiresIn || '15m' }
+  );
+
+  test('existing video without token returns 401', async () => {
+    const res = await apiRequest('GET', '/videos/placeholder.mp4');
+    expect(res.status).toBe(401);
+  });
+
+  test('main subscriber JWT is rejected on /videos', async () => {
+    const res = await apiRequest('GET', '/videos/placeholder.mp4', null, subToken);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Stream token required');
+  });
+
+  test('main subscriber JWT via query token is rejected', async () => {
+    const res = await apiRequest('GET', `/videos/placeholder.mp4?token=${subToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  test('valid stream token grants video access', async () => {
+    const res = await apiRequest('GET', `/videos/placeholder.mp4?token=${streamToken()}`);
+    expect([200, 206]).toContain(res.status);
+  });
+
+  test('stream token bound to a different lesson is rejected', async () => {
+    const res = await apiRequest('GET', `/videos/placeholder.mp4?token=${streamToken({ lessonId: 999999 })}`);
+    expect(res.status).toBe(403);
+  });
+
+  test('stream token without stream scope is rejected', async () => {
+    const t = jwt.sign(
+      { scope: 'download', lessonId: testLessonId, subscriberId: subId, jti: 'x' },
+      JWT_SECRET,
+      { algorithm: 'HS256', expiresIn: '15m' }
+    );
+    const res = await apiRequest('GET', `/videos/placeholder.mp4?token=${t}`);
+    expect(res.status).toBe(403);
+  });
+
+  test('expired stream token is rejected', async () => {
+    const res = await apiRequest('GET', `/videos/placeholder.mp4?token=${streamToken({ expiresIn: -10 })}`);
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('Security — XSS Prevention', () => {
   test('API responses are JSON, not HTML', async () => {
     const res = await apiRequest('GET', '/api/faq');
@@ -412,7 +480,7 @@ describe('Security — GDPR Account Deletion (P0 Round 1)', () => {
   let token;
 
   beforeAll(async () => {
-    const reg = await apiRequest('POST', '/api/user/register', { name: 'GDPR Test', email: 'gdpr_test@example.com', password: 'password12345' });
+    await apiRequest('POST', '/api/user/register', { name: 'GDPR Test', email: 'gdpr_test@example.com', password: 'password12345' });
     const login = await apiRequest('POST', '/api/user/login', { email: 'gdpr_test@example.com', password: 'password12345' });
     token = login.body.token;
   });
@@ -482,17 +550,15 @@ describe('Security — Content Versioning (P0 Round 1)', () => {
     adminToken = login.body.token;
   });
 
-  test('create version for lesson', async () => {
-    const res = await apiRequest('POST', '/api/admin/lessons/1/version', { change_summary: 'Test version' }, adminToken);
-    expect(res.status).toBe(200);
-    expect(res.body.lesson_id).toBe(1);
-    expect(res.body.version).toBeGreaterThan(0);
-  });
+  test('create version for lesson, then list versions', async () => {
+    const createRes = await apiRequest('POST', '/api/admin/lessons/1/version', { change_summary: 'Test version' }, adminToken);
+    expect(createRes.status).toBe(200);
+    expect(createRes.body.lesson_id).toBe(1);
+    expect(createRes.body.version).toBeGreaterThan(0);
 
-  test('list versions', async () => {
-    const res = await apiRequest('GET', '/api/admin/lessons/1/versions', null, adminToken);
-    expect(res.status).toBe(200);
-    expect(res.body.length).toBeGreaterThan(0);
+    const listRes = await apiRequest('GET', '/api/admin/lessons/1/versions', null, adminToken);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.length).toBeGreaterThan(0);
   });
 
   test('recommendations return lessons', async () => {
@@ -601,23 +667,18 @@ describe('Security — Readiness & Shutdown (OPS-004, OBS-003)', () => {
 });
 
 describe('Security — Dangerous Action Confirmation (ADMIN-006)', () => {
-  let token;
-
-  beforeAll(async () => {
+  test('account deletion requires confirmation, then succeeds with confirmation', async () => {
     const reg = await apiRequest('POST', '/api/user/register', { name: 'Confirm Test', email: 'confirm_test@example.com', password: 'password12345' });
+    expect(reg.status).toBe(201);
     const login = await apiRequest('POST', '/api/user/login', { email: 'confirm_test@example.com', password: 'password12345' });
-    token = login.body.token;
-  });
+    const token = login.body.token;
 
-  test('account deletion without confirmation returns 428', async () => {
-    const res = await apiRequest('DELETE', '/api/user/account', {}, token);
-    expect(res.status).toBe(428);
-    expect(res.body.error).toContain('Confirmation');
-  });
+    const noConfirm = await apiRequest('DELETE', '/api/user/account', {}, token);
+    expect(noConfirm.status).toBe(428);
+    expect(noConfirm.body.error).toContain('Confirmation');
 
-  test('account deletion with confirmation succeeds', async () => {
-    const res = await apiRequest('DELETE', '/api/user/account', { confirm: true }, token);
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
+    const confirm = await apiRequest('DELETE', '/api/user/account', { confirm: true }, token);
+    expect(confirm.status).toBe(200);
+    expect(confirm.body.success).toBe(true);
   });
 });

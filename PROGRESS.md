@@ -2,15 +2,15 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-31 v5.10.0
+> Last updated: 2026-07-31 v5.10.4
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.10.0 (complete — security hardening round)
-**Tests**: 868/868 passing (15 suites), order-independent (verified with `jest --randomize`)
-**Lint**: 0 errors, 14 warnings (pre-existing: Jest globals in ESLint config)
+**Version**: 5.10.4 (complete — Mux-first video upload + admin Mux settings; Cloudflare disk-upload removed)
+**Tests**: 895/895 passing (17 suites), order-independent (verified with `jest --randomize`)
+**Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
@@ -187,6 +187,16 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ## NEXT ACTIONS (for the next session)
 
+### v5.10.4 — Mux-first video upload (DONE)
+- ✅ Migration 007: `video_uploads` + `provider`/`mux_upload_id`/`mux_asset_id`/`mux_playback_id`
+- ✅ `POST /api/admin/lessons/:id/video/mux-upload` (Mux direct upload; row `provider='mux'`); CF disk-upload (`/video/upload`, `/video/migrate`) + multer video storage **removed**
+- ✅ `GET /api/admin/video-uploads/:id/status` provider-aware (polls Mux, stores asset/playback ids on `asset_created`)
+- ✅ `DELETE .../video` preserves lesson `video_provider`; lessons CRUD + `lesson_media` accept `video_provider`; `/api/lessons` returns it
+- ✅ Admin UI: «Хостинг» select + «Видео ID (плеер)»; `stream-upload.js` Mux-first (PUT file → poll → playback ID)
+- ✅ Tests reworked (895/895, 17 suites); lint 0 errors
+- ✅ Admin Settings: Mux card (4 поля: signing key id/ключ + access token id/secret), «Сохранить Mux» → `/api/settings`, «Проверить» → `POST /api/settings/test-mux` (`{ configured, signing, upload }`)
+- ⚠️ **Manual step for production**: fill `MUX_ACCESS_TOKEN_ID` / `MUX_ACCESS_TOKEN_SECRET` in `.env` (used for uploads) — separate from signing key pair.
+
 ### Immediate (complete v5.10.0):
 1. ✅ P1-1: Stream-scoped JWT for video streaming
 2. ✅ P1-2: Rate limiting on /api/user/*
@@ -227,6 +237,30 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - ✅ P3-8: CHANGELOG.md payment + i18n entries (done in v5.10.0)
 - P3-9: Review robots.txt/sitemap.xml (already reviewed — matches SEO test spec)
 - docs/openapi.yaml — update to current version
+
+### Option E: Monetization — Stripe on Thai citizen + Video Hosting (UPDATED 2026-07-31)
+**Решение клиента (уточнение 2026-07-31):** счёт и аккаунт в банке Таиланда открыты **на местного гражданина** (тайца), к нему привязан AppStore-аккаунт. Это снимает KYC-барьер: **Stripe Thailand на тайца как Individual/Sole Proprietorship** — основной путь (тайский ID, адрес, THB-счёт всё сходится). Комиссия ~2.9%+$0.30 — в ~2.5 раза дешевле MoR. Платёжный код в проекте уже Stripe — **переписывать не нужно**, только ключи аккаунта тайца.
+
+**Проверенные факты (Stripe support / PwC / Acclime / BOT/AMLO / Apple):**
+- ✅ Stripe Thailand поддерживает Sole Proprietorship и Individual (не только компанию).
+- ✅ Таец = налоговый резидент: весь доход облагается PIT 0–35%; VAT 7% — только при обороте >1.8M THB/год (~$50K), регистрация в течение 30 дней после пересечения порога. Экспорт услуг — возможна 0% ставка (проверить у бухгалтера).
+- ✅ App Store: 15% через Small Business Program (<$1M proceeds, заявка) или после 12 мес подписки; стандарт 30%. iOS-цифровой контент = IAP обязателен.
+- ⚠️ **AML**: BOT-система детекции «мулов» — коммерческие выплаты из-за рубежа на ЛИЧНЫЙ счёт триггерят блокировку. Обязателен **бизнес-счёт** (sole proprietorship → Tax ID → бизнес-счёт).
+- ⚠️ **Nominee-риск**: если таец — реальный партнёр (супруг/семья), всё чисто, оформить отношения. Если номинальный держатель — риск AMLA/DBD Order 1/2569 (уголовка, заморозка, blacklist) — так не делать.
+
+1. ⏳ **Регистрация sole proprietorship на тайца** + Tax ID + **бизнес-счёт** в банке.
+2. 🔄 **Stripe Thailand** (тип Individual/Sole Proprietorship) → ключи в проект. **Код готов:** сумма записи в `payments` теперь берётся из настроек `monthly_price`/`annual_price` (ручная установка цены в админке), а не из константы `PLAN_AMOUNTS`; единая валюта USD — подтверждено клиентом. Осталось: ключи тайского аккаунта в `.env` + создание Price-объектов в Stripe-дашборде (цены в дашборде должны совпадать с настройками). Расчёт цены под расходы — ниже.
+   - **Расчёт цены (покрытие расходов сайта):**
+     - Постоянные: Mux PAYG ≈ $20/мес (кредит покрывает хранение ~75ч = $10.8; доставка до 100K мин/мес — $0) + сервер ≈ $15 + email ≈ $15 + домен ≈ $1 → **≈ $51/мес**.
+     - Переменные на 1 подписчика (месячный $12): Stripe TH 2.9%+$0.30 ≈ $0.65 + резерв (диспуты/отмены ~1.5%) ≈ $0.18 → **≈ $0.83**.
+     - Фонд развития сайта (небольшая стандартная сумма): **+$30/мес**.
+     - Точка безубыточности (постоянные $51 + фонд $30 = $81/мес): месячный план $12 — ~8 подписчиков; годовой $89 — ~12 подписчиков.
+     - **Вывод: $12/мес и $89/год уже покрывают расходы + фонд развития.** При росте трафика сверх 100K мин/мес (≈100 активных зрителей × 30 мин/день) — переход на Bunny и пересчёт цены.
+3. ⏳ **Консультация тайского бухгалтера**: PIT, VAT-порог 1.8M THB, экспорт-0%, оформление отношений с тайцем.
+4. ⏳ **AppStore Small Business Program** заявка (15%) — отдельный iOS-канал.
+5. 🔄 **Видео: свой сервер 720p (free) + Mux (paid) → Bunny (при росте)**. YouTube embed ОТКЛОНЁН (реклама — риск оттока; гарантии нет даже без монетизации). Сделано: Mux-провайдер в `stream.js` (подпись playback_id HS256, HLS-URL, direct-upload API; дефолтный exp токена поднят 900с → 21600с = 6ч для нативных плееров), миграции `006_video_provider.sql` + `007_mux_uploads.sql` (`video_uploads` + `provider`/`mux_upload_id`/`mux_asset_id`/`mux_playback_id`), диспетчеризация по провайдеру в `/stream-token`, скрипт `encode-720p.js` + README. **v5.10.4 — видео-загрузка Mux-first**: `POST /admin/lessons/:id/video/mux-upload` (прямая загрузка, файл PUT-ится браузером в Mux; CF multipart-upload и `migrate` УДАЛЕНЫ — файлы больше не ложатся на сервер), `GET /admin/video-uploads/:id/status` провайдер-зависимый (для Mux опрашивает API и пишет asset/playback id), `DELETE .../video` сохраняет `video_provider`, admin-UI в `stream-upload.js` Mux-first (после готовности ID подставляется в форму, провайдер → mux), выбор «Хостинг» в `lessons.html`, тесты `tests/admin-video-uploads.test.js` (895/895). Осталось: 720p-кэп на доставку.
+6. ⏳ **LSQ/Paddle/Dodo** — только запасной вариант, если Stripe откажет тайцу.
+7. 📱 **Нативные приложения (справочно, ответ клиенту записан)**: модель App Store «Reader Apps» (3.1.3a) — подписка продаётся на вебе через Stripe, приложение только логин + воспроизведение (как Netflix) → **никаких Apple IAP/комиссий**. Плеер: iOS `AVPlayer`, Android `ExoPlayer/Media3` — оба играют подписанный Mux HLS нативно; **не использовать hls.js/webview в проде**. Путь: Capacitor/PWA сначала, нативные плееры — позже (offline, AirPlay/Chromecast). DRM (FairPlay/Widevine) для MVP не нужен — подписанные URL + гейт по подписке достаточно. Ловушки: токен Mux не должен истекать посреди урока (теперь 6ч) + плеер должен молча перезапрашивать stream-token при 403; старые устройства iOS 14+/Android 8+, крупные шрифты.
 
 ---
 

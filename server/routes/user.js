@@ -9,7 +9,7 @@ const { requireRole } = require('../middleware/rbac');
 const { validateBody } = require('../middleware/validation');
 const { requireDangerousActionConfirmation } = require('../middleware/confirmation');
 const { sendConfirmationEmail } = require('../services/mailer');
-const { isStreamConfigured, generateSignedToken, getStreamUrl } = require('../services/stream');
+const { isStreamConfigured, generateSignedToken, getStreamUrl, isMuxConfigured, signMuxPlaybackId, getMuxStreamUrl } = require('../services/stream');
 const { parsePagination } = require('../helpers/pagination');
 const { queryToObjects } = require('../helpers/db-utils');
 const { revokeToken, transaction } = require('../db');
@@ -435,33 +435,36 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     const urow = userResult[0].values[0];
     if (!urow[3]) return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED' });
 
-    if (!(await isStreamConfigured())) {
+    if (!(await isStreamConfigured()) && !(await isMuxConfigured())) {
       return res.status(503).json({ error: 'Streaming not configured' });
     }
 
     const userLang = urow[5] || 'ru';
 
-    const lessonResult = db.exec(`SELECT is_free, cf_video_uid, video_url FROM lessons WHERE id = ?`, [lessonId]);
+    const lessonResult = db.exec(`SELECT is_free, cf_video_uid, video_url, video_provider FROM lessons WHERE id = ?`, [lessonId]);
     if (!lessonResult.length || !lessonResult[0].values.length) {
       return res.status(404).json({ error: 'Lesson not found' });
     }
     const lrow = lessonResult[0].values[0];
-    const isFree = lrow[0], originalCfUid = lrow[1], videoUrl = lrow[2];
+    const isFree = lrow[0], originalCfUid = lrow[1], videoUrl = lrow[2], lessonProvider = lrow[3] || 'cloudflare';
 
+    let provider = lessonProvider;
     let cfUid = originalCfUid;
     let videoLanguage = 'ru';
     let isOriginal = true;
 
     if (userLang !== 'ru' && originalCfUid) {
-      const mediaResult = db.exec(`SELECT cf_video_uid FROM lesson_media WHERE lesson_id = ? AND language = ? AND status = 'ready'`, [lessonId, userLang]);
+      const mediaResult = db.exec(`SELECT cf_video_uid, video_provider FROM lesson_media WHERE lesson_id = ? AND language = ? AND status = 'ready'`, [lessonId, userLang]);
       if (mediaResult.length && mediaResult[0].values.length && mediaResult[0].values[0][0]) {
         cfUid = mediaResult[0].values[0][0];
+        provider = mediaResult[0].values[0][1] || provider;
         videoLanguage = userLang;
         isOriginal = false;
       } else {
-        const defaultResult = db.exec(`SELECT cf_video_uid FROM lesson_media WHERE lesson_id = ? AND language = 'en' AND status = 'ready'`, [lessonId]);
+        const defaultResult = db.exec(`SELECT cf_video_uid, video_provider FROM lesson_media WHERE lesson_id = ? AND language = 'en' AND status = 'ready'`, [lessonId]);
         if (defaultResult.length && defaultResult[0].values.length && defaultResult[0].values[0][0]) {
           cfUid = defaultResult[0].values[0][0];
+          provider = defaultResult[0].values[0][1] || provider;
           videoLanguage = 'en';
           isOriginal = false;
         }
@@ -483,7 +486,12 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     }
 
     let streamUrl = null;
-    if (cfUid && (await isStreamConfigured())) {
+    if (cfUid && provider === 'mux' && (await isMuxConfigured())) {
+      const muxToken = await signMuxPlaybackId(cfUid);
+      if (muxToken) {
+        streamUrl = await getMuxStreamUrl(cfUid, muxToken);
+      }
+    } else if (cfUid && (await isStreamConfigured())) {
       const signedToken = await generateSignedToken(cfUid);
       if (signedToken) {
         streamUrl = await getStreamUrl(cfUid, signedToken);

@@ -2,7 +2,9 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'qigong.db');
+const DB_PATH = process.env.NODE_ENV === 'test'
+  ? path.join(__dirname, '..', 'data', 'qigong.test.db')
+  : path.join(__dirname, '..', 'data', 'qigong.db');
 
 let db = null;
 let initPromise = null;

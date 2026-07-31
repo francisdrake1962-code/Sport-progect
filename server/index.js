@@ -15,7 +15,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const { FREE_LIMIT } = userRoutes;
 const { resetMailConfig, sendConfirmationEmail } = require('./services/mailer');
-const { resetStreamConfig, isStreamConfigured: checkStreamConfigured } = require('./services/stream');
+const { resetStreamConfig, isStreamConfigured: checkStreamConfigured, isMuxConfigured, isMuxUploadConfigured, createMuxDirectUpload, getMuxAssetDetails, getMuxUploadStatus } = require('./services/stream');
 const { parsePagination } = require('./helpers/pagination');
 const { requestIdMiddleware } = require('./middleware/requestId');
 const { requestLogger, createLogger } = require('./helpers/logger');
@@ -190,7 +190,7 @@ app.get('/api/lessons', async (req, res) => {
     const countResult = db.exec(`SELECT COUNT(*) FROM lessons WHERE status = 'active'`);
     const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
     const result = db.exec(
-      `SELECT id, title, duration, status, description, video_url, cf_video_uid, image_url, is_free, free_order, date, tags, direction, effect_description FROM lessons WHERE status = 'active' ORDER BY date DESC LIMIT ? OFFSET ?`,
+      `SELECT id, title, duration, status, description, video_url, cf_video_uid, image_url, is_free, free_order, date, tags, direction, effect_description, video_provider FROM lessons WHERE status = 'active' ORDER BY date DESC LIMIT ? OFFSET ?`,
       [limit, offset]
     );
     res.json({
@@ -372,7 +372,7 @@ const api = express.Router();
 api.use(authMiddleware);
 api.use(requireAdmin);
 
-api.use('/lessons', createCrudRoutes('lessons', ['title', 'duration', 'status', 'description', 'video_url', 'cf_video_uid', 'image_url', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft']));
+api.use('/lessons', createCrudRoutes('lessons', ['title', 'duration', 'status', 'description', 'video_url', 'cf_video_uid', 'image_url', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft', 'video_provider']));
 api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'image_url', 'status']));
 
 // complex_lessons — custom routes (composite PK)
@@ -453,11 +453,11 @@ api.get('/lesson-media', async (req, res, next) => {
 
 api.post('/lesson-media', async (req, res, next) => {
   try {
-    const { lesson_id, language, cf_video_uid, video_url, status } = req.body;
+    const { lesson_id, language, cf_video_uid, video_url, video_provider, status } = req.body;
     if (!lesson_id || !language) return res.status(400).json({ error: 'lesson_id and language required' });
     const db = await getDb();
-    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, cf_video_uid, video_url, status) VALUES (?, ?, ?, ?, ?)`,
-      [lesson_id, language, cf_video_uid || null, video_url || null, status || 'pending']);
+    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, cf_video_uid, video_url, video_provider, status) VALUES (?, ?, ?, ?, ?, ?)`,
+      [lesson_id, language, cf_video_uid || null, video_url || null, video_provider || 'cloudflare', status || 'pending']);
     saveDb();
     auditService.logAction('create', 'lesson_media', null, req.user?.id, req.user?.role, { lesson_id, language }, req.ip);
     res.status(201).json({ success: true });
@@ -467,12 +467,13 @@ api.post('/lesson-media', async (req, res, next) => {
 api.put('/lesson-media/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { cf_video_uid, video_url, status } = req.body;
+    const { cf_video_uid, video_url, video_provider, status } = req.body;
     const db = await getDb();
     const check = db.exec(`SELECT id FROM lesson_media WHERE id = ?`, [id]);
     if (!check.length || !check[0].values.length) return res.status(404).json({ error: 'Not found' });
     if (cf_video_uid !== undefined) db.run(`UPDATE lesson_media SET cf_video_uid = ? WHERE id = ?`, [cf_video_uid, id]);
     if (video_url !== undefined) db.run(`UPDATE lesson_media SET video_url = ? WHERE id = ?`, [video_url, id]);
+    if (video_provider !== undefined) db.run(`UPDATE lesson_media SET video_provider = ? WHERE id = ?`, [video_provider, id]);
     if (status !== undefined) db.run(`UPDATE lesson_media SET status = ? WHERE id = ?`, [status, id]);
     saveDb();
     auditService.logAction('update', 'lesson_media', id, req.user?.id, req.user?.role, req.body, req.ip);
@@ -622,6 +623,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'promo_discount', 'promo_code', 'promo_expiry_hours',
   'mail_provider', 'gmail_user', 'gmail_app_password', 'email_from',
   'cf_stream_signing_key_id', 'cf_stream_signing_key', 'cf_stream_customer_code',
+  'mux_signing_key_id', 'mux_signing_key', 'mux_access_token_id', 'mux_access_token_secret',
   'stripe_monthly_price_id', 'stripe_annual_price_id',
 ]);
 
@@ -690,6 +692,18 @@ api.post('/settings/test-stream', async (req, res) => {
     resetStreamConfig();
     const configured = await checkStreamConfigured();
     res.json({ configured });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+api.post('/settings/test-mux', async (req, res) => {
+  try {
+    resetStreamConfig();
+    const signing = await isMuxConfigured();
+    const upload = await isMuxUploadConfigured();
+    res.json({ configured: signing && upload, signing, upload });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -904,6 +918,98 @@ api.get('/admin/lessons/:id/compare', async (req, res, next) => {
     const diff = await contentVersionService.compareVersions(parseInt(req.params.id), parseInt(a), parseInt(b));
     if (!diff) return res.status(404).json({ error: 'Versions not found' });
     res.json(diff);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ── Admin: lesson video upload (Mux direct) / status / unlink ── */
+api.post('/admin/lessons/:id/video/mux-upload', async (req, res, next) => {
+  try {
+    const lessonId = Number(req.params.id);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) return res.status(400).json({ error: 'Invalid lesson ID' });
+    const language = (req.body && req.body.language) || 'ru';
+    const filename = (req.body && req.body.filename) || 'lesson-video.mp4';
+
+    const db = await getDb();
+    const lesson = db.exec(`SELECT id, video_provider FROM lessons WHERE id = ?`, [lessonId]);
+    if (!lesson.length || !lesson[0].values.length) return res.status(404).json({ error: 'Lesson not found' });
+    if (!await isMuxUploadConfigured()) return res.status(400).json({ error: 'Mux upload not configured (MUX_ACCESS_TOKEN_ID / MUX_ACCESS_TOKEN_SECRET required)' });
+
+    const upload = await createMuxDirectUpload();
+    db.run(`INSERT INTO video_uploads (lesson_id, language, original_filename, status, provider, mux_upload_id) VALUES (?, ?, ?, 'uploading', 'mux', ?)`,
+      [lessonId, language, filename, upload.uploadId]);
+    const idResult = db.exec(`SELECT last_insert_rowid() as id`);
+    const uploadId = idResult[0].values[0][0];
+    saveDb();
+    auditService.logAction('create', 'video_uploads', uploadId, req.user?.id, req.user?.role, { lesson_id: lessonId, language, provider: 'mux' }, req.ip);
+
+    res.status(201).json({ id: uploadId, url: upload.uploadUrl });
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.get('/admin/video-uploads/:id/status', async (req, res, next) => {
+  try {
+    const uploadId = Number(req.params.id);
+    if (!Number.isInteger(uploadId) || uploadId <= 0) return res.status(400).json({ error: 'Invalid upload ID' });
+    const db = await getDb();
+    const result = db.exec(`SELECT id, status, provider, cf_video_uid, mux_upload_id, mux_asset_id, mux_playback_id, error_message FROM video_uploads WHERE id = ?`, [uploadId]);
+    if (!result.length || !result[0].values.length) return res.status(404).json({ error: 'Upload not found' });
+    const row = result[0].values[0];
+    const payload = {
+      id: row[0],
+      status: row[1],
+      provider: row[2] || 'cloudflare',
+      cf_video_uid: row[3] || null,
+      mux_upload_id: row[4] || null,
+      mux_asset_id: row[5] || null,
+      mux_playback_id: row[6] || null,
+      error_message: row[7] || null,
+    };
+
+    if (payload.provider === 'mux' && payload.mux_upload_id && payload.status === 'uploading') {
+      try {
+        const uploadStatus = await getMuxUploadStatus(payload.mux_upload_id);
+        if (uploadStatus.status === 'asset_created' && uploadStatus.assetId) {
+          const asset = await getMuxAssetDetails(uploadStatus.assetId);
+          db.run(`UPDATE video_uploads SET status = 'ready', mux_asset_id = ?, mux_playback_id = ?, updated_at = datetime('now') WHERE id = ?`,
+            [uploadStatus.assetId, asset.playbackId, uploadId]);
+          saveDb();
+          payload.status = 'ready';
+          payload.mux_asset_id = uploadStatus.assetId;
+          payload.mux_playback_id = asset.playbackId;
+        } else if (uploadStatus.status === 'errored') {
+          const message = String(uploadStatus.errorMessage || 'Upload failed').slice(0, 500);
+          db.run(`UPDATE video_uploads SET status = 'error', error_message = ?, updated_at = datetime('now') WHERE id = ?`, [message, uploadId]);
+          saveDb();
+          payload.status = 'error';
+          payload.error_message = uploadStatus.errorMessage || 'Upload failed';
+        }
+      } catch (err) {
+        console.error('Mux upload status check failed:', err.message);
+      }
+    }
+    res.json(payload);
+  } catch (err) {
+    next(err);
+  }
+});
+
+api.delete('/admin/lessons/:id/video', async (req, res, next) => {
+  try {
+    const lessonId = Number(req.params.id);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) return res.status(400).json({ error: 'Invalid lesson ID' });
+    const db = await getDb();
+    const check = db.exec(`SELECT id, video_provider FROM lessons WHERE id = ?`, [lessonId]);
+    if (!check.length || !check[0].values.length) return res.status(404).json({ error: 'Lesson not found' });
+    const provider = check[0].values[0][1] || 'cloudflare';
+    db.run(`UPDATE lessons SET cf_video_uid = NULL, video_url = NULL, video_provider = ? WHERE id = ?`, [provider, lessonId]);
+    db.run(`UPDATE lesson_media SET cf_video_uid = NULL, video_url = NULL, status = 'pending' WHERE lesson_id = ?`, [lessonId]);
+    saveDb();
+    auditService.logAction('delete', 'lesson_video', lessonId, req.user?.id, req.user?.role, null, req.ip);
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }
@@ -1130,6 +1236,9 @@ app.use((req, res) => {
 app.use((err, req, res, _next) => {
   const logger = createLogger('error');
   logger.error('Unhandled error', { error: err.message, stack: err.stack, requestId: req.requestId });
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return formatError(res, new PayloadTooLargeError(), req.requestId);
+  }
   if (err.type === 'entity.too.large') {
     return formatError(res, new PayloadTooLargeError(), req.requestId);
   }

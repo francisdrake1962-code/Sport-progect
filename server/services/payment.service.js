@@ -33,6 +33,14 @@ function getWebhookSecret() {
   return process.env.STRIPE_WEBHOOK_SECRET || '';
 }
 
+async function getPlanAmount(plan) {
+  const settingKey = plan === 'annual' ? 'annual_price' : 'monthly_price';
+  const value = await getSetting(settingKey, '');
+  const amount = parseFloat(value);
+  if (!isNaN(amount) && amount > 0) return amount;
+  return PLAN_AMOUNTS[plan];
+}
+
 async function createCheckoutSession(subscriberId, plan) {
   const stripe = getStripe();
   if (!stripe) throw new Error('Stripe not configured');
@@ -70,7 +78,7 @@ async function createCheckoutSession(subscriberId, plan) {
   db.run(
     `INSERT INTO payments (subscriber_id, amount, currency, status, provider_checkout_session_id, provider_customer_id, plan)
      VALUES (?, ?, 'usd', 'pending', ?, ?, ?)`,
-    [subscriberIdDb, PLAN_AMOUNTS[plan], session.id, customerId, plan]
+    [subscriberIdDb, await getPlanAmount(plan), session.id, customerId, plan]
   );
   saveDb();
 
@@ -335,6 +343,7 @@ module.exports = {
   getStripe,
   getStripePrices,
   getWebhookSecret,
+  getPlanAmount,
   createCheckoutSession,
   getPaymentStatus,
   getSubscriptionStatus,

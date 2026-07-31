@@ -51,7 +51,10 @@
                 </div>
                 <div class="form-group"><label for="f-description">Описание</label><textarea class="form-control" id="f-description"></textarea></div>
                 <div class="form-group"><label for="f-video-url">URL видео</label><input type="text" class="form-control" id="f-video-url" placeholder="/videos/filename.mp4"></div>
-                <div class="form-group"><label for="f-cf-uid">Cloudflare Stream UID</label><input type="text" class="form-control" id="f-cf-uid" placeholder="cf-video-uid (опционально)"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                    <div class="form-group"><label for="f-cf-uid">Видео ID (плеер)</label><input type="text" class="form-control" id="f-cf-uid" placeholder="playback id (опционально)"></div>
+                    <div class="form-group"><label for="f-video-provider">Хостинг</label><select class="form-control" id="f-video-provider"><option value="cloudflare">Cloudflare</option><option value="mux">Mux</option></select></div>
+                </div>
                 <div id="stream-upload-container"></div>
                 <div class="form-group">
                     <label style="font-weight:600;">Языковые версии (lesson_media)</label>
@@ -60,7 +63,7 @@
                     </div>
                     <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:end;">
                         <div class="form-group" style="margin:0;flex:1;"><label for="f-media-lang" style="font-size:0.8rem;">Язык</label><select class="form-control" id="f-media-lang"><option value="en">en</option><option value="ru">ru</option></select></div>
-                        <div class="form-group" style="margin:0;flex:2;"><label for="f-media-cf" style="font-size:0.8rem;">CF Video UID</label><input type="text" class="form-control" id="f-media-cf" placeholder="cf-video-uid"></div>
+                        <div class="form-group" style="margin:0;flex:2;"><label for="f-media-cf" style="font-size:0.8rem;">Video ID</label><input type="text" class="form-control" id="f-media-cf" placeholder="video id"></div>
                         <button class="btn btn--primary btn--sm" onclick="addLessonMedia()" style="white-space:nowrap;">+ Добавить</button>
                     </div>
                 </div>
@@ -130,6 +133,7 @@
         document.getElementById('f-description').value = '';
         document.getElementById('f-video-url').value = '';
         document.getElementById('f-cf-uid').value = '';
+        document.getElementById('f-video-provider').value = 'cloudflare';
         document.getElementById('f-is-free').value = '0';
         document.getElementById('f-free-order').value = '';
         document.getElementById('f-effect').value = '';
@@ -154,6 +158,7 @@
         document.getElementById('f-description').value = lesson.description || '';
         document.getElementById('f-video-url').value = lesson.video_url || '';
         document.getElementById('f-cf-uid').value = lesson.cf_video_uid || '';
+        document.getElementById('f-video-provider').value = lesson.video_provider || 'cloudflare';
         document.getElementById('f-is-free').value = String(lesson.is_free || 0);
         document.getElementById('f-free-order').value = lesson.free_order || '';
         document.getElementById('f-effect').value = lesson.effect_description || '';
@@ -196,6 +201,7 @@
             description: document.getElementById('f-description').value,
             video_url: document.getElementById('f-video-url').value || null,
             cf_video_uid: document.getElementById('f-cf-uid').value || null,
+            video_provider: document.getElementById('f-video-provider').value || 'cloudflare',
             is_free: parseInt(document.getElementById('f-is-free').value) || 0,
             free_order: parseInt(document.getElementById('f-free-order').value) || null,
             direction: directionEl ? directionEl.value : null,
@@ -278,7 +284,7 @@
         const cfUid = document.getElementById('f-media-cf').value.trim();
         if (!cfUid) { alert('Укажите CF Video UID'); return; }
         try {
-            await window.api.post('/api/lesson-media', { lesson_id: parseInt(lessonId), language: lang, cf_video_uid: cfUid, status: 'ready' });
+            await window.api.post('/api/lesson-media', { lesson_id: parseInt(lessonId), language: lang, cf_video_uid: cfUid, video_provider: document.getElementById('f-video-provider').value || 'cloudflare', status: 'ready' });
             document.getElementById('f-media-cf').value = '';
             loadLessonMedia(lessonId);
         } catch (err) { alert('Ошибка: ' + err.message); }

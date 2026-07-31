@@ -4,6 +4,65 @@
 
 ---
 
+## [5.10.4] - 2026-07-31
+
+### Changed — Video uploads: Mux-first direct upload (Cloudflare disk-upload removed)
+- `server/index.js`:
+  - **Removed** `POST /api/admin/lessons/:id/video/upload` and `POST /api/admin/lessons/:id/video/migrate` plus the multer video disk-storage config (`videoStorage`/`videoFilter`/`uploadVideo`, 4 GB limit). No more video files on the server.
+  - **Added** `POST /api/admin/lessons/:id/video/mux-upload` — creates a Mux direct upload via `createMuxDirectUpload()`, inserts a `video_uploads` row (`provider='mux'`, `mux_upload_id`, `status='uploading'`), returns `{ id, url }` so the browser PUTs the file straight to Mux. 400 when Mux tokens are not configured.
+  - `GET /api/admin/video-uploads/:id/status` is now **provider-aware**: returns `provider`, `cf_video_uid`, `mux_upload_id`, `mux_asset_id`, `mux_playback_id`, `error_message`; for Mux uploads still `uploading` it polls the Mux API — on `asset_created` fetches the asset and flips the row to `ready` with asset/playback ids, on `errored` records the message.
+  - `DELETE /api/admin/lessons/:id/video` now preserves the lesson's own `video_provider` (no longer hard-codes `cloudflare`).
+  - Lessons CRUD field list now includes `video_provider`; `GET /api/lessons` returns `video_provider`; `lesson_media` POST/PUT accept `video_provider`.
+  - **Added** `POST /api/admin/settings/test-mux` — reports `{ configured, signing, upload }` (signing keys present / access token present).
+- `server/migrations/007_mux_uploads.sql` — `video_uploads` gains `provider TEXT DEFAULT 'cloudflare'`, `mux_upload_id`, `mux_asset_id`, `mux_playback_id`.
+- `server/services/stream.js` — added `getMuxUploadStatus(uploadId)` (polls `/uploads/:id`, returns `{ status, assetId, errorMessage }`).
+- `src/admin/lessons.html` — new «Хостинг» select (Cloudflare/Mux), field relabelled to «Видео ID (плеер)», provider saved with the lesson and with localized `lesson_media`.
+- `src/admin/js/stream-upload.js` — Mux-first: requests a direct-upload URL, PUTs the file to Mux with progress, polls status, then fills «Видео ID» with the Mux playback ID and switches provider to `mux`. «Migrate to Cloudflare» button removed.
+- `src/admin/settings.html` — new **Mux (видео — платные уроки)** card with 4 fields (`mux_signing_key_id`, `mux_signing_key`, `mux_access_token_id`, `mux_access_token_secret`), «Сохранить Mux» and «Проверить» buttons wired to `/api/settings` and `/api/settings/test-mux`.
+- `tests/admin-video-uploads.test.js` — reworked to the Mux flow: not-configured/missing-lesson/invalid-id, direct-upload creation (stubbed Mux API) writes `provider='mux'`, provider-aware status shape, Mux `uploading → ready` flow storing asset/playback ids, delete preserves provider; new `test-mux` endpoint tests (unconfigured / configured).
+- Full suite: **895/895 tests, 17 suites**; eslint 0 errors.
+
+---
+
+## [5.10.3] - 2026-07-31
+
+### Added — Admin video upload/migrate for Cloudflare Stream + native-app playback guidance
+- `server/index.js` — admin video endpoints (all admin-gated):
+  - `POST /api/admin/lessons/:id/video/upload` — multipart (`video` file + `language`), multer disk storage (`uploads/videos/`, 4 GB limit, video-ext filter), creates `video_uploads` row, uploads to Cloudflare in background, then status-polls until ready.
+  - `POST /api/admin/lessons/:id/video/migrate` — takes a lesson's self-hosted `video_url` file and uploads it to Cloudflare (path-traversal-safe via `path.resolve` check; records old UID in `replaces_uid` for version restoration).
+  - `GET /api/admin/video-uploads/:id/status` — `{ status, cf_video_uid, error_message }` for the admin polling UI.
+  - `DELETE /api/admin/lessons/:id/video` — unlinks video (clears `cf_video_uid`/`video_url` on lesson + lesson_media; does NOT delete from Cloudflare, matching §29 version-restore rule).
+  - `LIMIT_FILE_SIZE` multer errors now return 413 via the global error handler.
+- `server/services/stream.js` — `processReadyVideo` now sets `video_provider = 'cloudflare'` on `lesson_media` and `lessons`; `signMuxPlaybackId` default expiry raised 900s → 21600s (6h) so a signed Mux HLS URL survives a full lesson on native players (client plays are often >15 min; player should still silently re-fetch the stream token on a 403).
+- `src/admin/js/stream-upload.js` — Cloudflare-only WIP frontend now matches real endpoints (upload/migrate/delete/poll status).
+- `tests/admin-video-uploads.test.js` — 13 tests (auth/role guards, upload not-configured/missing-lesson/invalid-id, migrate not-configured/no-local-video/missing-file, status shape, delete/unlink, `processReadyVideo` provider bookkeeping).
+- **Native-app guidance recorded** (PROGRESS.md / EXTERNAL_SERVICES_PLAN.md): App Store "Reader Apps" (3.1.3a) — sell subscriptions on the web via Stripe, app only logs in and plays (Netflix model; no Apple IAP/commission). Player: iOS `AVPlayer`, Android `ExoPlayer/Media3` (play Mux signed HLS natively; do NOT use hls.js in a webview for production); Capacitor/PWA first, native players later for offline/AirPlay/Chromecast. No DRM for MVP — signed URLs + subscription gate suffice.
+- Full suite: **894/894 tests, 17 suites**; eslint 0 errors.
+
+---
+
+## [5.10.2] - 2026-07-31
+
+### Changed — Video providers: self-hosted free lessons (no YouTube) + Mux for paid
+- **Decision (client-approved concern):** free lessons are served from the project's own server at 720p — NOT via YouTube embed. YouTube ads are uncontrollable (even on non-monetized channels YouTube may place ads; viewer view-count is irrelevant), and ads are a churn risk for the senior audience. YouTube stays a marketing channel only.
+- Free-lesson self-hosting already worked end-to-end (`/videos/*` route with range requests + stream-scoped JWT + `video_url`); added `server/scripts/encode-720p.js` (ffmpeg wrapper: 720p, H.264 ~2.5 Mbps, AAC, `+faststart`) and updated `videos/README.md`.
+- `server/migrations/006_video_provider.sql` — `video_provider` column on `lessons` and `lesson_media` (default `cloudflare`; values `cloudflare` | `mux` | `local`).
+- `server/services/stream.js` — Mux provider: `isMuxConfigured`, `signMuxPlaybackId` (HS256 JWT, `sub`=playback_id, `kid` header), `getMuxStreamUrl`, `createMuxDirectUpload`, `getMuxAssetDetails`, `deleteMuxAsset` (fetch-based, no SDK).
+- `server/routes/user.js` — `/stream-token` dispatches by provider: `mux` → signed Mux HLS URL; `cloudflare` → existing signed CF URL; guard passes if either provider is configured.
+- `server/index.js` — Mux settings keys added to `ALLOWED_SETTINGS_KEYS`; `.env.example` documents the 4 Mux env vars.
+- `tests/stream-mux.test.js` — 11 tests (schema, Mux signing/URL, provider dispatch). Full suite green.
+
+---
+
+## [5.10.1] - 2026-07-31
+
+### Changed — Monetization prep: settings-driven price recording
+- `server/services/payment.service.js` — `createCheckoutSession` now records the payment amount from admin settings (`monthly_price`/`annual_price`) via new `getPlanAmount()`, falling back to `PLAN_AMOUNTS` (12/89). Admin can set subscription prices manually (existing admin settings UI → `/plans` + payment records follow).
+- `tests/payment.test.js` — added tests: plans reflect manually set price; `getPlanAmount` falls back to defaults. 42/42 payment tests pass.
+- Currency stays USD (client decision). Cost model for price covering site expenses (Mux/hosting/email/Stripe fees + development fund ≈ $81/mo fixed+fund; breakeven ~8 monthly or ~12 annual subscribers at $12/$89) recorded in PROGRESS.md Option E.
+
+---
+
 ## [5.10.0] - 2026-07-30
 
 ### Fixed — Security Hardening Round 4

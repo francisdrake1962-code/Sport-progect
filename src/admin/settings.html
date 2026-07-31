@@ -92,6 +92,21 @@
                     '<div id="cf-msg" style="margin-top:0.5rem;color:var(--admin-success);display:none;"></div>' +
                 '</div>' +
             '</div>' +
+            '<div class="card" style="max-width:720px;margin-top:1rem;">' +
+                '<div class="card__header"><h2 class="card__title">Mux (видео — платные уроки)</h2></div>' +
+                '<div style="padding:1rem;">' +
+                    '<h3 style="font-size:0.9rem;color:var(--admin-text);margin-bottom:0.5rem;">Подпись playback (стриминг)</h3>' +
+                    '<div class="form-group"><label for="s-mux-key-id">Signing Key ID</label><input type="text" class="form-control" id="s-mux-key-id" value="' + esc(s.mux_signing_key_id || '') + '" placeholder="mux-signing-key-id"><small style="color:#888;">dashboard.mux.com → Settings → Signing Keys</small></div>' +
+                    '<div class="form-group"><label for="s-mux-key">Signing Key (приватный)</label><textarea class="form-control" id="s-mux-key" rows="3" placeholder="-----BEGIN PRIVATE KEY-----...">' + esc(s.mux_signing_key || '') + '</textarea></div>' +
+                    '<hr style="border:none;border-top:1px solid var(--admin-border);margin:1rem 0;">' +
+                    '<h3 style="font-size:0.9rem;color:var(--admin-text);margin-bottom:0.5rem;">Загрузка видео</h3>' +
+                    '<div class="form-group"><label for="s-mux-access-token-id">Access Token ID</label><input type="text" class="form-control" id="s-mux-access-token-id" value="' + esc(s.mux_access_token_id || '') + '" placeholder="mux-access-token-id"><small style="color:#888;">dashboard.mux.com → Settings → Access Tokens</small></div>' +
+                    '<div class="form-group"><label for="s-mux-access-token-secret">Access Token Secret</label><input type="password" class="form-control" id="s-mux-access-token-secret" value="' + esc(s.mux_access_token_secret || '') + '" placeholder="mux-access-token-secret"></div>' +
+                    '<button class="btn btn--primary" id="btn-save-mux" style="margin-top:1rem;">Сохранить Mux</button>' +
+                    '<button class="btn btn--secondary" id="btn-test-mux" style="margin-top:1rem;margin-left:0.5rem;">Проверить</button>' +
+                    '<div id="mux-msg" style="margin-top:0.5rem;color:var(--admin-success);display:none;"></div>' +
+                '</div>' +
+            '</div>' +
                 '<div style="padding:1rem;">' +
                     '<div class="form-group">' +
                         '<label for="s-photo-mode">Режим отображения</label>' +
@@ -192,6 +207,36 @@
                 showMsg('cf-msg', res.configured ? 'Cloudflare Stream настроен' : 'Cloudflare Stream НЕ настроен — проверьте ключи');
             } catch (e) {
                 showMsg('cf-msg', 'Ошибка: ' + e.message, true);
+            }
+        });
+
+        document.getElementById('btn-save-mux').addEventListener('click', async function() {
+            try {
+                await window.api.put('/api/settings', {
+                    mux_signing_key_id: document.getElementById('s-mux-key-id').value,
+                    mux_signing_key: document.getElementById('s-mux-key').value,
+                    mux_access_token_id: document.getElementById('s-mux-access-token-id').value,
+                    mux_access_token_secret: document.getElementById('s-mux-access-token-secret').value,
+                });
+                showMsg('mux-msg', 'Настройки Mux сохранены. Перезапустите сервер.');
+            } catch (e) {
+                showMsg('mux-msg', 'Ошибка: ' + e.message, true);
+            }
+        });
+
+        document.getElementById('btn-test-mux').addEventListener('click', async function() {
+            try {
+                var res = await window.api.post('/api/settings/test-mux', {});
+                if (res.configured) {
+                    showMsg('mux-msg', 'Mux настроен (стриминг + загрузка)');
+                } else {
+                    var parts = [];
+                    if (!res.signing) parts.push('стриминг (подпись)');
+                    if (!res.upload) parts.push('загрузка (access token)');
+                    showMsg('mux-msg', 'Mux НЕ настроен — проверьте: ' + parts.join(', '), true);
+                }
+            } catch (e) {
+                showMsg('mux-msg', 'Ошибка: ' + e.message, true);
             }
         });
 

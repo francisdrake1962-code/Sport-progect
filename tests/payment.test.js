@@ -103,7 +103,6 @@ describe('Payment Module — /api/plans', () => {
     expect(Array.isArray(res.body.plans)).toBe(true);
     expect(res.body.plans.length).toBe(2);
   });
-
   test('plans include monthly and annual', async () => {
     const res = await api('GET', '/api/payment/plans');
     const ids = res.body.plans.map(p => p.id);
@@ -120,6 +119,29 @@ describe('Payment Module — /api/plans', () => {
       expect(plan.interval).toBeDefined();
       expect(Array.isArray(plan.features)).toBe(true);
     });
+  });
+
+  test('plans reflect manually set price in settings', async () => {
+    const db = await getDb();
+    db.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('monthly_price', '14.99')`);
+    db.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('annual_price', '99')`);
+    saveDb();
+
+    const res = await api('GET', '/api/payment/plans');
+    const monthly = res.body.plans.find(p => p.id === 'monthly');
+    const annual = res.body.plans.find(p => p.id === 'annual');
+    expect(monthly.price).toBe(14.99);
+    expect(annual.price).toBe(99);
+  });
+
+  test('getPlanAmount falls back to defaults without settings', async () => {
+    const db = await getDb();
+    db.run(`DELETE FROM settings WHERE key IN ('monthly_price', 'annual_price')`);
+    saveDb();
+
+    const { getPlanAmount } = require('../server/services/payment.service');
+    expect(await getPlanAmount('monthly')).toBe(12);
+    expect(await getPlanAmount('annual')).toBe(89);
   });
 });
 

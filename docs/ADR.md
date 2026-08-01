@@ -271,3 +271,42 @@ Node.js процесс + SQLite файл. Без Docker, без Kubernetes.
 **Последствия:**
 - При росте трафика — миграция на Docker + PostgreSQL
 - CI/CD уже готов (GitHub Actions)
+
+---
+
+# ADR-010: Subscription State Machine, Atomic Webhook Processing, Period Integrity
+
+## Статус
+Принято (v5.11.0–v5.12.0, Devil's Advocate Rounds 4–5)
+
+## Контекст
+Stripe recurring-подписки, webhook-обработка и хранение `subscription_expires_at` были хрупкими: событие фиксировалось до бизнес-эффекта (retry был невозможен), `unpaid`/`canceled` неправильно убивали доступ, `past_due` не обрабатывался, а локальная оценка срока могла уменьшить уже оплаченное время.
+
+## Решение
+
+**PAY-002 — атомарный webhook.** Событие, изменения подписки/платежа и аудит выполняются в одной транзакции `BEGIN…COMMIT` (откат через `ROLLBACK` при ошибке). Обработчики синхронные — нет `await` между `BEGIN` и `COMMIT`, поэтому параллельные вебхуки не пересекаются и не вкладывают транзакции. Идемпотентность — по `event_id` в `payment_events`.
+
+**PAY-001 — машина состояний.** `STRIPE_STATUS_TO_LOCAL`: `active→active`, `trialing→trial`, `past_due→past_due`, `unpaid→past_due`, `canceled→cancelled`, `paused` не маппится (доступ сохраняется моделью active+expiry), неизвестные статусы — no-op. `invoice.payment_failed` переводит `active` в `past_due`; `subscribers.status` CHECK расширен до `past_due` (миграция 008, пересоздание таблицы).
+
+**PAY-003 — источник истины периода.** Авторитет — Stripe `current_period_end` из `customer.subscription.updated`; локальная оценка `now + duration` в `checkout.session.completed` — явно помеченный временный fallback. Правило целостности: **оплаченное время никогда не уменьшается** — `subscription.updated` с более ранним `current_period_end`, чем уже записанный срок, оставляет существующий срок.
+
+## Аргументы
+
+**За:**
+- Отказ webhook больше не оставляет «обработанное» событие без эффекта — Stripe retry корректен
+- Доступ подписчика соответствует фактическому состоянию платежа (должник не смотрит платный контент)
+- Guard против поздних/повторных событий не отбирает оплаченное время (соответствует ТЗ)
+- Атомарная запись БД (OPS-001): temp file + rename — крах при записи не повреждает `qigong.db`
+
+**Против:**
+- SQLite — один writer, транзакции сериализуются
+- Пересоздание таблицы для изменения CHECK требует аккуратной миграции (foreign_keys OFF)
+
+**Альтернативы:**
+- Мягкая блокировка «grace period» для `past_due` — отложено, нет в ТЗ
+- `expired` безусловно при `unpaid` — отклонено (терял оплаченный trial/период)
+
+## Последствия
+- Гейт доступа (`can-watch`/`stream-token`) — единственное место проверки платного доступа
+- Новые Stripe-статусы добавляются только через явный маппинг
+- Для production обязательны Price ID (`STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`); Mux-ключи — all-or-none

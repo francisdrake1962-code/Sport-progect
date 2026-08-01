@@ -129,3 +129,34 @@ process kill) could truncate `qigong.db` and lose the whole dataset.
 2. **DOC-001/DOC-002**: Payment Flow + subscription state machine + provider/recurrence strategy still undocumented in `docs/API.md`/`docs/ARCHITECTURE.md`/ADR.
 3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
 4. **Manual production step**: Stripe Price IDs + Mux keys (all-or-none) must be filled before a production deploy can boot.
+
+---
+
+# Devil's Advocate Audit — Round 7 (DOC-001 / DOC-002)
+
+Date: 2026-08-01 | Version: 5.14.0 | Auditor: opencode
+
+## Outcome
+
+Round 7 closed the documentation chain for the payment module: the Payment Flow,
+the subscription state machine, the atomicity/retry contract, the period
+source-of-truth rule and the provider/recurrence strategy are now formally
+documented in the three spec documents, matching the code exactly.
+
+| ID | Severity | Finding | Resolution |
+| --- | --- | --- | --- |
+| DA-44 | Medium (DOC-001) | `docs/API.md` Payment section did not describe the state machine, atomicity, retry semantics or the never-shrink period rule — and had **no scenario table** for `card_declined` / timeout / delayed webhook / manual revoke with user-facing messages and tests. | API.md Payment section rewritten: state-machine table (Stripe→local, access rules), webhook atomicity + idempotency, PAY-003 never-shrink, config table, and a full scenario table (server result / user message / retry rule / covering test). |
+| DA-45 | Medium (DOC-002) | Provider and recurrence strategy was undocumented; `docs/ARCHITECTURE.md` only described Cloudflare Stream, with a stale test count and a partial env-var table (no Stripe Price IDs / Mux vars). | ARCHITECTURE.md gained Stripe (subscriptions) + Mux (video) integration subsections; env table extended (4 required Stripe vars + Mux all-or-none); stale test coverage updated to 18 suites / 915 tests. |
+| DA-46 | Medium (ARCH-001 / ADR) | No ADR recorded the payment architecture decisions made in Rounds 4–5. | ADR-010 «Subscription State Machine, Atomic Webhook Processing, Period Integrity» appended with alternatives considered and consequences. |
+
+## Verification after correction
+
+- Docs-only round: **915/915 tests, 18 suites** unchanged; `npm.cmd run lint` 0 errors; `npm.cmd run build` passes.
+- Cross-checked every statement in the docs against the code (`payment.service.js`, `config.js`, gating routes) — the documentation no longer promises behaviour the code does not have.
+
+## Remaining risks (deferred to later rounds)
+
+1. **DB-001**: migrations run migrate-on-start without an automated pre-migration backup / rollback runbook.
+2. **OPS-002**: CI quality gate not yet wired to require the full test+lint+build gate.
+3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
+4. **Manual production step**: Stripe Price IDs + Mux keys (all-or-none) must be filled before a production deploy can boot.

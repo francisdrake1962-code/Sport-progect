@@ -560,6 +560,21 @@ Middleware `validateBody` проверяет:
 
 ## Внешние интеграции
 
+### Stripe (подписки)
+
+- **Назначение:** recurring-подписки через Stripe Checkout (`mode: 'subscription'`)
+- **Конфигурация:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (fail-fast в production), плюс Price-объекты `STRIPE_MONTHLY_PRICE_ID` / `STRIPE_ANNUAL_PRICE_ID`
+- **Вебхуки:** `POST /api/payment/webhook` — обработка **атомарна** (PAY-002): событие + изменение подписки/платежа + аудит в одной транзакции; сбой полностью откатывается и событие остаётся ретраябельным для Stripe. Идемпотентность по `event_id` в `payment_events`.
+- **Машина состояний (PAY-001):** Stripe-статусы маппятся в `subscribers.status` (`active→active`, `trialing→trial`, `past_due→past_due`, `unpaid→past_due`, `canceled→cancelled`; неизвестные — no-op). `invoice.payment_failed` переводит `active` в `past_due` (доступ блокируется гейтом `can-watch`).
+- **Источник истины периода (PAY-003):** `subscription_expires_at` синхронизируется из Stripe `current_period_end`; оплаченное время никогда не уменьшается. Локальная оценка в `checkout.session.completed` — временный fallback.
+
+### Mux (видео — платные уроки)
+
+- **Назначение:** Direct Upload и playback подписанных видеоуроков (провайдер `mux`)
+- **Конфигурация:** `MUX_ACCESS_TOKEN_ID` + `MUX_ACCESS_TOKEN_SECRET` (upload/API), `MUX_SIGNING_KEY_ID` + `MUX_SIGNING_KEY` (подпись playback-токенов). Ключи **все-или-ничего**: частичный набор — ошибка конфигурации в production.
+- **Поток:** `POST /api/admin/lessons/:id/video/mux-upload` создаёт direct-upload URL (Mux), браузер PUT-ит файл, `GET /api/admin/video-uploads/:id/status` опрашивает Mux до `asset_created` и сохраняет `mux_asset_id`/`mux_playback_id`.
+- **Провайдеры:** урок задаёт `video_provider` (`cloudflare` | `mux`); по умолчанию `cloudflare`.
+
 ### Cloudflare Stream
 
 - **Назначение:** Хранение и потоковая передача видеоуроков
@@ -601,8 +616,8 @@ Middleware `validateBody` проверяет:
 
 ### Покрытие
 
-- **13 тестовых сьютов**
-- **863 теста**
+- **18 тестовых сьютов**
+- **915 тестов** (v5.13.0)
 
 ---
 
@@ -626,6 +641,14 @@ Middleware `validateBody` проверяет:
 | `CF_STREAM_SIGNING_KEY_ID` | Cloudflare Stream Key ID | Нет |
 | `CF_STREAM_SIGNING_KEY` | Cloudflare Stream Signing Key | Нет |
 | `CF_STREAM_CUSTOMER_CODE` | Cloudflare Stream Customer Code | Нет |
+| `STRIPE_SECRET_KEY` | Stripe Secret Key | **Да** |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature secret | **Да** |
+| `STRIPE_MONTHLY_PRICE_ID` | Stripe Price ID месячного плана | **Да** |
+| `STRIPE_ANNUAL_PRICE_ID` | Stripe Price ID годового плана | **Да** |
+| `MUX_ACCESS_TOKEN_ID` | Mux access token ID (upload/API) | Нет (все-или-ничего) |
+| `MUX_ACCESS_TOKEN_SECRET` | Mux access token secret | Нет (все-или-ничего) |
+| `MUX_SIGNING_KEY_ID` | Mux signing key ID | Нет (все-или-ничего) |
+| `MUX_SIGNING_KEY` | Mux signing key | Нет (все-или-ничего) |
 | `LOG_LEVEL` | Уровень логов: `error`, `warn`, `info`, `debug` | Нет |
 
 ### Startup Sequence

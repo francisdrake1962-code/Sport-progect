@@ -4,6 +4,19 @@
 
 ---
 
+## [5.14.0] - 2026-08-01
+
+### Documentation — Payment Flow, state machine, provider strategy (DOC-001/DOC-002)
+
+Round 7 of the Devil's Advocate audit.
+
+- `docs/API.md` — Payment section rewritten: **subscription state machine** (Stripe→local statuses, access rules), **webhook atomicity + retry semantics** (PAY-002), **period source of truth + never-shrink rule** (PAY-003), Stripe/Mux **configuration table** (required Price IDs, Mux all-or-none), and a **scenario table** for `card_declined`, timeout/provider-unavailable, delayed/repeated webhook, cancel-at-period-end and manual revoke — each with server result, user-facing message, retry rule and the test that covers it.
+- `docs/ARCHITECTURE.md` — «Внешние интеграции» gained **Stripe (подписки)** and **Mux (видео)** subsections (provider/recurrence strategy, DOC-002); env-var table updated with the 6 Stripe vars (4 required in prod) and the 4 Mux vars (all-or-none).
+- `docs/ADR.md` — **ADR-010**: Subscription State Machine, Atomic Webhook Processing, Period Integrity — records the Round 4–5 decisions, alternatives considered and consequences.
+- Docs-only change; no code touched. Test count unchanged: **915/915, 18 suites**.
+
+---
+
 ## [5.13.0] - 2026-08-01
 
 ### Fixed — Atomic database writes (OPS-001)

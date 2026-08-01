@@ -1061,7 +1061,57 @@ Content-Type: application/json
 - `customer.subscription.deleted` — деактивация
 - `invoice.payment_failed` — уведомление о неудачном платеже
 
-**Идемпотентность:** Каждый `event_id` записывается в `payment_events`. Повторные вызовы игнорируются.
+**Атомарность и retry (PAY-002):** событие, изменения подписки/платежа и аудит выполняются в **одной транзакции** (`BEGIN…COMMIT`). При любой ошибке транзакция откатывается целиком (`ROLLBACK`) — запись в `payment_events` не остаётся, и Stripe может безопасно повторить доставку. Два одинаковых события, пришедших параллельно, дают ровно один бизнес-эффект (второе пропускается как дубликат по `event_id`).
+
+**Идемпотентность:** Каждый `event_id` записывается в `payment_events`. Повторные вызовы игнорируются (`{ idempotent: true }`).
+
+### Машина состояний подписки (PAY-001)
+
+Статус подписки в Stripe отображается в локальный `subscribers.status`:
+
+| Stripe status | Локальный `status` | Доступ |
+|---|---|---|
+| `active` | `active` | Полный |
+| `trialing` | `trial` | По правилам trial |
+| `past_due` | `past_due` | **Заблокирован** (нет grace-периода) |
+| `unpaid` | `past_due` | **Заблокирован** |
+| `canceled` | `cancelled` | До конца оплаченного периода |
+| `paused` | — (не маппится) | Сохраняется, пока `active` + будущий `subscription_expires_at` |
+| любой другой | — (no-op) | Без изменений |
+
+- `invoice.payment_failed` переводит активного подписчика в `past_due`; cancelled/expired не трогает.
+- Событие Stripe `active` восстанавливает локальный статус и пересинхронизирует `subscription_expires_at` / `next_billing_date`.
+- Критерий платного доступа (гейты `/api/user/can-watch`, `/api/user/stream-token`): `status='active'`, либо `status='cancelled'` с `subscription_expires_at` в будущем. `past_due` всегда заблокирован.
+
+### Источник истины периода (PAY-003)
+
+- Авторитетное значение `subscription_expires_at` — Stripe `current_period_end` из события `customer.subscription.updated`.
+- Локальная оценка `now + 30/365 дней` в `checkout.session.completed` — **временный fallback** до прихода follow-up события.
+- **Оплаченное время никогда не уменьшается:** обработка `subscription.updated` с `current_period_end` раньше уже записанного срока оставляет существующий срок без изменений (guard против поздних/повторных событий).
+
+### Конфигурация Stripe
+
+Обязательные переменные окружения (fail-fast в production):
+
+| Переменная | Назначение |
+|---|---|
+| `STRIPE_SECRET_KEY` | Secret key API Stripe |
+| `STRIPE_WEBHOOK_SECRET` | Подпись вебхуков (`Stripe-Signature`) |
+| `STRIPE_MONTHLY_PRICE_ID` | Price-объект месячного плана |
+| `STRIPE_ANNUAL_PRICE_ID` | Price-объект годового плана |
+
+Mux-ключи (`MUX_ACCESS_TOKEN_ID/SECRET`, `MUX_SIGNING_KEY_ID/SIGNING_KEY`) необязательны, но задаются только **все вместе** — частичный набор даёт ошибку конфигурации в production.
+
+### Сценарии обработки ошибок
+
+| Сценарий | Серверный результат | Сообщение пользователю | Правило retry | Тест |
+|---|---|---|---|---|
+| `card_declined` при первичном checkout | Checkout отменён самим Stripe; подписка не создана | Экран Stripe: «Card was declined», повтор вводa карты | Пользователь заново проходит checkout | `payment.test.js` — payment_failed → `past_due`, план записан |
+| `card_declined` при рекуррентном списании | `invoice.payment_failed` → подписчик `active` → `past_due`; запись платежа `failed` с причиной | UI кабинета показывает `past_due`; доступ к платному видео **заблокирован** до нового успешного платежа | Stripe автоматически retry-ит по своей политике dunning; каждый `payment_failed` обрабатывается идемпотентно | `payment.test.js` — PAY-001 `invoice.payment_failed` |
+| Timeout / недоступность Stripe при webhook | Транзакция откатывается (`ROLLBACK`), `payment_events` без записи | Доступ не меняется; клиент видит прежний статус | Stripe повторяет доставку; повтор полностью обрабатывается | `payment.test.js` — PAY-002 «failed event retryable» |
+| Delayed / repeated webhook | Дубликат по `event_id` игнорируется; `subscription_expires_at` **не уменьшается** (guard PAY-003) | Без изменений | Не требуется — событие уже обработано | `payment.test.js` — PAY-003 «never shrinks», PAY-002 «duplicates → one effect» |
+| `customer.subscription.deleted` (cancel-at-period-end истёк) | `status → cancelled` | Доступ сохраняется до `expires_at`, затем гейт блокирует | Не требуется | `payment.test.js` — PAY-001 `canceled` |
+| Ручной revoke администратором | `manual_access_grants` (action `revoke`) + `status → expired` | Доступ к платному видео заблокирован сразу | Не требуется; revoke в течение часа блокирует обработку входящего checkout | `payment.test.js` / админ-тесты `adminGrantAccess`/`adminRevokeAccess` |
 
 ### GET /api/payment/admin/grants
 

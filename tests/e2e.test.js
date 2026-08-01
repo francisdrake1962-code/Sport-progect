@@ -42,6 +42,9 @@ afterAll(() => {
   return new Promise(resolve => {
     if (server) server.close(() => resolve());
     else resolve();
+  }).finally(() => {
+    const { resetDb } = require('../server/db');
+    resetDb();
   });
 });
 

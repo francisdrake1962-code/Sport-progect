@@ -36,7 +36,8 @@ beforeAll(async () => {
   adminToken = login.body.token;
 }, 15000);
 
-afterAll(() => new Promise(resolve => { if (server) server.close(() => resolve()); else resolve(); }));
+afterAll(() => new Promise(resolve => { if (server) server.close(() => resolve()); else resolve(); })
+  .finally(() => { const { resetDb } = require('../server/db'); resetDb(); }));
 
 let subToken;
 async function getSubToken() {

@@ -51,6 +51,9 @@ afterAll(() => {
   return new Promise(resolve => {
     if (server) server.close(() => resolve());
     else resolve();
+  }).finally(() => {
+    const { resetDb } = require('../server/db');
+    resetDb();
   });
 });
 
@@ -215,7 +218,7 @@ describe('Payment Module — Webhook signature', () => {
 describe('Payment Module — Can-Watch with subscription_expires_at', () => {
   test('subscriber with active subscription can watch paid lesson', async () => {
     const db = await getDb();
-    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '+30 days') WHERE email = 'maria@example.com'`);
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '+30 days'), email_confirmed = 1 WHERE email = 'maria@example.com'`);
     saveDb();
 
     const login = await api('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
@@ -227,7 +230,7 @@ describe('Payment Module — Can-Watch with subscription_expires_at', () => {
 
   test('subscriber with expired subscription cannot watch paid lesson', async () => {
     const db = await getDb();
-    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'expired', subscription_expires_at = datetime('now', '-1 day') WHERE email = 'maria@example.com'`);
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'expired', subscription_expires_at = datetime('now', '-1 day'), email_confirmed = 1 WHERE email = 'maria@example.com'`);
     saveDb();
 
     const login = await api('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
@@ -238,7 +241,7 @@ describe('Payment Module — Can-Watch with subscription_expires_at', () => {
 
   test('cancelled subscriber with future expiry can still watch', async () => {
     const db = await getDb();
-    db.run(`UPDATE subscribers SET plan = 'annual', status = 'cancelled', subscription_expires_at = datetime('now', '+15 days') WHERE email = 'maria@example.com'`);
+    db.run(`UPDATE subscribers SET plan = 'annual', status = 'cancelled', subscription_expires_at = datetime('now', '+15 days'), email_confirmed = 1 WHERE email = 'maria@example.com'`);
     saveDb();
 
     const login = await api('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
@@ -250,7 +253,7 @@ describe('Payment Module — Can-Watch with subscription_expires_at', () => {
 
   test('cancelled subscriber with past expiry cannot watch', async () => {
     const db = await getDb();
-    db.run(`UPDATE subscribers SET plan = 'annual', status = 'cancelled', subscription_expires_at = datetime('now', '-1 day') WHERE email = 'maria@example.com'`);
+    db.run(`UPDATE subscribers SET plan = 'annual', status = 'cancelled', subscription_expires_at = datetime('now', '-1 day'), email_confirmed = 1 WHERE email = 'maria@example.com'`);
     saveDb();
 
     const login = await api('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
@@ -467,7 +470,7 @@ describe('Payment Module — PAY-002 atomic webhook processing', () => {
     const db = await getDb();
     const subResult = db.exec(`SELECT id FROM subscribers WHERE email = 'maria@example.com'`);
     const subId = subResult[0].values[0][0];
-    db.run(`UPDATE subscribers SET status = 'active', stripe_customer_id = 'cus_pay002_retry' WHERE id = ?`, [subId]);
+    db.run(`UPDATE subscribers SET plan = 'annual', status = 'active', stripe_customer_id = 'cus_pay002_retry' WHERE id = ?`, [subId]);
     saveDb();
 
     const paymentService = require('../server/services/payment.service');

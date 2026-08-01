@@ -24,6 +24,9 @@ function apiRequest(method, urlPath, body, token) {
 
 let testServer;
 
+const SAVED_USER_API_MAX = process.env.RATE_LIMIT_MAX_USER_API;
+const SAVED_CONFIRM_MAX = process.env.RATE_LIMIT_MAX_CONFIRM;
+
 beforeAll(async () => {
   process.env.PORT = String(PORT);
   process.env.ALLOWED_ORIGIN = `http://localhost:${PORT}`;
@@ -42,6 +45,10 @@ afterAll(async () => {
   }
   const { resetDb } = require('../server/db');
   resetDb();
+  if (SAVED_USER_API_MAX === undefined) delete process.env.RATE_LIMIT_MAX_USER_API;
+  else process.env.RATE_LIMIT_MAX_USER_API = SAVED_USER_API_MAX;
+  if (SAVED_CONFIRM_MAX === undefined) delete process.env.RATE_LIMIT_MAX_CONFIRM;
+  else process.env.RATE_LIMIT_MAX_CONFIRM = SAVED_CONFIRM_MAX;
 });
 
 describe('Rate Limiting — /api/user/stats (userApiLimiter)', () => {

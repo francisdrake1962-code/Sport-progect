@@ -1083,6 +1083,25 @@ Content-Type: application/json
 - Событие Stripe `active` восстанавливает локальный статус и пересинхронизирует `subscription_expires_at` / `next_billing_date`.
 - Критерий платного доступа (гейты `/api/user/can-watch`, `/api/user/stream-token`): `status='active'`, либо `status='cancelled'` с `subscription_expires_at` в будущем. `past_due` всегда заблокирован.
 
+### Машиночитаемые коды отказа доступа (API-003)
+
+Гейты доступа возвращают стабильное поле `code`, по которому frontend выбирает действие. HTTP-статусы для существующих клиентов не меняются: `can-watch` по-прежнему отвечает `200` с `allowed:false` для платных отказов (403 только для неподтверждённого email), `stream-token` — `403` для всех отказов.
+
+| `code` | Когда | HTTP | Frontend-действие |
+|---|---|---|---|
+| `GRANTED` | Доступ разрешён (`allowed:true`) | 200 | Показать плеер |
+| `SUBSCRIPTION_EXPIRED` | Платный план закончился | can-watch 200 / stream-token 403 | «Подписка истекла» → планы |
+| `PAYMENT_PAST_DUE` | `invoice.payment_failed`, статус `past_due` | can-watch 200 / stream-token 403 | «Оплата не прошла» → обновить способ оплаты |
+| `EMAIL_CONFIRMATION_REQUIRED` | Email не подтверждён (гейт входа — `POST /api/user/login`, статус 403) | 403 | «Подтвердите email» → переотправить письмо |
+| `FREE_LIMIT_REACHED` | Бесплатный лимит `free_sessions_used >= 7` исчерпан | can-watch 200 / stream-token 403 | «Бесплатный период окончен» → планы |
+| `SUBSCRIPTION_REQUIRED` | Нет платного плана и нет trial-доступа | can-watch 200 / stream-token 403 | «Подписка требуется» → планы |
+
+Контрактные гарантии (API-003):
+- Ответы **не раскрывают** путь к видео или внутренние данные Stripe.
+- `stream-token` проверяет доступ **до** проверки провайдера: запрещённому пользователю возвращается `403` с `code`, а не `503`.
+- `can-watch`/`stream-token` дополняют существующие поля (`allowed`, `reason`, `freeUsed`, `freeLimit`) полем `code`; ничего не удаляется.
+- `POST /api/user/login` для неподтверждённого email возвращает `403` c `error.code = 'EMAIL_CONFIRMATION_REQUIRED'` (поле `code` вложено в `error` как у всех ошибок формата `formatError`).
+
 ### Источник истины периода (PAY-003)
 
 - Авторитетное значение `subscription_expires_at` — Stripe `current_period_end` из события `customer.subscription.updated`.

@@ -100,7 +100,7 @@ async function loginSubscriber(email, password) {
     if (process.env.MAIL_PROVIDER === 'console' && confirmationToken) {
       logger.info(`Confirmation link: http://localhost:${process.env.PORT || 3000}/api/user/confirm/${confirmationToken}`);
     }
-    throw new ForbiddenError('Подтвердите email перед входом');
+    throw new ForbiddenError('Подтвердите email перед входом', 'EMAIL_CONFIRMATION_REQUIRED');
   }
   const token = generateToken({ id: user.id, email: user.email, role: 'subscriber' });
   return { token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, status: user.status, free_sessions_used: user.free_sessions_used } };

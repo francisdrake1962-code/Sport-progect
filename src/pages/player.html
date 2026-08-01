@@ -323,10 +323,22 @@
                 try {
                     var access = await api('/api/user/can-watch/' + lesson.id);
                     if (!access.allowed) {
+                        var deniedTitle = 'Бесплатный период окончен';
+                        var deniedText = 'Вы просмотрели ' + access.freeUsed + ' из ' + access.freeLimit + ' бесплатных занятий. Оформите подписку для полного доступа.';
+                        if (access.code === 'SUBSCRIPTION_EXPIRED') {
+                            deniedTitle = 'Подписка истекла';
+                            deniedText = 'Ваш доступ к подписке завершился. Продлите подписку, чтобы продолжить.';
+                        } else if (access.code === 'PAYMENT_PAST_DUE') {
+                            deniedTitle = 'Оплата не прошла';
+                            deniedText = 'Последний платёж не удался. Обновите способ оплаты, чтобы восстановить доступ.';
+                        } else if (access.code === 'SUBSCRIPTION_REQUIRED') {
+                            deniedTitle = 'Подписка требуется';
+                            deniedText = 'Это занятие доступно только по подписке.';
+                        }
                         root.innerHTML = renderHeader(lesson, complexName) +
                             '<div class="player-empty"><div class="player-empty__icon">⏰</div>' +
-                            '<div class="player-empty__title">Бесплатный период окончен</div>' +
-                            '<div class="player-empty__text">Вы просмотрели ' + access.freeUsed + ' из ' + access.freeLimit + ' бесплатных занятий. Оформите подписку для полного доступа.</div>' +
+                            '<div class="player-empty__title">' + deniedTitle + '</div>' +
+                            '<div class="player-empty__text">' + deniedText + '</div>' +
                             '<a href="plans.html" class="btn btn--primary">Выбрать план</a></div>';
                         return;
                     }

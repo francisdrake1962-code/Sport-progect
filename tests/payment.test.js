@@ -605,7 +605,7 @@ describe('Payment Module — PAY-001 subscription state machine', () => {
     expect((await getSubscriberState('maria@example.com')).status).toBe('active');
   });
 
-  test('past_due subscriber cannot watch paid lesson', async () => {
+  test('past_due subscriber cannot watch paid lesson and gets a distinct code', async () => {
     const db = await getDb();
     db.run(`UPDATE subscribers SET plan = 'monthly', status = 'past_due', subscription_expires_at = datetime('now', '+30 days'), email_confirmed = 1 WHERE email = 'maria@example.com'`);
     saveDb();
@@ -613,7 +613,8 @@ describe('Payment Module — PAY-001 subscription state machine', () => {
     const res = await api('GET', '/api/user/can-watch/8', null, login.body.token);
     expect(res.status).toBe(200);
     expect(res.body.allowed).toBe(false);
-    expect(res.body.reason).toBe('subscription_expired');
+    expect(res.body.reason).toBe('payment_past_due');
+    expect(res.body.code).toBe('PAYMENT_PAST_DUE');
   });
 
   test('invoice.payment_failed transitions an active subscriber to past_due', async () => {
@@ -708,5 +709,77 @@ describe('Payment Module — Subscription cancel', () => {
     const login = await api('POST', '/api/user/login', { email: 'sergey@example.com', password: 'password123' });
     const res = await api('POST', '/api/payment/cancel', {}, login.body.token);
     expect(res.status).toBe(500);
+  });
+});
+
+describe('Payment Module — API-003 machine-readable denial codes', () => {
+  async function setSubscriber(email, sql) {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET ${sql} WHERE email = ?`, [email]);
+    saveDb();
+  }
+  async function login(email) {
+    return (await api('POST', '/api/user/login', { email, password: 'password123' })).body.token;
+  }
+
+  test('can-watch: expired paid plan -> SUBSCRIPTION_EXPIRED', async () => {
+    await setSubscriber('maria@example.com', `plan = 'monthly', status = 'expired', subscription_expires_at = datetime('now', '-1 day'), email_confirmed = 1`);
+    const res = await api('GET', '/api/user/can-watch/8', null, await login('maria@example.com'));
+    expect(res.status).toBe(200);
+    expect(res.body.allowed).toBe(false);
+    expect(res.body.code).toBe('SUBSCRIPTION_EXPIRED');
+  });
+
+  test('can-watch: past_due paid plan -> PAYMENT_PAST_DUE', async () => {
+    await setSubscriber('maria@example.com', `plan = 'monthly', status = 'past_due', subscription_expires_at = datetime('now', '+30 days'), email_confirmed = 1`);
+    const res = await api('GET', '/api/user/can-watch/8', null, await login('maria@example.com'));
+    expect(res.status).toBe(200);
+    expect(res.body.allowed).toBe(false);
+    expect(res.body.code).toBe('PAYMENT_PAST_DUE');
+  });
+
+  test('login: unconfirmed email -> 403 EMAIL_CONFIRMATION_REQUIRED', async () => {
+    await setSubscriber('maria@example.com', `plan = 'trial', status = 'trial', email_confirmed = 0`);
+    const res = await api('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('EMAIL_CONFIRMATION_REQUIRED');
+  });
+
+  test('can-watch: free trial limit reached -> FREE_LIMIT_REACHED', async () => {
+    await setSubscriber('maria@example.com', `plan = 'trial', status = 'trial', free_sessions_used = 7, email_confirmed = 1`);
+    const res = await api('GET', '/api/user/can-watch/8', null, await login('maria@example.com'));
+    expect(res.status).toBe(200);
+    expect(res.body.allowed).toBe(false);
+    expect(res.body.code).toBe('FREE_LIMIT_REACHED');
+  });
+
+  test('can-watch: no paid plan and non-trial status -> SUBSCRIPTION_REQUIRED', async () => {
+    await setSubscriber('maria@example.com', `plan = 'trial', status = 'expired', free_sessions_used = 0, email_confirmed = 1`);
+    const res = await api('GET', '/api/user/can-watch/8', null, await login('maria@example.com'));
+    expect(res.status).toBe(200);
+    expect(res.body.allowed).toBe(false);
+    expect(res.body.code).toBe('SUBSCRIPTION_REQUIRED');
+  });
+
+  test('can-watch: trial user with free sessions left is granted with GRANTED', async () => {
+    await setSubscriber('maria@example.com', `plan = 'trial', status = 'trial', free_sessions_used = 3, email_confirmed = 1`);
+    const res = await api('GET', '/api/user/can-watch/8', null, await login('maria@example.com'));
+    expect(res.status).toBe(200);
+    expect(res.body.allowed).toBe(true);
+    expect(res.body.code).toBe('GRANTED');
+  });
+
+  test('stream-token: past_due paid plan -> 403 PAYMENT_PAST_DUE (before provider check)', async () => {
+    await setSubscriber('maria@example.com', `plan = 'monthly', status = 'past_due', subscription_expires_at = datetime('now', '+30 days'), email_confirmed = 1`);
+    const res = await api('GET', '/api/user/stream-token/8', null, await login('maria@example.com'));
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('PAYMENT_PAST_DUE');
+  });
+
+  test('stream-token: expired paid plan -> 403 SUBSCRIPTION_EXPIRED', async () => {
+    await setSubscriber('maria@example.com', `plan = 'monthly', status = 'expired', subscription_expires_at = datetime('now', '-1 day'), email_confirmed = 1`);
+    const res = await api('GET', '/api/user/stream-token/8', null, await login('maria@example.com'));
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('SUBSCRIPTION_EXPIRED');
   });
 });

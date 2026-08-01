@@ -241,3 +241,48 @@ build actually failed, and the lint step covered only `server/`.
 2. **API-003**: machine-readable access-denial reasons (`code` in gate responses).
 3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
 4. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); mark `quality-gate` as required status check in branch protection.
+
+---
+
+# Devil's Advocate Audit — Round 10 (API-003)
+
+Date: 2026-08-01 | Version: 5.17.0 | Auditor: opencode
+
+## Outcome
+
+Round 10 implemented the first API-contract item from `docs/IMPROVEMENT_TZ.md`
+(API-003): machine-readable denial reasons in the access gates. The gates did
+not expose a stable code the frontend could act on, and `stream-token` reported
+provider problems (503) instead of the access reason for a denied user.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-49 | Medium (API-003) | `can-watch`/`stream-token` denial responses had no stable machine-readable `code`; the frontend could only guess intent (e.g. any 403 on `can-watch` was rendered as "confirm email"). `stream-token` also checked provider availability *before* access, so a denied user got `503 Streaming not configured` — revealing the deployment setup and masking the real reason. | Both gates now return a stable `code` while keeping existing fields and HTTP statuses: `GRANTED`, `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `FREE_LIMIT_REACHED`, `SUBSCRIPTION_REQUIRED`, `EMAIL_CONFIRMATION_REQUIRED`. `stream-token` checks access first (403 + code, before any provider check). No video path or Stripe internals are exposed. | `tests/payment.test.js` — API-003 block: one contract test per code (8 tests) plus the existing past_due test now asserts `PAYMENT_PAST_DUE`. |
+| DA-50 | Medium (API-003) | `POST /api/user/login` rejected unconfirmed users with a `FORBIDDEN` code — not the TZ-listed `EMAIL_CONFIRMATION_REQUIRED` — and login.html's `EMAIL_NOT_CONFIRMED` string match never fired against the structured error. | `ForbiddenError` gained an optional machine code; login returns `403` with `error.code = 'EMAIL_CONFIRMATION_REQUIRED'`. Frontend (login.html/player.html) now acts on the machine code and renders per-code actions (subscription expired / payment failed / subscription required / free limit). | API-003 login contract test (403 + code); frontend built cleanly. |
+
+## TDD record
+
+1. Wrote 9 red tests in `tests/payment.test.js` (8 new + 1 modified past_due assertion); confirmed red (9 failed): codes absent, past_due reported `subscription_expired`, stream-token returned 503 for denied users.
+2. Implemented code mapping in `server/routes/user.js` (can-watch + stream-token) and moved the stream-token access check before the provider check.
+3. Discovered the unconfirmed-email gate is login (no token is ever issued), moved that contract test to `POST /api/user/login` and added the machine code via `ForbiddenError.machineCode` (`errors.js`) + `formatError` pass-through.
+4. Updated `src/pages/player.html` (per-code denial UI) and `src/pages/login.html` (machine-code branch).
+5. Full suite, lint and build green.
+
+## Verification after correction
+
+- `npx jest --runInBand --silent`: **18 suites, 924/924 tests passed**.
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings — hero-poster.jpg).
+
+## Decisions recorded
+
+- Codes: `GRANTED`, `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `EMAIL_CONFIRMATION_REQUIRED`, `FREE_LIMIT_REACHED`, `SUBSCRIPTION_REQUIRED`. `PAYMENT_PAST_DUE` (payment failed) is deliberately distinct from `SUBSCRIPTION_EXPIRED` so the UI can offer "update payment method" vs "renew".
+- HTTP status contract unchanged for existing clients: `can-watch` denies with `200 + allowed:false` (403 only for unconfirmed email); `stream-token` denies with `403`.
+- `stream-token` access-before-provider is the fixed order; a genuinely misconfigured deployment still yields 503, but only for users who would be granted access.
+
+## Remaining risks (deferred to later rounds)
+
+1. **API-001** revision: verify the unified error format across remaining endpoints.
+2. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
+3. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); mark `quality-gate` as required status check in branch protection.
+4. `player.html` still swallows `stream-token` errors silently (`catch(_){}`); per-code action for stream-token denials can be surfaced in a later round.

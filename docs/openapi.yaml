@@ -780,7 +780,7 @@ paths:
             type: integer
       responses:
         '200':
-          description: Watch permission
+          description: Watch permission (denial reasons return 200 with allowed=false and a machine-readable code)
           content:
             application/json:
               schema:
@@ -790,6 +790,15 @@ paths:
                     type: boolean
                   reason:
                     type: string
+                  code:
+                    type: string
+                    description: Machine-readable access code (GRANTED, SUBSCRIPTION_EXPIRED, PAYMENT_PAST_DUE, FREE_LIMIT_REACHED, SUBSCRIPTION_REQUIRED)
+                  freeUsed:
+                    type: integer
+                  freeLimit:
+                    type: integer
+        '403':
+          description: Unconfirmed email (code=EMAIL_CONFIRMATION_REQUIRED)
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -830,6 +839,17 @@ paths:
       responses:
         '200':
           description: Stream token
+        '403':
+          description: Access denied. Body contains code SUBSCRIPTION_REQUIRED, SUBSCRIPTION_EXPIRED, PAYMENT_PAST_DUE, FREE_LIMIT_REACHED or EMAIL_CONFIRMATION_REQUIRED. Access is checked before provider availability.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
 

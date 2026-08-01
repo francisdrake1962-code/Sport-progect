@@ -380,14 +380,15 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
     const plan = row[0], status = row[1], freeUsed = row[2] || 0, emailConfirmed = row[3], expiresAt = row[4];
 
     if (!emailConfirmed) {
-      return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED' });
+      // API-003: stable machine-readable code for the client.
+      return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED', code: 'EMAIL_CONFIRMATION_REQUIRED' });
     }
 
     const now = new Date();
     const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
 
     if (hasPaidAccess) {
-      return res.json({ allowed: true, reason: 'paid' });
+      return res.json({ allowed: true, reason: 'paid', code: 'GRANTED' });
     }
 
     const lessonResult = db.exec(`SELECT is_free FROM lessons WHERE id = ?`, [lessonId]);
@@ -397,15 +398,26 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
     const isFree = lessonResult[0].values[0][0];
 
     if (isFree) {
-      return res.json({ allowed: true, reason: 'free_lesson' });
+      return res.json({ allowed: true, reason: 'free_lesson', code: 'GRANTED' });
     }
 
-    if ((plan === 'monthly' || plan === 'annual') && !hasPaidAccess) {
-      return res.json({ allowed: false, reason: 'subscription_expired' });
+    // API-003: a failed recurring payment (past_due) is NOT the same as an
+    // expired subscription — the client must show a different action.
+    if (plan === 'monthly' || plan === 'annual') {
+      if (status === 'past_due') {
+        return res.json({ allowed: false, reason: 'payment_past_due', code: 'PAYMENT_PAST_DUE' });
+      }
+      return res.json({ allowed: false, reason: 'subscription_expired', code: 'SUBSCRIPTION_EXPIRED' });
     }
 
     if (freeUsed >= FREE_LIMIT) {
-      return res.json({ allowed: false, reason: 'limit_reached', freeUsed, freeLimit: FREE_LIMIT });
+      return res.json({ allowed: false, reason: 'limit_reached', code: 'FREE_LIMIT_REACHED', freeUsed, freeLimit: FREE_LIMIT });
+    }
+
+    // API-003: subscriber without a paid plan whose state does not grant trial
+    // access (expired/suspended/inactive) gets the generic subscription code.
+    if (status !== 'trial' && status !== 'active') {
+      return res.json({ allowed: false, reason: 'subscription_required', code: 'SUBSCRIPTION_REQUIRED' });
     }
 
     const selCheck = db.exec(
@@ -414,7 +426,7 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
     );
     const isSelected = selCheck.length && selCheck[0].values.length > 0;
 
-    return res.json({ allowed: true, reason: isSelected ? 'selected_free' : 'trial', freeUsed, freeLimit: FREE_LIMIT });
+    return res.json({ allowed: true, reason: isSelected ? 'selected_free' : 'trial', code: 'GRANTED', freeUsed, freeLimit: FREE_LIMIT });
   } catch {
     res.status(500).json({ error: 'Access check failed' });
   }
@@ -433,11 +445,7 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const urow = userResult[0].values[0];
-    if (!urow[3]) return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED' });
-
-    if (!(await isStreamConfigured()) && !(await isMuxConfigured())) {
-      return res.status(503).json({ error: 'Streaming not configured' });
-    }
+    if (!urow[3]) return res.status(403).json({ error: 'EMAIL_NOT_CONFIRMED', code: 'EMAIL_CONFIRMATION_REQUIRED' });
 
     const userLang = urow[5] || 'ru';
 
@@ -447,6 +455,32 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     }
     const lrow = lessonResult[0].values[0];
     const isFree = lrow[0], originalCfUid = lrow[1], videoUrl = lrow[2], lessonProvider = lrow[3] || 'cloudflare';
+
+    // API-003: access is checked BEFORE provider availability, so a denied user
+    // gets a stable machine-readable 403 code instead of a misleading 503.
+    const plan = urow[0], status = urow[1], freeUsed = urow[2] || 0, expiresAt = urow[4];
+    const now = new Date();
+    const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
+    if (!hasPaidAccess) {
+      if (!isFree) {
+        if (plan === 'monthly' || plan === 'annual') {
+          if (status === 'past_due') {
+            return res.status(403).json({ error: 'payment_past_due', code: 'PAYMENT_PAST_DUE' });
+          }
+          return res.status(403).json({ error: 'subscription_expired', code: 'SUBSCRIPTION_EXPIRED' });
+        }
+        if (freeUsed >= FREE_LIMIT) {
+          return res.status(403).json({ error: 'limit_reached', code: 'FREE_LIMIT_REACHED', freeUsed, freeLimit: FREE_LIMIT });
+        }
+        if (status !== 'trial' && status !== 'active') {
+          return res.status(403).json({ error: 'subscription_required', code: 'SUBSCRIPTION_REQUIRED' });
+        }
+      }
+    }
+
+    if (!(await isStreamConfigured()) && !(await isMuxConfigured())) {
+      return res.status(503).json({ error: 'Streaming not configured' });
+    }
 
     let provider = lessonProvider;
     let cfUid = originalCfUid;
@@ -467,20 +501,6 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
           provider = defaultResult[0].values[0][1] || provider;
           videoLanguage = 'en';
           isOriginal = false;
-        }
-      }
-    }
-
-    const plan = urow[0], status = urow[1], freeUsed = urow[2] || 0, expiresAt = urow[4];
-    const now = new Date();
-    const hasPaidAccess = (plan === 'annual' || plan === 'monthly') && (status === 'active' || (status === 'cancelled' && expiresAt && new Date(expiresAt) > now));
-    if (!hasPaidAccess) {
-      if (!isFree) {
-        if ((plan === 'monthly' || plan === 'annual')) {
-          return res.status(403).json({ error: 'subscription_expired' });
-        }
-        if (freeUsed >= FREE_LIMIT) {
-          return res.status(403).json({ error: 'limit_reached', freeUsed, freeLimit: FREE_LIMIT });
         }
       }
     }

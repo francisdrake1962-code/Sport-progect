@@ -4,6 +4,22 @@
 
 ---
 
+## [5.17.0] - 2026-08-01
+
+### Added — Machine-readable access denial codes (API-003)
+
+Round 10 of the Devil's Advocate audit.
+
+- `server/routes/user.js` — `GET /api/user/can-watch/:lessonId` and `GET /api/user/stream-token/:lessonId` now return a stable `code` alongside existing fields (`allowed`, `reason`, `freeUsed`, `freeLimit`): `GRANTED`, `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `FREE_LIMIT_REACHED`, `SUBSCRIPTION_REQUIRED`, `EMAIL_CONFIRMATION_REQUIRED`. HTTP statuses for existing clients are unchanged (`can-watch` keeps `200 + allowed:false` for plan denials; 403 only for unconfirmed email). `stream-token` now checks access **before** provider availability, so a denied user gets a `403` with a code instead of a misleading `503`.
+- `server/helpers/errors.js` / `server/services/auth.service.js` — `ForbiddenError` gained an optional machine code; `POST /api/user/login` for an unconfirmed email returns `403` with `error.code = 'EMAIL_CONFIRMATION_REQUIRED'` (the real gate unconfirmed users hit — login rejects before any token is issued).
+- `src/pages/player.html` — denial UI now switches on the code: «Подписка истекла», «Оплата не прошла», «Подписка требуется», plus the existing «Бесплатный период окончен» and «Подтвердите email».
+- `src/pages/login.html` — email-confirmation branch now matches the machine code `EMAIL_CONFIRMATION_REQUIRED` (the old `EMAIL_NOT_CONFIRMED` string check never matched the structured error).
+- `docs/API.md`, `docs/openapi.yaml` — code table + contract guarantees (no video path/Stripe internals leaked; access-before-provider; login code).
+- Contract tests for each code in `tests/payment.test.js` (8 tests); one existing `past_due` test now asserts `code: 'PAYMENT_PAST_DUE'`.
+- Full suite: **924/924 tests, 18 suites**; eslint 0 errors; build passes.
+
+---
+
 ## [5.16.0] - 2026-08-01
 
 ### Changed — Honest CI quality gate (OPS-002)

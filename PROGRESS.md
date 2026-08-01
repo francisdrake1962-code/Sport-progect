@@ -2,20 +2,21 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.16.0
+> Last updated: 2026-08-01 v5.17.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.16.0 (Devil's Advocate Round 9 — honest CI quality gate OPS-002; see `AUDIT_REPORT_2026-08-01.md`)
-**Tests**: 916/916 passing (18 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
+**Version**: 5.17.0 (Devil's Advocate Round 10 — machine-readable access denial codes API-003; see `AUDIT_REPORT_2026-08-01.md`)
+**Tests**: 924/924 passing (18 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+(commit will be added after push) v5.17.0: Devil's Advocate Round 10 — API-003 machine-readable access denial codes (can-watch/stream-token/login)
 0cf3ecd8 v5.15.0: Devil's Advocate Round 8 — DB-001 pre-migration backups, DB runbook, forward-only migration policy
 a40ac162 v5.14.0: Devil's Advocate Round 7 — DOC-001/DOC-002 Payment Flow, subscription state machine, provider/recurrence strategy (API.md, ARCHITECTURE.md, ADR-010)
 64b97258 v5.13.0: Devil's Advocate Round 6 — OPS-001 atomic saveDb (temp file + rename, crash-safe)
@@ -48,6 +49,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Devil's Advocate Round 7 | DOC-001/DOC-002 Payment Flow, state machine, provider strategy (API.md / ARCHITECTURE.md / ADR-010) | ✅ DONE (v5.14.0) |
 | Devil's Advocate Round 8 | DB-001 pre-migration backups + DB runbook (`docs/DB_RUNBOOK.md`) | ✅ DONE (v5.15.0) |
 | Devil's Advocate Round 9 | OPS-002 honest CI quality gate (no `continue-on-error`, randomized full suite, required status check) | ✅ DONE (v5.16.0) |
+| Devil's Advocate Round 10 | API-003 machine-readable access denial codes (`GRANTED`/`SUBSCRIPTION_EXPIRED`/`PAYMENT_PAST_DUE`/`EMAIL_CONFIRMATION_REQUIRED`/`FREE_LIMIT_REACHED`/`SUBSCRIPTION_REQUIRED`; access-before-provider; contract tests; frontend action per code) | ✅ DONE (v5.17.0) |
 
 ---
 

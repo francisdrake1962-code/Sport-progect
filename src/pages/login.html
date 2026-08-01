@@ -142,7 +142,7 @@
                     body: JSON.stringify({ email, password })
                 });
                 responseData = await res.json();
-                if (!res.ok) throw new Error(responseData.error || 'Login failed');
+                if (!res.ok) throw new Error(responseData.error && responseData.error.code ? responseData.error.code : (responseData.error || 'Login failed'));
                 localStorage.setItem('user_token', responseData.token);
                 localStorage.setItem('user_data', JSON.stringify(responseData.user));
                 sendFingerprint(responseData.token);
@@ -153,7 +153,7 @@
                 } catch(_) {}
                 window.location.href = 'dashboard.html';
             } catch(err) {
-                if (err.message === 'EMAIL_NOT_CONFIRMED') {
+                if (err.message === 'EMAIL_CONFIRMATION_REQUIRED' || err.message === 'EMAIL_NOT_CONFIRMED') {
                     let html = 'Email не подтверждён. Проверьте почту. <button id="resend-btn" style="background:none;border:none;color:#7acc8a;cursor:pointer;text-decoration:underline;font-size:0.85rem;">Отправить письмо повторно</button>';
                     loginError.innerHTML = html;
                     loginError.style.display = 'block';

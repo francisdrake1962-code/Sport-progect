@@ -30,9 +30,10 @@ class UnauthorizedError extends AppError {
 }
 
 class ForbiddenError extends AppError {
-  constructor(message = 'Admin access required') {
+  constructor(message = 'Admin access required', machineCode = null) {
     super('FORBIDDEN', message, 403);
     this.name = 'ForbiddenError';
+    this.machineCode = machineCode;
   }
 }
 
@@ -65,7 +66,7 @@ function formatError(res, error, requestId = null) {
   const body = {
     success: false,
     error: {
-      code: error.code || 'INTERNAL_ERROR',
+      code: error.machineCode || error.code || 'INTERNAL_ERROR',
       message: error.message || 'Internal server error',
     },
   };

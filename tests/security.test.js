@@ -296,7 +296,7 @@ describe('Security — Video Access Control', () => {
 
 describe('Security — Stream-Scoped JWT for Video Access (P1-1)', () => {
   const jwt = require('jsonwebtoken');
-  const { JWT_SECRET } = require('../server/auth');
+  const auth = require('../server/auth');
   let testLessonId;
   let subId;
 
@@ -316,7 +316,7 @@ describe('Security — Stream-Scoped JWT for Video Access (P1-1)', () => {
 
   const streamToken = (opts = {}) => jwt.sign(
     { scope: 'stream', lessonId: opts.lessonId || testLessonId, subscriberId: opts.subscriberId || subId, jti: 'test-jti-' + Math.random() },
-    JWT_SECRET,
+    auth.JWT_SECRET,
     { algorithm: 'HS256', expiresIn: opts.expiresIn || '15m' }
   );
 
@@ -349,7 +349,7 @@ describe('Security — Stream-Scoped JWT for Video Access (P1-1)', () => {
   test('stream token without stream scope is rejected', async () => {
     const t = jwt.sign(
       { scope: 'download', lessonId: testLessonId, subscriberId: subId, jti: 'x' },
-      JWT_SECRET,
+      auth.JWT_SECRET,
       { algorithm: 'HS256', expiresIn: '15m' }
     );
     const res = await apiRequest('GET', `/videos/placeholder.mp4?token=${t}`);

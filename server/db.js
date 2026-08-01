@@ -436,13 +436,17 @@ function saveDb() {
     try {
       const data = db.export();
       const buffer = Buffer.from(data);
-      fs.writeFile(DB_PATH, buffer, (err) => {
-        if (err) console.error('Failed to save database:', err.message);
-        if (savePending && db) { savePending = false; saveDb(); }
-      });
+      // OPS-001: atomic write — the DB is written to a temp file in the same
+      // directory and then renamed over the real file. A crash mid-write can no
+      // longer truncate/corrupt qigong.db in place; the last good file survives.
+      const tempPath = DB_PATH + '.tmp';
+      fs.writeFileSync(tempPath, buffer);
+      fs.renameSync(tempPath, DB_PATH);
     } catch (err) {
-      console.error('Failed to export database:', err.message);
+      console.error('Failed to save database:', err.message);
+      try { if (fs.existsSync(DB_PATH + '.tmp')) fs.unlinkSync(DB_PATH + '.tmp'); } catch {}
     }
+    if (savePending && db) { savePending = false; saveDb(); }
   }, 300);
 }
 

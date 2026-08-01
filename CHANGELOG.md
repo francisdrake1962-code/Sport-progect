@@ -4,6 +4,18 @@
 
 ---
 
+## [5.13.0] - 2026-08-01
+
+### Fixed — Atomic database writes (OPS-001)
+
+Round 6 of the Devil's Advocate audit.
+
+- `server/db.js` — `saveDb()` no longer writes the sql.js export directly to `qigong.db` (a crash mid-write could truncate/corrupt the file in place). It now writes to a temp file in the same directory and atomically renames it over the real DB; the last good file always survives, and a failed write cleans up the temp file.
+- `tests/db.test.js` — new suite (3 tests): temp-file-then-rename is used, a saved DB round-trips through a reload, and a simulated failed write keeps the previous DB intact with no temp litter.
+- Full suite: **915/915 tests, 18 suites** (order-independent, verified with `jest --randomize`); eslint 0 errors.
+
+---
+
 ## [5.12.0] - 2026-08-01
 
 ### Fixed — Paid-period integrity (PAY-003), failed-payment plan, honest production config

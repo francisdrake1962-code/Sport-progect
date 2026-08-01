@@ -89,3 +89,43 @@ tests first (TDD). One High and two Medium findings were corrected.
 3. **DOC-001/DOC-002**: Payment Flow + subscription state machine + provider/recurrence strategy still undocumented in `docs/API.md`/`docs/ARCHITECTURE.md`/ADR.
 4. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
 5. **Manual production step**: create Stripe Price objects and fill `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID` + the four Mux vars (all-or-none).
+
+---
+
+# Devil's Advocate Audit — Round 6 (OPS-001)
+
+Date: 2026-08-01 | Version: 5.13.0 | Auditor: opencode
+
+## Outcome
+
+Round 6 hardened the persistence layer: the sql.js database was written
+in-place by a debounced `fs.writeFile`, so a crash mid-write (or a disk-full /
+process kill) could truncate `qigong.db` and lose the whole dataset.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-43 | High (OPS-001) | `saveDb()` wrote `db.export()` directly to `qigong.db` with `fs.writeFile`. Non-atomic: a crash during the write leaves a truncated/corrupt DB — the only copy of all subscribers, payments and content is destroyed in place. | `saveDb()` now writes the buffer to a temp file in the same directory and atomically renames it over the real DB. A failed write leaves the previous file untouched and cleans up the temp file. | `tests/db.test.js` (new suite, 3 tests): temp-then-rename is actually used; a saved DB round-trips through a fresh sql.js reload; a simulated `fs.writeFileSync` failure keeps the pre-crash DB intact with no `.tmp` litter. |
+
+## TDD record
+
+1. Wrote 3 tests first (temp+rename used; round-trip after save; crash keeps previous DB). Confirmed red against the old in-place `writeFile` (no temp path involved).
+2. Replaced `saveDb()` internals with temp-file + rename and temp cleanup on failure.
+3. Full suite green, order-independent (new suite uses `resetDb()` + fake timers, isolated per test).
+
+## Verification after correction
+
+- `npx jest --runInBand`: **18 suites, 915/915 tests passed** (912 before + 3 new).
+- `npx jest --runInBand --randomize`: green (order-independence holds with the new suite).
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings — hero-poster.jpg).
+
+## Decisions recorded
+
+- Sync write in the debounced timer (single-threaded, small DB) is fine; `fs.renameSync` replaces the destination on both POSIX and Windows (MoveFileEx + REPLACE_EXISTING).
+
+## Remaining risks (deferred to later rounds)
+
+1. **DB-001**: migrations still run migrate-on-start without an automated pre-migration backup / rollback runbook.
+2. **DOC-001/DOC-002**: Payment Flow + subscription state machine + provider/recurrence strategy still undocumented in `docs/API.md`/`docs/ARCHITECTURE.md`/ADR.
+3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
+4. **Manual production step**: Stripe Price IDs + Mux keys (all-or-none) must be filled before a production deploy can boot.

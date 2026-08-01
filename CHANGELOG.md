@@ -4,6 +4,19 @@
 
 ---
 
+## [5.16.0] - 2026-08-01
+
+### Changed — Honest CI quality gate (OPS-002)
+
+Round 9 of the Devil's Advocate audit.
+
+- `.github/workflows/ci.yml` — the gate is now **honest**: removed both `continue-on-error` flags (lint and build no longer silently pass when they fail) and lint now covers the project's real scope (`npm run lint` → `server/ src/ tests/`, not just `server/`). The test step runs the full suite **in randomized order** (`npm run test:ci` → `jest --runInBand --randomize --forceExit`) to prove order-independence, and uses npm scripts as the single source of truth.
+- `package.json` — added `test:ci` script (`jest --runInBand --randomize --forceExit`).
+- `docs/DEPLOYMENT.md` — CI section rewritten; documents the required-status-check step (branch protection) so a red CI can never be merged.
+- Full suite locally: **916/916 tests, 18 suites** (randomized); eslint 0 errors; build passes.
+
+---
+
 ## [5.15.0] - 2026-08-01
 
 ### Added — Pre-migration backups + DB runbook (DB-001)

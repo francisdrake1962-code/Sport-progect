@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-test:
+  quality-gate:
     runs-on: ubuntu-latest
 
     strategy:
@@ -27,16 +27,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npx eslint server/ --max-warnings 100
-        continue-on-error: true
+      - name: Lint (server, src, tests — must pass, no continue-on-error)
+        run: npm run lint
 
-      - name: Run tests
-        run: npx jest --forceExit --detectOpenHandles
+      - name: Test (full suite, randomized order — must pass)
+        run: npm run test:ci
         env:
           NODE_ENV: test
           JWT_SECRET: ci-test-secret-key-for-github-actions
 
-      - name: Build
+      - name: Build (must pass)
         run: npm run build
-        continue-on-error: true

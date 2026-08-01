@@ -175,18 +175,14 @@ npm run build
 
 ## CI/CD (GitHub Actions)
 
-`.github/workflows/ci.yml` включает:
+`.github/workflows/ci.yml` — единый **обязательный quality gate** (job `quality-gate`, матрица Node 18/20). Ни один шаг не имеет `continue-on-error`: падение любого шага краснит CI. Один источник истины — npm-скрипты:
 
-1. Install dependencies
-2. Lint (0 errors required)
-3. Security tests
-4. Backend tests
-5. Admin tests
-6. Pages tests
-7. Components tests
-8. E2E tests
-9. Regression tests
-10. Build check
+1. `npm ci` — install dependencies
+2. `npm run lint` — ESLint по `server/ src/ tests/` (0 errors; 13 предсуществующих warnings не фейлят)
+3. `npm run test:ci` — `jest --runInBand --randomize --forceExit` (полный набор, случайный порядок сьютов — проверка order-independence)
+4. `npm run build` — webpack production build
+
+**Перед merge PR** job `quality-gate` должен быть помечен как **required status check** (branch protection: Settings → Branches → Branch protection rule → Require status checks → `quality-gate`). Без этого merge возможен при красном CI.
 
 ## Мониторинг
 

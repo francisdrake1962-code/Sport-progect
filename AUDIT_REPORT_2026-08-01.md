@@ -202,3 +202,42 @@ restore, transforms, or ownership.
 2. **API-001** revision: verify the unified error format across remaining endpoints.
 3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
 4. **Manual production step**: Stripe Price IDs + Mux keys (all-or-none) must be filled before a production deploy can boot.
+
+---
+
+# Devil's Advocate Audit — Round 9 (OPS-002)
+
+Date: 2026-08-01 | Version: 5.16.0 | Auditor: opencode
+
+## Outcome
+
+Round 9 fixed the CI quality gate: the pipeline could go green while lint and
+build actually failed, and the lint step covered only `server/`.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-48 | High (OPS-002) | `ci.yml` had `continue-on-error: true` on **lint and build** — a green CI was possible with lint errors and a broken production build. Lint only ran against `server/` (not `src/` or `tests/`), and the suite ran without the order-independence check. | Both `continue-on-error` flags removed; lint now uses `npm run lint` (the project's real scope: `server/ src/ tests/`); tests run `npm run test:ci` = `jest --runInBand --randomize --forceExit` (full suite in randomized order); build must pass; npm scripts are the single source of truth. | `npm run test:ci` locally: **18 suites, 916/916 passed** with a randomized seed. Docs updated (DEPLOYMENT.md: required-status-check instructions). |
+
+## TDD record
+
+1. Wrote `test:ci` npm script and the new honest `ci.yml` (gate first).
+2. Verified `npm run test:ci` green locally (randomized order, 916/916).
+3. Rewrote the CI section in `docs/DEPLOYMENT.md` (quality gate + required status check before merge).
+
+## Verification after correction
+
+- `npm run test:ci`: 18 suites, 916/916 passed (randomized seed, `--forceExit` clean).
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings — hero-poster.jpg).
+- The workflow file itself will be exercised by GitHub Actions on the next push.
+
+## Decisions recorded
+
+- CI is a single required gate; no per-suite jobs, no `continue-on-error`. `--forceExit` retained to avoid hanging CI on lingering handles (documented, not silent).
+
+## Remaining risks (deferred to later rounds)
+
+1. **API-001** revision: verify the unified error format across remaining endpoints.
+2. **API-003**: machine-readable access-denial reasons (`code` in gate responses).
+3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
+4. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); mark `quality-gate` as required status check in branch protection.

@@ -2,24 +2,24 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.15.0
+> Last updated: 2026-08-01 v5.16.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.15.0 (Devil's Advocate Round 8 — pre-migration backups + DB runbook; see `AUDIT_REPORT_2026-08-01.md`)
-**Tests**: 916/916 passing (18 suites), order-independent (verified with `jest --randomize`)
+**Version**: 5.16.0 (Devil's Advocate Round 9 — honest CI quality gate OPS-002; see `AUDIT_REPORT_2026-08-01.md`)
+**Tests**: 916/916 passing (18 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+0cf3ecd8 v5.15.0: Devil's Advocate Round 8 — DB-001 pre-migration backups, DB runbook, forward-only migration policy
 a40ac162 v5.14.0: Devil's Advocate Round 7 — DOC-001/DOC-002 Payment Flow, subscription state machine, provider/recurrence strategy (API.md, ARCHITECTURE.md, ADR-010)
 64b97258 v5.13.0: Devil's Advocate Round 6 — OPS-001 atomic saveDb (temp file + rename, crash-safe)
 31b987ac v5.12.0: Devil's Advocate Round 5 — PAY-003 paid-period integrity (never shrink), payment_failed real plan, honest config (Price IDs required, Mux all-or-none)
-deea69ce v5.11.0: Devil's Advocate Round 4 — atomic Stripe webhook (PAY-002), subscription state machine (PAY-001), past_due schema migration 008
 ```
 
 ---
@@ -47,6 +47,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Devil's Advocate Round 6 | OPS-001 atomic `saveDb()` (temp file + rename, crash-safe) | ✅ DONE (v5.13.0) |
 | Devil's Advocate Round 7 | DOC-001/DOC-002 Payment Flow, state machine, provider strategy (API.md / ARCHITECTURE.md / ADR-010) | ✅ DONE (v5.14.0) |
 | Devil's Advocate Round 8 | DB-001 pre-migration backups + DB runbook (`docs/DB_RUNBOOK.md`) | ✅ DONE (v5.15.0) |
+| Devil's Advocate Round 9 | OPS-002 honest CI quality gate (no `continue-on-error`, randomized full suite, required status check) | ✅ DONE (v5.16.0) |
 
 ---
 
@@ -244,10 +245,16 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - ✅ ARCHITECTURE.md/DEPLOYMENT.md cross-link; +1 тест (бэкап — валидный снапшот)
 - ✅ 916/916 tests, 18 suites; lint 0 errors
 
+### v5.16.0 — Devil's Advocate Round 9: OPS-002 honest CI (DONE)
+- ✅ `ci.yml`: удалены оба `continue-on-error`; lint по полному scope (`npm run lint`); тесты рандомизированы (`npm run test:ci` = `jest --runInBand --randomize --forceExit`); build обязателен; единый источник истины — npm scripts
+- ✅ `package.json`: добавлен `test:ci`
+- ✅ `docs/DEPLOYMENT.md`: секция CI переписана; шаг про required status check (branch protection) перед merge
+- ✅ Локально 916/916, рандомизировано; lint 0 errors; build OK
+
 ### Next round — candidate items:
-1. ⏳ **OPS-002**: честный CI quality gate (тесты + lint + build в одном шаге GitHub Actions, верификация order-independence `jest --randomize`).
-2. ⏳ **API-001** (из ТЗ): сверить единый формат ошибок без поломки клиентов (уже сделан частично в v5.9.0 — ревизия остаточных эндпоинтов).
-3. ⚠️ **Manual production step**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair).
+1. ⏳ **API-001** (ревизия): единый формат ошибок без поломки клиентов — сверить остаточные эндпоинты (уже частично в v5.9.0).
+2. ⏳ **API-003**: машиночитаемые причины отказа в доступе (`code` в ответе гейтов доступа).
+3. ⚠️ **Manual production step**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair); в GitHub сделать `quality-gate` required check.
 
 ### v5.10.4 — Mux-first video upload (DONE)
 - ✅ Migration 007: `video_uploads` + `provider`/`mux_upload_id`/`mux_asset_id`/`mux_playback_id`

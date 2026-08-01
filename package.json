@@ -4,7 +4,7 @@
   "description": "Лендинг для цигун и суставной разминки",
   "main": "server/index.js",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "test": "jest",

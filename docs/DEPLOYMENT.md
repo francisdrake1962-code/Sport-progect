@@ -2,7 +2,7 @@
 
 ## Предпосылки
 
-- Node.js >= 18.x
+- Node.js >= 20.19.0 (ESLint 10 requires `^20.19.0 || ^22.13.0 || >=24`; Node 18 is not supported)
 - npm >= 9.x
 - ОС: Linux, macOS, Windows
 
@@ -175,7 +175,7 @@ npm run build
 
 ## CI/CD (GitHub Actions)
 
-`.github/workflows/ci.yml` — единый **обязательный quality gate** (job `quality-gate`, матрица Node 18/20). Ни один шаг не имеет `continue-on-error`: падение любого шага краснит CI. Один источник истины — npm-скрипты:
+`.github/workflows/ci.yml` — единый **обязательный quality gate** (job `quality-gate`, матрица Node 22/24 — ESLint 10 не поддерживает Node 18). Ни один шаг не имеет `continue-on-error`: падение любого шага краснит CI. Один источник истины — npm-скрипты:
 
 1. `npm ci` — install dependencies
 2. `npm run lint` — ESLint по `server/ src/ tests/` (0 errors; 13 предсуществующих warnings не фейлят)

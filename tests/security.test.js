@@ -40,6 +40,21 @@ let testServer;
 let adminToken, subToken;
 
 beforeAll(async () => {
+  const fs = require('fs');
+  const path = require('path');
+  const videosDir = path.join(__dirname, '..', 'videos');
+  const placeholder = path.join(videosDir, 'placeholder.mp4');
+  if (!fs.existsSync(placeholder)) {
+    fs.mkdirSync(videosDir, { recursive: true });
+    fs.writeFileSync(placeholder, Buffer.alloc(4096));
+  }
+  const adminDist = path.join(__dirname, '..', 'dist', 'admin');
+  const adminIndex = path.join(adminDist, 'index.html');
+  if (!fs.existsSync(adminIndex)) {
+    fs.mkdirSync(adminDist, { recursive: true });
+    fs.writeFileSync(adminIndex, '<!DOCTYPE html><html><head><title>Admin</title></head><body></body></html>');
+  }
+
   const { resetDb } = require('../server/db');
   resetDb();
   process.env.NODE_ENV = 'test';

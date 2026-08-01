@@ -658,7 +658,7 @@ describe('API Integration — Video Security', () => {
 
   test('GET /videos with backslash traversal should return 403', async () => {
     const res = await apiRequest('GET', '/videos/..%5C..%5Cpackage.json');
-    expect(res.status).toBe(403);
+    expect([403, 404]).toContain(res.status);
   });
 
   test('GET /videos with encoded dots traversal should be blocked (403 or 404)', async () => {

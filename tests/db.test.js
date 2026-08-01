@@ -77,4 +77,24 @@ describe('db — atomic save (OPS-001)', () => {
     writeFileSyncSpy.mockRestore();
     errorSpy.mockRestore();
   });
+
+  test('pre-migration backup is a valid snapshot of the current DB (DB-001)', async () => {
+    const { createPreMigrationBackup } = require('../server/helpers/migrations');
+    const db = await getDb();
+    db.run(`UPDATE settings SET value = 'backup-snapshot' WHERE key = 'app_name'`);
+
+    const backupPath = createPreMigrationBackup(db);
+
+    const backupsDir = path.join(__dirname, '..', 'data', 'backups');
+    expect(backupPath.startsWith(backupsDir)).toBe(true);
+    expect(fs.existsSync(backupPath)).toBe(true);
+
+    const SQL = await initSqlJs();
+    const reopened = new SQL.Database(fs.readFileSync(backupPath));
+    const result = reopened.exec(`SELECT value FROM settings WHERE key = 'app_name'`);
+    expect(result[0].values[0][0]).toBe('backup-snapshot');
+    reopened.close();
+
+    fs.unlinkSync(backupPath);
+  });
 });

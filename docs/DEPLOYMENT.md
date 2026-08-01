@@ -239,6 +239,8 @@ cp data/qigong.db /backup/qigong.db
 systemctl start qigong
 ```
 
+При миграциях сервер автоматически создаёт снапшот `data/backups/pre-migration-<ts>.db` до изменения схемы. Полный runbook восстановления и каталог миграций: `docs/DB_RUNBOOK.md`.
+
 ## Сброс данных (development)
 
 ```bash

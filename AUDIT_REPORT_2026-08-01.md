@@ -160,3 +160,45 @@ documented in the three spec documents, matching the code exactly.
 2. **OPS-002**: CI quality gate not yet wired to require the full test+lint+build gate.
 3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
 4. **Manual production step**: Stripe Price IDs + Mux keys (all-or-none) must be filled before a production deploy can boot.
+
+---
+
+# Devil's Advocate Audit — Round 8 (DB-001)
+
+Date: 2026-08-01 | Version: 5.15.0 | Auditor: opencode
+
+## Outcome
+
+Round 8 closed the migration-safety gap: schema changes were applied
+migrate-on-start with no automated snapshot before mutation and no runbook for
+restore, transforms, or ownership.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-47 | High (DB-001) | `runMigrations()` applied pending migrations in place with **no pre-migration snapshot** — a failed/partial forward migration had no automated rollback target, and there was no runbook documenting restore, per-file data transforms, or who decides to restore. | `runMigrations()` now snapshots the DB to `data/backups/pre-migration-<ts>.db` (in-memory export) before applying any pending migration (skipped in `NODE_ENV=test`). New `docs/DB_RUNBOOK.md` documents backup/restore, the forward-only policy (rollback = replace `qigong.db` from snapshot), the migration catalog with per-file transforms (nothing touches `payments`/`payment_events`; migration 008 copies `subscribers` 1:1), a dry-run checklist on a production-like copy, and the restore decision owner. | `tests/db.test.js` — DB-001 test: the backup produced by `createPreMigrationBackup(db)` is a valid sql.js snapshot containing the current data. |
+
+## TDD record
+
+1. Wrote the DB-001 test first (backup snapshot is a valid DB with current data). Confirmed red (function did not exist).
+2. Implemented `createPreMigrationBackup` + the pre-migration hook in `runMigrations()`.
+3. Wrote `docs/DB_RUNBOOK.md` and cross-linked it from `ARCHITECTURE.md` / `DEPLOYMENT.md`.
+4. Full suite, lint and build green.
+
+## Verification after correction
+
+- `npx jest --runInBand`: **18 suites, 916/916 tests passed** (915 before + 1 new).
+- `npx jest --runInBand --randomize`: green.
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings — hero-poster.jpg).
+
+## Decisions recorded
+
+- Migration policy is **forward-only**; rollback always goes through the pre-migration snapshot. No `down` migrations are introduced.
+- Backups are never auto-deleted; cleanup is the owner's manual step.
+
+## Remaining risks (deferred to later rounds)
+
+1. **OPS-002**: CI quality gate not yet wired to require the full test+lint+build gate (and `jest --randomize`).
+2. **API-001** revision: verify the unified error format across remaining endpoints.
+3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
+4. **Manual production step**: Stripe Price IDs + Mux keys (all-or-none) must be filled before a production deploy can boot.

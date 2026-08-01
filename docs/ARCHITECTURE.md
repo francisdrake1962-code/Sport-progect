@@ -682,8 +682,10 @@ Middleware `validateBody` проверяет:
 
 - SQL-файлы из `server/migrations/*.sql`
 - Автоматическое определение применённых миграций через таблицу `migrations`
-- Каждая миграция выполняется в транзакции (BEGIN/COMMIT/ROLLBACK)
+- Каждая миграция выполняется в транзакции (BEGIN/COMMIT/ROLLBACK), `PRAGMA foreign_keys` отключается на время миграции
+- Перед применением не применённых миграций автоматически создаётся снапшот `data/backups/pre-migration-<ts>.db` (DB-001)
 - Отслеживание по имени файла
+- Полный runbook (backup/restore, каталог миграций, трансформации): `docs/DB_RUNBOOK.md`
 
 ### Бэкап и восстановление
 

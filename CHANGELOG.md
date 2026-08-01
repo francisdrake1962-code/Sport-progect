@@ -4,6 +4,20 @@
 
 ---
 
+## [5.15.0] - 2026-08-01
+
+### Added — Pre-migration backups + DB runbook (DB-001)
+
+Round 8 of the Devil's Advocate audit.
+
+- `server/helpers/migrations.js` — `runMigrations()` now creates a snapshot `data/backups/pre-migration-<ts>.db` (in-memory export) **before** applying any pending schema migration (skipped in `NODE_ENV=test`, where the DB is recreated anyway). `createPreMigrationBackup(db)` exported for tests.
+- `docs/DB_RUNBOOK.md` — new: backup/restore procedures, forward-only migration policy (rollback = restore snapshot), migration catalog with per-file data-transform rules (nothing touches `payments`/`payment_events`; `008` copies `subscribers` 1:1), dry-run checklist on a production-like DB copy, and the restore decision owner.
+- `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md` — cross-linked to the runbook.
+- `tests/db.test.js` — +1 test: the pre-migration backup is a valid sql.js snapshot of the current DB (DB-001).
+- Full suite: **916/916 tests, 18 suites**; eslint 0 errors.
+
+---
+
 ## [5.14.0] - 2026-08-01
 
 ### Documentation — Payment Flow, state machine, provider strategy (DOC-001/DOC-002)

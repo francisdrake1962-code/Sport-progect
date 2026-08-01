@@ -2,24 +2,24 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.14.0
+> Last updated: 2026-08-01 v5.15.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.14.0 (Devil's Advocate Round 7 — Payment Flow / state machine / provider docs; see `AUDIT_REPORT_2026-08-01.md`)
-**Tests**: 915/915 passing (18 suites), order-independent (verified with `jest --randomize`)
+**Version**: 5.15.0 (Devil's Advocate Round 8 — pre-migration backups + DB runbook; see `AUDIT_REPORT_2026-08-01.md`)
+**Tests**: 916/916 passing (18 suites), order-independent (verified with `jest --randomize`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+a40ac162 v5.14.0: Devil's Advocate Round 7 — DOC-001/DOC-002 Payment Flow, subscription state machine, provider/recurrence strategy (API.md, ARCHITECTURE.md, ADR-010)
 64b97258 v5.13.0: Devil's Advocate Round 6 — OPS-001 atomic saveDb (temp file + rename, crash-safe)
 31b987ac v5.12.0: Devil's Advocate Round 5 — PAY-003 paid-period integrity (never shrink), payment_failed real plan, honest config (Price IDs required, Mux all-or-none)
 deea69ce v5.11.0: Devil's Advocate Round 4 — atomic Stripe webhook (PAY-002), subscription state machine (PAY-001), past_due schema migration 008
-4791d6f v5.10.4: Mux-first direct video uploads, provider-aware lessons/media, settings-driven payment amounts, test-isolated DB
 ```
 
 ---
@@ -46,6 +46,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Devil's Advocate Round 5 | PAY-003 paid-period integrity, failed-payment plan, honest production config (Price IDs + Mux all-or-none) | ✅ DONE (v5.12.0) |
 | Devil's Advocate Round 6 | OPS-001 atomic `saveDb()` (temp file + rename, crash-safe) | ✅ DONE (v5.13.0) |
 | Devil's Advocate Round 7 | DOC-001/DOC-002 Payment Flow, state machine, provider strategy (API.md / ARCHITECTURE.md / ADR-010) | ✅ DONE (v5.14.0) |
+| Devil's Advocate Round 8 | DB-001 pre-migration backups + DB runbook (`docs/DB_RUNBOOK.md`) | ✅ DONE (v5.15.0) |
 
 ---
 
@@ -237,9 +238,15 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - ✅ `docs/ADR.md`: ADR-010 (state machine + atomic webhook + period integrity)
 - ✅ Docs-only; 915/915 tests, 18 suites; lint 0 errors
 
+### v5.15.0 — Devil's Advocate Round 8: DB-001 (DONE)
+- ✅ `runMigrations()` создаёт снапшот `data/backups/pre-migration-<ts>.db` перед применением pending-миграций (skip в test env)
+- ✅ `docs/DB_RUNBOOK.md`: backup/restore, forward-only policy, каталог миграций + трансформации, dry-run, владелец восстановления
+- ✅ ARCHITECTURE.md/DEPLOYMENT.md cross-link; +1 тест (бэкап — валидный снапшот)
+- ✅ 916/916 tests, 18 suites; lint 0 errors
+
 ### Next round — candidate items:
-1. ⏳ **DB-001**: backup/rollback runbook for versioned migrations (currently migrate-on-start, no rollback path); pre-migration backup.
-2. ⏳ **OPS-002**: честный CI quality gate (тесты+lint+build в одном шаге GitHub Actions, верификация order-independence).
+1. ⏳ **OPS-002**: честный CI quality gate (тесты + lint + build в одном шаге GitHub Actions, верификация order-independence `jest --randomize`).
+2. ⏳ **API-001** (из ТЗ): сверить единый формат ошибок без поломки клиентов (уже сделан частично в v5.9.0 — ревизия остаточных эндпоинтов).
 3. ⚠️ **Manual production step**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair).
 
 ### v5.10.4 — Mux-first video upload (DONE)

@@ -3,6 +3,21 @@ const path = require('path');
 const { getDb, saveDb } = require('../db');
 
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
+const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+
+// DB-001: snapshot the DB as it is on disk *before* any schema migration is
+// applied. Restore = stop app → replace data/qigong.db with this file → start.
+function createPreMigrationBackup(db) {
+  if (!fs.existsSync(BACKUPS_DIR)) {
+    fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = path.join(BACKUPS_DIR, `pre-migration-${timestamp}.db`);
+  const data = db.export();
+  fs.writeFileSync(backupPath, Buffer.from(data));
+  return backupPath;
+}
 
 async function ensureMigrationsTable(db) {
   db.run(`
@@ -40,6 +55,10 @@ async function runMigrations() {
   }
 
   let count = 0;
+  if (pending.length > 0 && process.env.NODE_ENV !== 'test') {
+    const backupPath = createPreMigrationBackup(db);
+    console.log(`Pre-migration backup created: ${backupPath}`);
+  }
   for (const file of pending) {
     const filePath = path.join(MIGRATIONS_DIR, file);
     const sql = fs.readFileSync(filePath, 'utf8');
@@ -76,4 +95,4 @@ async function runMigrations() {
   return { applied: count, total: files.length };
 }
 
-module.exports = { runMigrations };
+module.exports = { runMigrations, createPreMigrationBackup };

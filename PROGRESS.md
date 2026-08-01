@@ -2,7 +2,7 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.17.0
+> Last updated: 2026-08-01 v5.17.0 (commits dbc37025b + e42425b96, both pushed)
 
 ---
 
@@ -432,7 +432,7 @@ server/
 
 1. **User communicates in Russian** — respond in Russian
 2. **One step forward, two steps back** — always verify before moving on
-3. **868/868 tests must pass** after every change (15 suites)
+3. **924/924 tests must pass** after every change (18 suites)
 4. **Push to GitHub** after every commit
 5. **Never modify MWH APK** — illegal (DRM)
 6. **Subscription model**: 7 days free WITHOUT payment card
@@ -440,3 +440,21 @@ server/
 8. **DB**: sql.js, seeded on first start at `data/qigong.db`
 9. **Admin**: admin@qigong.com / admin123
 10. **Subscribers**: maria@, elena@, sergey@, anna@, olga@example.com — all password123
+11. **TDD-цикл** по `docs/IMPROVEMENT_TZ.md`: тест red → реализация → полный прогон → доки → коммит+push
+12. **HTTP-контракт** не менять без обратной совместимости; миграции — только versioned
+
+---
+
+## NEXT ACTIONS (resume point)
+
+Текущий статус: Round 10 (API-003) готов — **v5.17.0**, всё запушено. Следующий раунд — по цепочке из `docs/IMPROVEMENT_TZ.md`; кандидаты:
+
+1. **API-001** — ревизия единого формата ошибок на оставшихся эндпоинтах (гейты вернули raw-json `{error, code}`, admin-CRUD использует `formatError` — проверить консистентность).
+2. **API-003 остаточный** — `player.html` сейчас глотает ошибки `stream-token` (`catch(_){}`); по коду показать действие и для stream-token-отказов.
+3. **Долги из аудита** — CSP `unsafe-inline`; `hero-poster.jpg` 2.55 MiB (перенос в webp/сжатие).
+4. **Ручные шаги продакшена** — Stripe Price IDs + Mux all-or-none; `quality-gate` как required status check в branch protection.
+
+### Как продолжить сессию
+- Прочитать сначала: `docs/IMPROVEMENT_TZ.md` (цепочка P0→P2), `AUDIT_REPORT_2026-08-01.md` (история раундов), этот файл.
+- Прогнать перед работой: `npm run test:ci` (должно быть 924/924), `npm run lint`, `npm run build`.
+- После каждого раунда: обновить API.md/openapi.yaml + AUDIT_REPORT (новый DA-ID) + CHANGELOG + PROGRESS + package.json (minor bump) → коммит + push.

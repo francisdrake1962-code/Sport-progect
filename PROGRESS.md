@@ -16,7 +16,7 @@
 
 ### Git Log (recent)
 ```
-(commit will be added after push) v5.17.0: Devil's Advocate Round 10 — API-003 machine-readable access denial codes (can-watch/stream-token/login)
+dbc37025b v5.17.0: Devil's Advocate Round 10 — API-003 machine-readable access denial codes (can-watch/stream-token/login, access-before-provider, per-code frontend actions)
 0cf3ecd8 v5.15.0: Devil's Advocate Round 8 — DB-001 pre-migration backups, DB runbook, forward-only migration policy
 a40ac162 v5.14.0: Devil's Advocate Round 7 — DOC-001/DOC-002 Payment Flow, subscription state machine, provider/recurrence strategy (API.md, ARCHITECTURE.md, ADR-010)
 64b97258 v5.13.0: Devil's Advocate Round 6 — OPS-001 atomic saveDb (temp file + rename, crash-safe)

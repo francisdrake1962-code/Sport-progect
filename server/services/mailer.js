@@ -18,6 +18,18 @@ const CONFIRM_HTML = (confirmUrl) => `
     <p style="color:#999;font-size:0.8rem;margin-top:2rem;">Если вы не регистрировались — просто игнорируйте это письмо.</p>
   </div>`;
 
+const RESET_PASSWORD_HTML = (resetUrl) => `
+  <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem;">
+    <h2 style="color:#1a5e2a;">Сброс пароля</h2>
+    <p>Мы получили запрос на сброс пароля. Перейдите по ссылке, чтобы задать новый пароль. Ссылка действует 1 час:</p>
+    <a href="${resetUrl}"
+       style="display:inline-block;padding:0.8rem 2rem;background:#1a5e2a;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:1rem 0;">
+      Сбросить пароль
+    </a>
+    <p style="color:#666;font-size:0.85rem;">Если кнопка не работает, скопируйте ссылку:<br>${resetUrl}</p>
+    <p style="color:#999;font-size:0.8rem;margin-top:2rem;">Если вы не запрашивали сброс пароля — просто игнорируйте это письмо. Ваш пароль и аккаунт останутся без изменений.</p>
+  </div>`;
+
 const TRIAL_EXPIRING_HTML = (name, daysLeft) => `
   <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem;">
     <h2 style="color:#c0392b;">Пробный период заканчивается</h2>
@@ -159,6 +171,17 @@ async function sendConfirmationEmail(toEmail, token) {
   return await sendGenericEmail(toEmail, 'Подтвердите email — Цигун', CONFIRM_HTML(confirmUrl));
 }
 
+// AUTH-001: one-time reset link (TTL enforced by the reset endpoint). The
+// email only ever contains the reset link, never a password.
+async function sendPasswordResetEmail(toEmail, resetToken) {
+  const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+  await resolveProvider();
+  if ((resolvedProvider || 'console') === 'console') {
+    console.log(`[mailer] Password reset link: ${resetUrl}`);
+  }
+  return await sendGenericEmail(toEmail, 'Сброс пароля — Цигун', RESET_PASSWORD_HTML(resetUrl));
+}
+
 async function sendTrialExpiringEmail(toEmail, name, daysLeft) {
   return await sendGenericEmail(toEmail, 'Пробный период заканчивается — Цигун', TRIAL_EXPIRING_HTML(name, daysLeft));
 }
@@ -173,10 +196,12 @@ async function sendSubscriptionExpiredEmail(toEmail, name, plan) {
 
 module.exports = {
   sendConfirmationEmail,
+  sendPasswordResetEmail,
   sendTrialExpiringEmail,
   sendSubscriptionExpiringEmail,
   sendSubscriptionExpiredEmail,
   sendGenericEmail,
+  RESET_PASSWORD_HTML,
   resetMailConfig,
   resolveProvider,
   _getProvider: () => resolvedProvider || 'console',

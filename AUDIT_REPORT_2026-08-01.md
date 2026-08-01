@@ -333,3 +333,50 @@ could not rely on stable codes and the frontend had to guess from English text.
 3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
 4. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); mark `quality-gate` as required status check in branch protection.
 5. `player.html` still swallows `stream-token` errors silently (`catch(_){}`); per-code action for stream-token denials can be surfaced in a later round.
+
+---
+
+# Devil's Advocate Audit Ч Round 12 (AUTH-001)
+
+Date: 2026-08-01 | Version: 5.19.0 | Auditor: opencode
+
+## Outcome
+
+Round 12 implemented password recovery per `docs/IMPROVEMENT_TZ.md` AUTH-001.
+Before this round the app had **no way** to reset a forgotten password: a locked-out
+subscriber could only register a new account. The reset flow is one-time-token +
+TTL + session revocation + enumeration protection.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-53 | High (AUTH-001) | No password recovery existed. A subscriber with a forgotten password could never log in again; there was no token store, no reset endpoint, no TTL and no way to invalidate previously issued JWTs after a password change (only `revokeCurrentToken` existed for the acting token). | Added `POST /api/user/request-reset` (always `{success:true}`, never reveals email existence, rate-limited `RATE_LIMIT_MAX_RESET` default 3/min) and `POST /api/user/reset-password` (one-time SHA-256-hashed token with 1-hour TTL, `INVALID_RESET_TOKEN` / `VALIDATION_ERROR` / `RESET_FAILED` codes, rate-limited `RATE_LIMIT_MAX_RESET_PASSWORD` default 5/min). Reset bumps `subscribers.token_version`; subscriber JWTs now carry `ver` and auth middleware rejects tokens whose `ver` does not match the current version, so **all old sessions are rejected** after a password change. Migration `009_password_reset.sql` adds the three columns (base schema updated too; ALTER is idempotent). | New `tests/password-reset.test.js` (9 tests: no-reveal on unknown email, token stored with TTL and never leaked in the response, invalid/missing/expired token 400, short password 400, full flow Ч old session `TOKEN_REVOKED`, old password 401, new password works, one-time reuse rejected; email template contains no password; rate limit 429). |
+| DA-54 | Medium (frontend) | No UI existed for the flow. | New `src/pages/reset-password.html` (request email + set-new-password views keyed off `?token=`), `login.html` "«абыли пароль?" link, clean URL route `/reset-password` + webpack page entry. `tests/integrity.test.js` exempt lists updated for the new standalone auth page. | Frontend build passes; 946/946 tests randomized. |
+
+## TDD record
+
+1. Wrote `tests/password-reset.test.js` (9 contract tests). Confirmed red (9 failed).
+2. Implemented migration `009`, `auth.service.requestPasswordReset/resetPassword`, `ver` claim in `generateToken`, auth-middleware version check, mailer `sendPasswordResetEmail`/`RESET_PASSWORD_HTML`, routes + reset limiters (custom `keyGenerator` using `ipKeyGenerator` for IPv6 safety; test-only `x-test-key` to isolate the rate-limit check).
+3. Green on the new suite; full run exposed 3 `integrity.test.js` failures for the new page Ч added `reset-password.html` to the standalone-page exempt lists and switched the back link to `login.html` (project convention).
+4. Full suite randomized, lint, build all green.
+
+## Verification after correction
+
+- `npx jest --runInBand --randomize --silent`: **20 suites, 946/946 tests passed** (934 + 9 new reset tests + 3 new integrity assertions picked up by the page scan).
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings Ч hero-poster.jpg).
+
+## Decisions recorded
+
+- **Enumeration protection**: `request-reset` always answers `{success:true}`; invalid-format emails short-circuit to the same response; server errors are logged, not surfaced.
+- **Token storage**: the raw 32-byte token is never stored Ч only its SHA-256 hash, matching the `token_blocklist` practice (stronger than the plaintext `confirmation_token` legacy).
+- **One-time + TTL**: token is cleared on successful use; expiry checked as ISO timestamp.
+- **Session revocation**: `subscribers.token_version` + `ver` JWT claim + middleware comparison. Old tokens (no `ver` claim, pre-deploy) are unaffected; every new login bakes in the current version. Admin tokens carry no `ver` and are untouched.
+- **Rate limits**: `RATE_LIMIT_MAX_RESET` (3/min prod) and `RATE_LIMIT_MAX_RESET_PASSWORD` (5/min prod); both use a custom `keyGenerator` (IPv6-safe via `ipKeyGenerator`) and honor `x-test-key` only under `NODE_ENV=test` so tests can exercise 429 in isolation.
+- **Dev/console UX**: the reset link is logged (`[mailer] Password reset link: ...`) mirroring the confirmation-link log; production responses never include it.
+
+## Remaining risks (deferred to later rounds)
+
+1. **API-003 остаточный**: `player.html` still swallows `stream-token` errors (`catch(_){}`); per-code action for stream-token denials can be surfaced later.
+2. **Admin/CRUD legacy errors**: `server/index.js` + admin CRUD still use the legacy string `{error}` shape (outside the API-001 payment/auth/user scope).
+3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
+4. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); `quality-gate` as required status check in branch protection.

@@ -664,6 +664,57 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /user/request-reset:
+    post:
+      tags: [User]
+      summary: Request a password reset link (response is identical whether or not the email exists)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Generic success — never reveals whether the email is registered
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /user/reset-password:
+    post:
+      tags: [User]
+      summary: Redeem a one-time reset token and set a new password (revokes all previous sessions)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password changed
+        '400':
+          description: Invalid or expired token (INVALID_RESET_TOKEN) or password too short (VALIDATION_ERROR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
   /user/login:
     post:
       tags: [User]
@@ -2116,6 +2167,12 @@ responses:
           $ref: '#/components/schemas/Error'
   NotFound:
     description: Resource not found
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  RateLimited:
+    description: Rate limit exceeded
     content:
       application/json:
         schema:

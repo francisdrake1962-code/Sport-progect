@@ -407,6 +407,8 @@ FAQ. Отсортировано по `sort_order`. Возвращает: `id`, `
 | GET | `/api/user/confirm/:token` | Нет | — | Подтверждение email (HTML) |
 | POST | `/api/user/confirm/:token` | Нет | — | Подтверждение email (JSON) |
 | POST | `/api/user/confirm/resend` | Нет | — | Повторная отправка подтверждения |
+| POST | `/api/user/request-reset` | Нет | — | Запрос сброса пароля (всегда `{ success: true }`) |
+| POST | `/api/user/reset-password` | Нет | — | Смена пароля по одноразовому токену |
 | GET | `/api/user/data-export` | JWT | subscriber | Экспорт данных (GDPR) |
 | DELETE | `/api/user/account` | JWT | subscriber | Анонимизация и удаление аккаунта |
 | POST | `/api/user/fingerprint` | JWT | subscriber | Отправка отпечатка устройства |
@@ -580,6 +582,62 @@ API-вариант подтверждения email (возвращает JSON).
   "preferences": {}
 }
 ```
+
+---
+
+## 9A. Восстановление пароля (AUTH-001)
+
+Поток: `POST /api/user/request-reset` → письмо со ссылкой
+`/reset-password?token=<одноразовый>` → `POST /api/user/reset-password`.
+
+### POST /api/user/request-reset
+
+Запрашивает ссылку для сброса пароля. **Ответ всегда одинаковый** — независимо
+от того, существует ли email, — чтобы эндпоинт нельзя было использовать для
+перебора подписчиков. При несуществующем email ничего не отправляется и не
+сохраняется.
+
+**Body (JSON):**
+```json
+{ "email": "ivan@example.com" }
+```
+
+**Ответ (200):** всегда `{ "success": true }`.
+
+- Токен — 32 случайных байта (hex), хранится в БД только в виде SHA-256 хеша;
+  в ответе и в теле запроса никогда не возвращается.
+- TTL — 1 час (`password_reset_expires_at`).
+- Rate limit: `RATE_LIMIT_MAX_RESET` (по умолчанию 3 запроса/мин на IP,
+  в тестах 10000).
+- В dev/console-режиме ссылка логируется в консоль:
+  `[mailer] Password reset link: ...`.
+
+### POST /api/user/reset-password
+
+Меняет пароль по одноразовому токену. Токен одноразовый (гасится после первого
+успешного использования) и истекает по TTL. После смены пароля
+`subscribers.token_version` увеличивается, поэтому **все ранее выданные JWT
+отклоняются** (auth middleware сверяет `ver` в токене с текущей версией).
+
+**Body (JSON):**
+```json
+{ "token": "<из письма>", "newPassword": "new-password-123" }
+```
+
+**Ответ (200):** `{ "success": true }`.
+
+**Ошибки (единый формат):**
+
+| Код | HTTP | Когда |
+|-----|------|-------|
+| `INVALID_RESET_TOKEN` | 400 | токен отсутствует, неверен, истёк или уже использован |
+| `VALIDATION_ERROR` | 400 | `newPassword` короче 8 символов |
+| `RATE_LIMITED` | 429 | превышен `RATE_LIMIT_MAX_RESET_PASSWORD` (по умолчанию 5/мин) |
+
+**Замечания:**
+- Письмо содержит только ссылку на сброс, **никогда** пароль.
+- Схема: миграция `009_password_reset.sql` добавляет в `subscribers` колонки
+  `password_reset_token`, `password_reset_expires_at`, `token_version`.
 
 ---
 
@@ -1131,6 +1189,8 @@ Content-Type: application/json
 | `RATE_LIMITED` | Превышен rate limit (429) |
 | `EMAIL_ALREADY_REGISTERED` | Дубликат email при регистрации (409) |
 | `INVALID_CONFIRMATION_TOKEN` | Просроченный/неверный токен подтверждения (400) |
+| `INVALID_RESET_TOKEN` | Неверный/просроченный/уже использованный токен сброса пароля (400) |
+| `RESET_FAILED` | Внутренняя ошибка сброса пароля (500) |
 | `INVALID_LESSON_ID`, `INVALID_LESSON_IDS`, `INVALID_MOOD`, `INVALID_LANGUAGE`, `INVALID_FINGERPRINT`, `FINGERPRINT_REQUIRED` | Валидация параметров |
 | `EMAIL_CONFIRMATION_REQUIRED`, `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `FREE_LIMIT_REACHED`, `SUBSCRIPTION_REQUIRED` | Гейты доступа (см. API-003) |
 | `STREAMING_NOT_CONFIGURED` | Провайдер не настроен (503) |

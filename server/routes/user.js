@@ -13,7 +13,9 @@ const { isStreamConfigured, generateSignedToken, getStreamUrl, isMuxConfigured, 
 const { parsePagination } = require('../helpers/pagination');
 const { queryToObjects } = require('../helpers/db-utils');
 const { revokeToken, transaction } = require('../db');
-const { sendError } = require('../helpers/errors');
+const { sendError, ValidationError } = require('../helpers/errors');
+const { createLogger } = require('../helpers/logger');
+const logger = createLogger('user-routes');
 const authService = require('../services/auth.service');
 const progressService = require('../services/progress.service');
 const AnalyticsService = require('../services/analytics.service');
@@ -49,13 +51,40 @@ const userApiLimiter = rateLimit({
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again in 1 minute.' } },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/register' || req.path === '/login' || req.path.startsWith('/confirm/'),
+  skip: (req) => req.path === '/register' || req.path === '/login' || req.path.startsWith('/confirm/') || req.path === '/request-reset' || req.path === '/reset-password',
 });
 
 const confirmLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: process.env.RATE_LIMIT_MAX_CONFIRM ? parseInt(process.env.RATE_LIMIT_MAX_CONFIRM, 10) : (process.env.NODE_ENV === 'test' ? 10000 : 10),
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many confirmation attempts. Try again in 1 minute.' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// AUTH-001: password-reset limiters. In tests the key is taken from a header
+// so the rate-limit check can be isolated from the functional requests.
+function resetKeyGenerator(req) {
+  if (process.env.NODE_ENV === 'test' && req.headers['x-test-key']) {
+    return `test-key:${req.headers['x-test-key']}`;
+  }
+  return rateLimit.ipKeyGenerator(req.ip);
+}
+
+const resetRequestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.RATE_LIMIT_MAX_RESET ? parseInt(process.env.RATE_LIMIT_MAX_RESET, 10) : (process.env.NODE_ENV === 'test' ? 10000 : 3),
+  keyGenerator: resetKeyGenerator,
+  message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many reset requests. Try again in 1 minute.' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.RATE_LIMIT_MAX_RESET_PASSWORD ? parseInt(process.env.RATE_LIMIT_MAX_RESET_PASSWORD, 10) : (process.env.NODE_ENV === 'test' ? 10000 : 5),
+  keyGenerator: resetKeyGenerator,
+  message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many reset attempts. Try again in 1 minute.' } },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -206,6 +235,34 @@ router.put('/me', authMiddleware, async (req, res, next) => {
 router.post('/logout', authMiddleware, (req, res) => {
   authService.revokeCurrentToken(req.token);
   res.json({ success: true });
+});
+
+// AUTH-001: password reset. request-reset always answers { success: true } so
+// the endpoint never reveals whether an email exists.
+router.post('/request-reset', resetRequestLimiter, async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    await authService.requestPasswordReset(email);
+  } catch (err) {
+    logger.warn('Password reset request failed', { error: err.message });
+  }
+  res.json({ success: true });
+});
+
+router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    await authService.resetPassword(token, newPassword);
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 'INVALID_RESET_TOKEN') {
+      return sendError(res, 400, 'INVALID_RESET_TOKEN', err.message, req.requestId);
+    }
+    if (err instanceof ValidationError) {
+      return sendError(res, 400, 'VALIDATION_ERROR', err.message, req.requestId);
+    }
+    sendError(res, 500, 'RESET_FAILED', 'Password reset failed', req.requestId);
+  }
 });
 
 router.post('/confirm/resend', resendLimiter, async (req, res) => {

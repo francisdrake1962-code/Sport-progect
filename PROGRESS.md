@@ -2,20 +2,21 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.18.0 (Round 11 — API-001, pushed)
+> Last updated: 2026-08-01 v5.19.0 (Round 12 — AUTH-001, pushed)
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.18.0 (Devil's Advocate Round 11 — unified error format API-001; see `AUDIT_REPORT_2026-08-01.md`)
-**Tests**: 934/934 passing (19 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
+**Version**: 5.19.0 (Devil's Advocate Round 12 — password reset AUTH-001; see `AUDIT_REPORT_2026-08-01.md`)
+**Tests**: 946/946 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+v5.19.0: Devil's Advocate Round 12 — AUTH-001 password reset (request-reset always {success:true}, one-time 1h SHA-256 token, reset-password, token_version session revocation of all old JWTs, reset page + login link, 9 tests)
 v5.18.0: Devil's Advocate Round 11 — API-001 unified error format `{success:false, error:{code,message}, requestId}` across payment/auth/user (sendError helper, all inline errors converted, frontend errText, 10 contract tests, 6 tests updated)
 dbc37025b v5.17.0: Devil's Advocate Round 10 — API-003 machine-readable access denial codes (can-watch/stream-token/login, access-before-provider, per-code frontend actions)
 0cf3ecd8 v5.15.0: Devil's Advocate Round 8 — DB-001 pre-migration backups, DB runbook, forward-only migration policy
@@ -52,6 +53,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Devil's Advocate Round 9 | OPS-002 honest CI quality gate (no `continue-on-error`, randomized full suite, required status check) | ✅ DONE (v5.16.0) |
 | Devil's Advocate Round 10 | API-003 machine-readable access denial codes (`GRANTED`/`SUBSCRIPTION_EXPIRED`/`PAYMENT_PAST_DUE`/`EMAIL_CONFIRMATION_REQUIRED`/`FREE_LIMIT_REACHED`/`SUBSCRIPTION_REQUIRED`; access-before-provider; contract tests; frontend action per code) | ✅ DONE (v5.17.0) |
 | Devil's Advocate Round 11 | API-001 unified error format `{success:false, error:{code,message}, requestId}` on payment/auth/user (`sendError` helper; every inline `{error:'...'}` converted to stable codes; gates keep top-level `code`; frontend `errText`; 10 contract tests + 6 updated) | ✅ DONE (v5.18.0) |
+| Devil's Advocate Round 12 | AUTH-001 password reset (`request-reset` always `{success:true}` — no email enumeration; one-time SHA-256 token + 1h TTL; `reset-password` bumps `token_version` → all old JWTs rejected; reset page + login link; 9 tests) | ✅ DONE (v5.19.0) |
 
 ---
 
@@ -262,11 +264,20 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - ✅ `tests/error-format.test.js`: 10 contract-тестов; 6 старых тестов обновлены со строкового `.error` на `error.code`/`error.message`
 - ✅ 934/934 tests, 19 suites (randomized); lint 0 errors; build passes
 
+### v5.19.0 — Devil's Advocate Round 12: AUTH-001 password reset (DONE)
+- ✅ `POST /api/user/request-reset` — всегда `{ success: true }` (enumeration-safe); одноразовый токен (32 байта hex, в БД только SHA-256 хеш) + TTL 1 час; лимитер `RATE_LIMIT_MAX_RESET` (3/мин prod), keyGenerator через `ipKeyGenerator`, в тестах `x-test-key`-изоляция 429
+- ✅ `POST /api/user/reset-password` — одноразовый токен, коды `INVALID_RESET_TOKEN`/`VALIDATION_ERROR`/`RESET_FAILED`; лимитер `RATE_LIMIT_MAX_RESET_PASSWORD` (5/мин)
+- ✅ Отзыв сессий: `subscribers.token_version` + claim `ver` в JWT; authMiddleware отклоняет токены с несовпадающим `ver` → все старые сессии после сброса — 401 TOKEN_REVOKED
+- ✅ Миграция `009_password_reset.sql` (+ базовая схема db.js): `password_reset_token`, `password_reset_expires_at`, `token_version`
+- ✅ Mailer: `sendPasswordResetEmail` + экспорт `RESET_PASSWORD_HTML` (письмо содержит только ссылку, никогда пароль); console-режим логирует ссылку
+- ✅ Фронтенд: `src/pages/reset-password.html` (запрос + ввод нового пароля по `?token=`), ссылка «Забыли пароль?» в login.html, clean-URL `/reset-password`, webpack entry; integrity.test.js exempt-списки для standalone-страницы
+- ✅ `tests/password-reset.test.js`: 9 тестов (no-reveal, TTL, invalid/missing/expired token, короткий пароль, полный флоу с ревокацией и one-time, шаблон письма, rate limit)
+- ✅ 946/946 tests, 20 suites (randomized); lint 0 errors; build passes
+
 ### Next round — candidate items:
-1. ⏳ **AUTH-001** (из ТЗ): password reset flow (request → one-time TTL token → change → revoke sessions).
-2. ⚠️ **API-003 остаточный** — `player.html` сейчас глотает ошибки `stream-token` (`catch(_){}`); по коду показать действие и для stream-token-отказов.
-3. ⚠️ **Единый формат ошибок на admin-эндпоинтах** (`server/index.js` + admin CRUD) — legacy string `{error}` ещё жив на вне-auth/payment/user путях.
-4. ⚠️ **Manual production step**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair); в GitHub сделать `quality-gate` required check.
+1. ⚠️ **API-003 остаточный** — `player.html` сейчас глотает ошибки `stream-token` (`catch(_){}`); по коду показать действие и для stream-token-отказов.
+2. ⚠️ **Единый формат ошибок на admin-эндпоинтах** (`server/index.js` + admin CRUD) — legacy string `{error}` ещё жив на вне-auth/payment/user путях.
+3. ⚠️ **Manual production step**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair); в GitHub сделать `quality-gate` required check.
 
 ### v5.10.4 — Mux-first video upload (DONE)
 - ✅ Migration 007: `video_uploads` + `provider`/`mux_upload_id`/`mux_asset_id`/`mux_playback_id`
@@ -442,7 +453,7 @@ server/
 
 1. **User communicates in Russian** — respond in Russian
 2. **One step forward, two steps back** — always verify before moving on
-3. **934/934 tests must pass** after every change (19 suites)
+3. **946/946 tests must pass** after every change (20 suites)
 4. **Push to GitHub** after every commit
 5. **Never modify MWH APK** — illegal (DRM)
 6. **Subscription model**: 7 days free WITHOUT payment card
@@ -457,15 +468,14 @@ server/
 
 ## NEXT ACTIONS (resume point)
 
-Текущий статус: Round 11 (API-001) готов — **v5.18.0**, всё запушено. Следующий раунд — по цепочке из `docs/IMPROVEMENT_TZ.md`; кандидаты:
+Текущий статус: Round 12 (AUTH-001) готов — **v5.19.0**, всё запушено. Следующий раунд — по цепочке из `docs/IMPROVEMENT_TZ.md`; кандидаты:
 
-1. **AUTH-001** — password reset flow (request → one-time TTL token → change → revoke sessions).
-2. **API-003 остаточный** — `player.html` сейчас глотает ошибки `stream-token` (`catch(_){}`); по коду показать действие и для stream-token-отказов.
-3. **Единый формат ошибок на admin-эндпоинтах** — `server/index.js` + admin CRUD ещё на legacy string `{error}` (вне скоупа API-001, который покрыл только payment/auth/user).
-4. **Долги из аудита** — CSP `unsafe-inline`; `hero-poster.jpg` 2.55 MiB (перенос в webp/сжатие).
-5. **Ручные шаги продакшена** — Stripe Price IDs + Mux all-or-none; `quality-gate` как required status check в branch protection.
+1. **API-003 остаточный** — `player.html` сейчас глотает ошибки `stream-token` (`catch(_){}`); по коду показать действие и для stream-token-отказов.
+2. **Единый формат ошибок на admin-эндпоинтах** — `server/index.js` + admin CRUD ещё на legacy string `{error}` (вне скоупа API-001, который покрыл только payment/auth/user).
+3. **Долги из аудита** — CSP `unsafe-inline`; `hero-poster.jpg` 2.55 MiB (перенос в webp/сжатие).
+4. **Ручные шаги продакшена** — Stripe Price IDs + Mux all-or-none; `quality-gate` как required status check в branch protection.
 
 ### Как продолжить сессию
 - Прочитать сначала: `docs/IMPROVEMENT_TZ.md` (цепочка P0→P2), `AUDIT_REPORT_2026-08-01.md` (история раундов), этот файл.
-- Прогнать перед работой: `npm run test:ci` (должно быть 934/934), `npm run lint`, `npm run build`.
+- Прогнать перед работой: `npm run test:ci` (должно быть 946/946), `npm run lint`, `npm run build`.
 - После каждого раунда: обновить API.md/openapi.yaml + AUDIT_REPORT (новый DA-ID) + CHANGELOG + PROGRESS + package.json (minor bump) → коммит + push.

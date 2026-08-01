@@ -4,6 +4,22 @@
 
 ---
 
+## [5.19.0] - 2026-08-01
+
+### Added — Password reset (AUTH-001)
+
+Round 12 of the Devil's Advocate audit.
+
+- `POST /api/user/request-reset` — always answers `{ success: true }` (never reveals whether the email exists); 1-hour one-time token stored as SHA-256 hash; rate-limited (`RATE_LIMIT_MAX_RESET`, default 3/min, `ipKeyGenerator`-safe, test-only `x-test-key` isolation).
+- `POST /api/user/reset-password` — one-time TTL token, `INVALID_RESET_TOKEN` / `VALIDATION_ERROR` / `RESET_FAILED` codes, rate-limited (`RATE_LIMIT_MAX_RESET_PASSWORD`, default 5/min). Bumps `subscribers.token_version`; subscriber JWTs carry `ver` and auth middleware rejects any token whose `ver` differs — **all old sessions are invalidated after a reset**.
+- Migration `009_password_reset.sql` (+ base schema in `server/db.js`): `password_reset_token`, `password_reset_expires_at`, `token_version` on `subscribers`.
+- Mailer: `sendPasswordResetEmail` + exported `RESET_PASSWORD_HTML` — the email contains only the reset link, never a password; console mode logs the link.
+- Frontend: new `src/pages/reset-password.html` (request + set-password views), `login.html` "Забыли пароль?" link, clean URL `/reset-password`, webpack page entry; `tests/integrity.test.js` exempt lists updated for the standalone auth page.
+- `tests/password-reset.test.js` — **9 tests** (no-reveal, TTL stored, invalid/missing/expired token, short password, full flow with session revocation + one-time reuse, email template, rate limit).
+- Full suite: **946/946 tests, 20 suites** (randomized); eslint 0 errors; build passes.
+
+---
+
 ## [5.18.0] - 2026-08-01
 
 ### Added — Unified error format (API-001)

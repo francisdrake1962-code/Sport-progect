@@ -1211,7 +1211,7 @@ app.get('/admin/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'admin', 'index.html'));
 });
 
-const CLEAN_URL_ROUTES = { plans: 'plans.html', lessons: 'lessons.html', login: 'login.html', calendar: 'calendar.html', faq: 'faq.html', contact: 'contact.html', 'is-it-really-free': 'is-it-really-free.html', 'how-to-cancel': 'how-to-cancel.html', 'about-trainer': 'about-trainer.html', '8-pieces-of-brocade': '8-pieces-of-brocade.html', yijinjing: 'yijinjing.html', 'small-circulation': 'small-circulation.html', terms: 'terms.html', refund: 'refund.html', privacy: 'privacy.html', player: 'player.html', picker: 'picker.html', profile: 'profile.html', dashboard: 'dashboard.html', onboarding: 'onboarding.html', 'payment-status': 'payment-status.html' };
+const CLEAN_URL_ROUTES = { plans: 'plans.html', lessons: 'lessons.html', login: 'login.html', 'reset-password': 'reset-password.html', calendar: 'calendar.html', faq: 'faq.html', contact: 'contact.html', 'is-it-really-free': 'is-it-really-free.html', 'how-to-cancel': 'how-to-cancel.html', 'about-trainer': 'about-trainer.html', '8-pieces-of-brocade': '8-pieces-of-brocade.html', yijinjing: 'yijinjing.html', 'small-circulation': 'small-circulation.html', terms: 'terms.html', refund: 'refund.html', privacy: 'privacy.html', player: 'player.html', picker: 'picker.html', profile: 'profile.html', dashboard: 'dashboard.html', onboarding: 'onboarding.html', 'payment-status': 'payment-status.html' };
 Object.entries(CLEAN_URL_ROUTES).forEach(([route, file]) => {
   app.get('/' + route, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', file));

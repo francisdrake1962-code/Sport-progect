@@ -19,6 +19,7 @@ const pages = [
   'lessons',
   'player',
   'login',
+  'reset-password',
   'calendar',
   'plans',
   'picker',

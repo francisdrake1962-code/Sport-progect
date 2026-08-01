@@ -1,3 +1,5 @@
+const { sendError } = require('../helpers/errors');
+
 function validateBody(rules) {
   return (req, res, next) => {
     const errors = [];
@@ -37,7 +39,7 @@ function validateBody(rules) {
       }
     }
     if (errors.length > 0) {
-      return res.status(400).json({ error: 'Validation failed', details: errors });
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Validation failed: ' + errors.join('; '), req.requestId, { details: errors });
     }
     next();
   };

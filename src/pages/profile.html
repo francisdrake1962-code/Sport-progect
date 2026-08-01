@@ -66,6 +66,8 @@
 
         function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+        function errText(d) { if (!d) return 'Ошибка'; if (d.error && typeof d.error === 'object' && d.error.message) return d.error.message; if (typeof d.error === 'string') return d.error; if (d.message) return d.message; return 'Ошибка'; }
+
         function fmtDate(d) {
             if (!d) return '—';
             var dt = new Date(d);
@@ -153,7 +155,7 @@
                     body: JSON.stringify({ name: newName })
                 }).then(function(r) { return r.json(); }).then(function(d) {
                     if (d.error) {
-                        document.getElementById('name-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
+                        document.getElementById('name-msg').innerHTML = '<div class="message message--error">' + esc(errText(d)) + '</div>';
                     } else {
                         document.getElementById('name-msg').innerHTML = '<div class="message message--success">Имя сохранено</div>';
                         document.getElementById('p-name').textContent = d.name;
@@ -173,7 +175,7 @@
                     body: JSON.stringify({ current_password: curPw, new_password: newPw })
                 }).then(function(r) { return r.json(); }).then(function(d) {
                     if (d.error) {
-                        document.getElementById('pw-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
+                        document.getElementById('pw-msg').innerHTML = '<div class="message message--error">' + esc(errText(d)) + '</div>';
                     } else {
                         document.getElementById('pw-msg').innerHTML = '<div class="message message--success">Пароль обновлён</div>';
                         document.getElementById('cur-pw').value = '';
@@ -352,7 +354,7 @@
                 body: JSON.stringify({ category: selectedCategory, subject: subject, message: message })
             }).then(function(r) { return r.json(); }).then(function(d) {
                 if (d.error) {
-                    document.getElementById('ticket-msg').innerHTML = '<div class="message message--error">' + esc(d.error) + '</div>';
+                    document.getElementById('ticket-msg').innerHTML = '<div class="message message--error">' + esc(errText(d)) + '</div>';
                 } else {
                     document.getElementById('ticket-msg').innerHTML = '<div class="message message--success">Вопрос отправлен!</div>';
                     setTimeout(function() { loadFeedbackSection(); }, 1000);
@@ -408,7 +410,7 @@
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                 body: JSON.stringify({ message: message })
             }).then(function(r) { return r.json(); }).then(function(d) {
-                if (d.error) { alert(d.error); return; }
+                if (d.error) { alert(errText(d)); return; }
                 openTicket(id);
             }).catch(function() { alert('Ошибка сети'); });
         }

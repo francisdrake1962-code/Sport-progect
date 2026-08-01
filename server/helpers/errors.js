@@ -71,8 +71,25 @@ function formatError(res, error, requestId = null) {
     },
   };
   if (error.details) body.error.details = error.details;
-  if (requestId) body.error.requestId = requestId;
+  if (requestId) {
+    body.requestId = requestId;
+    body.error.requestId = requestId;
+  }
   return res.status(error.statusCode || 500).json(body);
+}
+
+// API-001: unified error shape for endpoints that reply inline (gates,
+// validations). Keeps `error` at the top level (transition for old clients)
+// and mirrors the canonical code in `error.code`; extra fields (e.g. the
+// API-003 top-level `code` on gate denials) can be passed through `extra`.
+function sendError(res, statusCode, code, message, requestId = null, extra = null) {
+  const body = { success: false, error: { code, message } };
+  if (requestId) {
+    body.requestId = requestId;
+    body.error.requestId = requestId;
+  }
+  if (extra) Object.assign(body, extra);
+  return res.status(statusCode).json(body);
 }
 
 module.exports = {
@@ -86,4 +103,5 @@ module.exports = {
   PayloadTooLargeError,
   formatSuccess,
   formatError,
+  sendError,
 };

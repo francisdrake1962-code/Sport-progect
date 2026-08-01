@@ -55,7 +55,8 @@ describe('Rate Limiting — /api/user/stats (userApiLimiter)', () => {
       const res = await apiRequest('GET', '/api/user/stats');
       if (res.status === 429) {
         got429 = true;
-        expect(res.body.error).toContain('Too many requests');
+        expect(res.body.error.code).toBe('RATE_LIMITED');
+        expect(res.body.error.message).toContain('Too many requests');
         break;
       }
     }
@@ -74,7 +75,8 @@ describe('Rate Limiting — GET /api/user/confirm/:token (confirmLimiter)', () =
       const res = await apiRequest('GET', '/api/user/confirm/nonexistent-token');
       if (res.status === 429) {
         got429 = true;
-        expect(res.body.error).toContain('Too many confirmation');
+        expect(res.body.error.code).toBe('RATE_LIMITED');
+        expect(res.body.error.message).toContain('Too many confirmation');
         break;
       }
     }

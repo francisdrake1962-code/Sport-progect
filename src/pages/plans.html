@@ -122,7 +122,7 @@
                 window.location.href = data.url;
             } else {
                 var statusEl = document.getElementById('plans-status');
-                if (statusEl) statusEl.textContent = data.error || 'Не удалось создать сессию оплаты';
+                if (statusEl) statusEl.textContent = (data.error && data.error.message ? data.error.message : (typeof data.error === 'string' ? data.error : 'Не удалось создать сессию оплаты'));
                 setTimeout(function() { overlay.remove(); }, 3000);
             }
         })

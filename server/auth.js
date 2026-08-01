@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { isTokenRevoked } = require('./db');
+const { sendError } = require('./helpers/errors');
 
 const _fallbackSecret = crypto.randomBytes(32).toString('hex');
 function getJwtSecret() {
@@ -19,22 +20,22 @@ function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+    return sendError(res, 401, 'NO_TOKEN', 'No token provided', req.requestId);
   }
   try {
     const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
     try {
       if (isTokenRevoked(hashToken(token))) {
-        return res.status(401).json({ error: 'Token has been revoked' });
+        return sendError(res, 401, 'TOKEN_REVOKED', 'Token has been revoked', req.requestId);
       }
     } catch {
-      return res.status(401).json({ error: 'Auth service unavailable' });
+      return sendError(res, 401, 'AUTH_SERVICE_UNAVAILABLE', 'Auth service unavailable', req.requestId);
     }
     req.user = decoded;
     req.token = token;
     next();
   } catch {
-    return res.status(401).json({ error: 'Invalid token' });
+    return sendError(res, 401, 'INVALID_TOKEN', 'Invalid token', req.requestId);
   }
 }
 

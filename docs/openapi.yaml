@@ -38,6 +38,9 @@ components:
               type: string
             requestId:
               type: string
+          required: [code, message]
+        requestId:
+          type: string
 
     Lesson:
       type: object
@@ -798,7 +801,11 @@ paths:
                   freeLimit:
                     type: integer
         '403':
-          description: Unconfirmed email (code=EMAIL_CONFIRMATION_REQUIRED)
+          description: Unconfirmed email (error.code=EMAIL_CONFIRMATION_REQUIRED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -840,16 +847,16 @@ paths:
         '200':
           description: Stream token
         '403':
-          description: Access denied. Body contains code SUBSCRIPTION_REQUIRED, SUBSCRIPTION_EXPIRED, PAYMENT_PAST_DUE, FREE_LIMIT_REACHED or EMAIL_CONFIRMATION_REQUIRED. Access is checked before provider availability.
+          description: Access denied. Body contains code SUBSCRIPTION_REQUIRED, SUBSCRIPTION_EXPIRED, PAYMENT_PAST_DUE, FREE_LIMIT_REACHED or EMAIL_CONFIRMATION_REQUIRED (in error.code and mirrored at top-level code). Access is checked before provider availability.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  code:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      code:
+                        type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
 

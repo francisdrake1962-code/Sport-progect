@@ -264,7 +264,9 @@ describe('Payment Module — Checkout session creation', () => {
   test('invalid plan is rejected', async () => {
     const res = await api('POST', '/api/payment/create', { plan: 'weekly' }, subscriberToken);
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Invalid plan');
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe('INVALID_PLAN');
+    expect(res.body.error.message).toContain('Invalid plan');
   });
 
   test('unauthenticated request is rejected', async () => {

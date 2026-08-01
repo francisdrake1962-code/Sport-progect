@@ -585,7 +585,9 @@ describe('Security — RBAC (AUTH-002)', () => {
   test('subscriber cannot access admin endpoints', async () => {
     const res = await apiRequest('GET', '/api/admin/audit-logs', null, subscriberToken);
     expect(res.status).toBe(403);
-    expect(res.body.error).toContain('permissions');
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe('FORBIDDEN');
+    expect(res.body.error.message).toContain('permissions');
   });
 
   test('subscriber cannot access health/detailed', async () => {

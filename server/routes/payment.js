@@ -5,6 +5,7 @@ const { requireRole, requireAdmin } = require('../middleware/rbac');
 const { parsePagination } = require('../helpers/pagination');
 const paymentService = require('../services/payment.service');
 const { createLogger } = require('../helpers/logger');
+const { sendError } = require('../helpers/errors');
 
 const logger = createLogger('payment-routes');
 
@@ -25,7 +26,7 @@ router.get('/plans', async (req, res) => {
     });
   } catch (err) {
     logger.error('Failed to load plans', { error: err.message });
-    res.status(500).json({ error: 'Failed to load plans' });
+    sendError(res, 500, 'PLANS_LOAD_FAILED', 'Failed to load plans', req.requestId);
   }
 });
 
@@ -33,13 +34,13 @@ router.post('/create', authMiddleware, requireRole('subscriber'), async (req, re
   try {
     const { plan } = req.body;
     if (!plan || !['monthly', 'annual'].includes(plan)) {
-      return res.status(400).json({ error: 'Invalid plan. Must be "monthly" or "annual".' });
+      return sendError(res, 400, 'INVALID_PLAN', 'Invalid plan. Must be "monthly" or "annual".', req.requestId);
     }
     const result = await paymentService.createCheckoutSession(req.user.id, plan);
     res.json(result);
   } catch (err) {
     logger.error('Failed to create checkout session', { error: err.message, userId: req.user.id });
-    res.status(500).json({ error: err.message || 'Failed to create checkout session' });
+    sendError(res, 500, 'CHECKOUT_FAILED', err.message || 'Failed to create checkout session', req.requestId);
   }
 });
 
@@ -49,7 +50,7 @@ router.get('/status', authMiddleware, requireRole('subscriber'), async (req, res
     res.json(status || { status: 'none', message: 'No payments found' });
   } catch (err) {
     logger.error('Failed to get payment status', { error: err.message });
-    res.status(500).json({ error: 'Failed to get payment status' });
+    sendError(res, 500, 'PAYMENT_STATUS_FAILED', 'Failed to get payment status', req.requestId);
   }
 });
 
@@ -59,7 +60,7 @@ router.get('/subscription', authMiddleware, requireRole('subscriber'), async (re
     res.json(status || { plan: 'trial', status: 'trial', active: false, expires_at: null });
   } catch (err) {
     logger.error('Failed to get subscription status', { error: err.message });
-    res.status(500).json({ error: 'Failed to get subscription status' });
+    sendError(res, 500, 'SUBSCRIPTION_STATUS_FAILED', 'Failed to get subscription status', req.requestId);
   }
 });
 
@@ -69,7 +70,7 @@ router.post('/cancel', authMiddleware, requireRole('subscriber'), async (req, re
     res.json(result);
   } catch (err) {
     logger.error('Failed to cancel subscription', { error: err.message, userId: req.user.id });
-    res.status(500).json({ error: err.message || 'Failed to cancel subscription' });
+    sendError(res, 500, 'CANCEL_FAILED', err.message || 'Failed to cancel subscription', req.requestId);
   }
 });
 
@@ -79,24 +80,24 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     const webhookSecret = paymentService.getWebhookSecret();
     if (!webhookSecret) {
       logger.warn('Stripe webhook secret not configured');
-      return res.status(500).json({ error: 'Webhook not configured' });
+      return sendError(res, 500, 'WEBHOOK_NOT_CONFIGURED', 'Webhook not configured', req.requestId);
     }
     const stripe = paymentService.getStripe();
     if (!stripe) {
-      return res.status(500).json({ error: 'Stripe not configured' });
+      return sendError(res, 500, 'STRIPE_NOT_CONFIGURED', 'Stripe not configured', req.requestId);
     }
     let event;
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } catch (err) {
       logger.warn('Webhook signature verification failed', { error: err.message });
-      return res.status(400).json({ error: 'Invalid signature' });
+      return sendError(res, 400, 'INVALID_SIGNATURE', 'Invalid signature', req.requestId);
     }
     const result = await paymentService.handleWebhookEvent(event);
     res.json({ received: true, ...result });
   } catch (err) {
     logger.error('Webhook processing failed', { error: err.message });
-    res.status(500).json({ error: 'Webhook processing failed' });
+    sendError(res, 500, 'WEBHOOK_PROCESSING_FAILED', 'Webhook processing failed', req.requestId);
   }
 });
 
@@ -107,7 +108,7 @@ router.get('/admin/grants', authMiddleware, requireAdmin, async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error('Failed to get grants', { error: err.message });
-    res.status(500).json({ error: 'Failed to get grants' });
+    sendError(res, 500, 'GRANTS_LOAD_FAILED', 'Failed to get grants', req.requestId);
   }
 });
 
@@ -115,18 +116,18 @@ router.post('/admin/grant', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { subscriber_id, reason, expires_at } = req.body;
     if (!subscriber_id || !expires_at) {
-      return res.status(400).json({ error: 'subscriber_id and expires_at required' });
+      return sendError(res, 400, 'VALIDATION_ERROR', 'subscriber_id and expires_at required', req.requestId);
     }
     const db = await getDb();
     const check = db.exec(`SELECT id FROM subscribers WHERE id = ?`, [subscriber_id]);
     if (!check.length || !check[0].values.length) {
-      return res.status(404).json({ error: 'Subscriber not found' });
+      return sendError(res, 404, 'SUBSCRIBER_NOT_FOUND', 'Subscriber not found', req.requestId);
     }
     const result = await paymentService.adminGrantAccess(req.user.id, subscriber_id, reason, expires_at);
     res.json(result);
   } catch (err) {
     logger.error('Failed to grant access', { error: err.message });
-    res.status(500).json({ error: err.message || 'Failed to grant access' });
+    sendError(res, 500, 'GRANT_FAILED', err.message || 'Failed to grant access', req.requestId);
   }
 });
 
@@ -134,18 +135,18 @@ router.post('/admin/revoke', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { subscriber_id, reason } = req.body;
     if (!subscriber_id) {
-      return res.status(400).json({ error: 'subscriber_id required' });
+      return sendError(res, 400, 'VALIDATION_ERROR', 'subscriber_id required', req.requestId);
     }
     const db = await getDb();
     const check = db.exec(`SELECT id FROM subscribers WHERE id = ?`, [subscriber_id]);
     if (!check.length || !check[0].values.length) {
-      return res.status(404).json({ error: 'Subscriber not found' });
+      return sendError(res, 404, 'SUBSCRIBER_NOT_FOUND', 'Subscriber not found', req.requestId);
     }
     const result = await paymentService.adminRevokeAccess(req.user.id, subscriber_id, reason);
     res.json(result);
   } catch (err) {
     logger.error('Failed to revoke access', { error: err.message });
-    res.status(500).json({ error: err.message || 'Failed to revoke access' });
+    sendError(res, 500, 'REVOKE_FAILED', err.message || 'Failed to revoke access', req.requestId);
   }
 });
 
@@ -156,7 +157,7 @@ router.get('/admin/history', authMiddleware, requireAdmin, async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error('Failed to get payment history', { error: err.message });
-    res.status(500).json({ error: 'Failed to get payment history' });
+    sendError(res, 500, 'HISTORY_LOAD_FAILED', 'Failed to get payment history', req.requestId);
   }
 });
 

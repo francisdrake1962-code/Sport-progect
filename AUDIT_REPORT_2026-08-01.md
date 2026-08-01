@@ -286,3 +286,50 @@ provider problems (503) instead of the access reason for a denied user.
 2. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
 3. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); mark `quality-gate` as required status check in branch protection.
 4. `player.html` still swallows `stream-token` errors silently (`catch(_){}`); per-code action for stream-token denials can be surfaced in a later round.
+
+---
+
+# Devil's Advocate Audit — Round 11 (API-001)
+
+Date: 2026-08-01 | Version: 5.18.0 | Auditor: opencode
+
+## Outcome
+
+Round 11 unified the error format across the payment, auth and user domains per
+`docs/IMPROVEMENT_TZ.md` API-001. The codebase had ~80 inline `{ error: 'text' }`
+responses (string) mixed with the structured `formatError` output, so clients
+could not rely on stable codes and the frontend had to guess from English text.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-51 | High (API-001) | payment/auth/user error responses were inconsistent: inline `{ error: 'string' }` (validations, gates, 500s, RBAC, auth middleware, rate-limiters) vs structured `{ success:false, error:{code,message,requestId} }` from `formatError`. The frontend rendered `[object Object]` on several pages because `error` became an object in some paths, and could not switch on codes. `validateBody` (shared by all three domains) and the auth middleware (server/auth.js) returned raw strings. | Added `sendError(res, status, code, message, requestId, extra)` to `errors.js`; `formatError` now also emits `requestId` at the top level (kept nested for old clients). Converted **every** inline error in `routes/payment.js`, `routes/user.js` (incl. 4 rate-limiters), `routes/auth.js`, `middleware/validation.js`, `middleware/rbac.js` and `server/auth.js` to `sendError`/`formatError` with stable codes (e.g. `INVALID_PLAN`, `VALIDATION_ERROR`, `EMAIL_ALREADY_REGISTERED`, `INVALID_CONFIRMATION_TOKEN`, `NO_TOKEN`/`TOKEN_REVOKED`/`INVALID_TOKEN`, `FORBIDDEN`, `RATE_LIMITED`, gate codes, `STREAMING_NOT_CONFIGURED`, domain 500 codes). Gate 403s keep the top-level `code` (API-003 compatibility). `error` stays a top-level key (transition), `error.message` keeps the old English text. | New `tests/error-format.test.js` (10 contract tests across register/login/confirm/can-watch/stream-token/payment/admin-auth) asserting `success:false`, `error.code`, `error.message`, top-level `requestId`. 6 existing tests updated from string `.error` assertions to `error.code`/`error.message`. |
+| DA-52 | Medium (frontend) | `profile.html` (4 places) and `plans.html` rendered `esc(d.error)` / `data.error` — with the structured shape this shows `[object Object]`. | Added `errText(d)` helper in `profile.html` (object > `.message`, string > itself) and inline extraction in `plans.html`. `login.html` already switches on `error.code`. | Frontend build passes; no remaining frontend `.error` string reads on converted endpoints (grep-verified). |
+
+## TDD record
+
+1. Wrote `tests/error-format.test.js` (10 contract tests). Confirmed red (9 failed).
+2. Implemented `sendError` + `formatError` requestId change; converted validation.js, rbac.js, server/auth.js, auth.js limiter, all of payment.js and user.js.
+3. Ran the full suite: 6 legacy assertions on string `error` failed as expected; updated them to the new shape.
+4. Fixed the one single-line gate 403 that replaceAll missed (stream-token email guard).
+5. Updated frontend (profile.html, plans.html). Full suite, lint, build green.
+
+## Verification after correction
+
+- `npx jest --runInBand --randomize --silent`: **19 suites, 934/934 tests passed**.
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings — hero-poster.jpg).
+
+## Decisions recorded
+
+- Canonical shape: `{ success:false, error:{code,message}, requestId }`; `requestId` also mirrored at `error.requestId` for old `formatError` clients. Transition keeps `error` as the top-level key (message moved inside).
+- Gate 403s (stream-token/can-watch) additionally return a top-level `code` (API-003 legacy + player tests).
+- `validateBody` now uses `VALIDATION_ERROR` + joined details in message (details array kept as legacy top-level field).
+- Rate-limiters (express-rate-limit `message`) return `{ success:false, error:{code:'RATE_LIMITED', message} }`.
+
+## Remaining risks (deferred to later rounds)
+
+1. **AUTH-001**: password reset flow (request, one-time TTL token, change, revoke sessions).
+2. Admin CRUD / uploads / proxy endpoints in `server/index.js` still use the legacy string `{ error }` shape — not part of the payment/auth/user acceptance scope; can be unified in a later round.
+3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
+4. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); mark `quality-gate` as required status check in branch protection.
+5. `player.html` still swallows `stream-token` errors silently (`catch(_){}`); per-code action for stream-token denials can be surfaced in a later round.

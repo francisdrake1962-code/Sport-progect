@@ -4,6 +4,21 @@
 
 ---
 
+## [5.18.0] - 2026-08-01
+
+### Added — Unified error format (API-001)
+
+Round 11 of the Devil's Advocate audit.
+
+- `server/helpers/errors.js` — new `sendError(res, status, code, message, requestId, extra)` helper; `formatError` now also returns `requestId` at the top level (still mirrored in `error.requestId` for old clients). Canonical shape: `{ success:false, error:{code,message}, requestId }`.
+- Converted **every** inline `{ error: 'text' }` response in `routes/payment.js`, `routes/user.js` (incl. 4 rate-limiters), `routes/auth.js`, `middleware/validation.js`, `middleware/rbac.js` and `server/auth.js` to stable codes (`INVALID_PLAN`, `VALIDATION_ERROR`, `EMAIL_ALREADY_REGISTERED`, `INVALID_CONFIRMATION_TOKEN`, `NO_TOKEN`/`TOKEN_REVOKED`/`INVALID_TOKEN`, `FORBIDDEN`, `RATE_LIMITED`, gate codes, `STREAMING_NOT_CONFIGURED`, payment/user domain 500 codes). `error` stays a top-level key (transition); gate 403s keep the top-level `code` (API-003 compatibility).
+- `src/pages/profile.html` — `errText()` helper so structured errors render `.message` instead of `[object Object]`; `src/pages/plans.html` same inline. `login.html` already switches on `error.code`.
+- `tests/error-format.test.js` — **10 contract tests** (register, duplicate, login, confirm, can-watch, stream-token, payment create, admin RBAC, admin login) asserting `success:false` + `error.code` + `error.message` + `requestId`. 6 existing tests updated from string `error` assertions.
+- `docs/API.md` — error-format section + stable-code table; `docs/openapi.yaml` — `Error` schema with top-level `requestId`, gate 403 schemas reference it.
+- Full suite: **934/934 tests, 19 suites** (randomized); eslint 0 errors; build passes.
+
+---
+
 ## [5.17.0] - 2026-08-01
 
 ### Added — Machine-readable access denial codes (API-003)

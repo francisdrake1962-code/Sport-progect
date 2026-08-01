@@ -1102,6 +1102,44 @@ Content-Type: application/json
 - `can-watch`/`stream-token` дополняют существующие поля (`allowed`, `reason`, `freeUsed`, `freeLimit`) полем `code`; ничего не удаляется.
 - `POST /api/user/login` для неподтверждённого email возвращает `403` c `error.code = 'EMAIL_CONFIRMATION_REQUIRED'` (поле `code` вложено в `error` как у всех ошибок формата `formatError`).
 
+### Единый формат ошибок (API-001)
+
+Все ошибки payment, auth и user эндпоинтов возвращают стабильную структуру:
+
+```json
+{
+  "success": false,
+  "error": { "code": "INVALID_PLAN", "message": "Invalid plan. Must be \"monthly\" or \"annual\"." },
+  "requestId": "req_xxxxxxxx-xxxx"
+}
+```
+
+- `error.code` — стабильный машиночитаемый код (не английский текст сообщения); frontend переключается по коду.
+- `error.message` — человекочитаемое сообщение (для отображения).
+- `requestId` — на верхнем уровне и продублирован в `error.requestId` (переходная совместимость со старым `formatError`).
+- На переходный период `error` остаётся верхнеуровневым ключом (не уезжает в `data`); гейты доступа дополнительно сохраняют топ-уровневый `code` (API-003).
+- Ошибки, которые раньше были строкой `{ error: '...' }`, теперь имеют тот же `message` внутри объекта.
+
+Стабильные коды:
+
+| Код | Когда |
+|---|---|
+| `VALIDATION_ERROR` | Ошибка `validateBody` или ручная проверка полей (400) |
+| `UNAUTHORIZED` | Неверные учётные данные (login) |
+| `NO_TOKEN` / `TOKEN_REVOKED` / `INVALID_TOKEN` / `AUTH_SERVICE_UNAVAILABLE` | Отсутствующий/отозванный/невалидный JWT |
+| `FORBIDDEN` | Недостаточно прав (RBAC) |
+| `RATE_LIMITED` | Превышен rate limit (429) |
+| `EMAIL_ALREADY_REGISTERED` | Дубликат email при регистрации (409) |
+| `INVALID_CONFIRMATION_TOKEN` | Просроченный/неверный токен подтверждения (400) |
+| `INVALID_LESSON_ID`, `INVALID_LESSON_IDS`, `INVALID_MOOD`, `INVALID_LANGUAGE`, `INVALID_FINGERPRINT`, `FINGERPRINT_REQUIRED` | Валидация параметров |
+| `EMAIL_CONFIRMATION_REQUIRED`, `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `FREE_LIMIT_REACHED`, `SUBSCRIPTION_REQUIRED` | Гейты доступа (см. API-003) |
+| `STREAMING_NOT_CONFIGURED` | Провайдер не настроен (503) |
+| `INVALID_PLAN` | Некорректный план в `/payment/create` (400) |
+| `SUBSCRIBER_NOT_FOUND` | Подписчик не найден (404) |
+| `INVALID_SIGNATURE` / `WEBHOOK_NOT_CONFIGURED` / `STRIPE_NOT_CONFIGURED` / `WEBHOOK_PROCESSING_FAILED` | Stripe webhook |
+| `PLANS_LOAD_FAILED`, `CHECKOUT_FAILED`, `CANCEL_FAILED`, `PAYMENT_STATUS_FAILED`, `SUBSCRIPTION_STATUS_FAILED`, `GRANTS_LOAD_FAILED`, `GRANT_FAILED`, `REVOKE_FAILED`, `HISTORY_LOAD_FAILED` | Сбои payment-домена (500) |
+| `STATS_LOAD_FAILED`, `PROGRESS_SAVE_FAILED`, `PROGRESS_LOAD_FAILED`, `CALENDAR_LOAD_FAILED`, `PREFERENCES_*_FAILED`, `FEEDBACK_*_FAILED`, `DASHBOARD_LOAD_FAILED`, `SELECTIONS_*`, `EXPORT_FAILED`, `ACCOUNT_DELETION_FAILED`, `LANGUAGE_SAVE_FAILED`, `STREAM_TOKEN_FAILED`, `ACCESS_CHECK_FAILED` | Сбои user-домена (500) |
+
 ### Источник истины периода (PAY-003)
 
 - Авторитетное значение `subscription_expires_at` — Stripe `current_period_end` из события `customer.subscription.updated`.

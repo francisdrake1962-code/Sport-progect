@@ -1,3 +1,5 @@
+const { sendError } = require('../helpers/errors');
+
 const ROLE_HIERARCHY = {
   super_admin: 3,
   admin: 2,
@@ -7,13 +9,12 @@ const ROLE_HIERARCHY = {
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required', req.requestId);
     }
     const userLevel = ROLE_HIERARCHY[req.user.role] || 0;
     const hasAccess = allowedRoles.some(role => userLevel >= ROLE_HIERARCHY[role]);
     if (!hasAccess) {
-      return res.status(403).json({
-        error: 'Insufficient permissions',
+      return sendError(res, 403, 'FORBIDDEN', 'Insufficient permissions', req.requestId, {
         required: allowedRoles,
         current: req.user.role,
       });

@@ -621,7 +621,9 @@ describe('API Integration — Stream Token', () => {
   test('GET /api/user/stream-token should return 503 when not configured', async () => {
     const res = await apiRequest('GET', '/api/user/stream-token/1', null, paidToken);
     expect(res.status).toBe(503);
-    expect(res.body.error).toBe('Streaming not configured');
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe('STREAMING_NOT_CONFIGURED');
+    expect(res.body.error.message).toBe('Streaming not configured');
   });
 
   test('GET /api/user/stream-token should reject invalid lesson ID', async () => {
@@ -857,7 +859,8 @@ describe('API Integration — Token Revocation', () => {
 
     const meRes = await apiRequest('GET', '/api/auth/me', null, token);
     expect(meRes.status).toBe(401);
-    expect(meRes.body.error).toContain('revoked');
+    expect(meRes.body.success).toBe(false);
+    expect(meRes.body.error.code).toBe('TOKEN_REVOKED');
   });
 
   test('subscriber logout should revoke token', async () => {

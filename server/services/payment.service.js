@@ -176,6 +176,9 @@ function handleCheckoutCompleted(db, session) {
     return;
   }
 
+  // PAY-003: local plan-duration expiry is a temporary FALLBACK only. Stripe's
+  // `current_period_end` (delivered by the follow-up `customer.subscription.updated`
+  // webhook, which re-syncs this value) is the authoritative period end.
   const now = new Date();
   const expiresAt = new Date(now.getTime() + (PLAN_DURATIONS[plan] || PLAN_DURATIONS.monthly) * 1000);
 
@@ -245,8 +248,17 @@ function handleSubscriptionUpdated(db, subscription) {
     const periodEnd = subscription.items?.data?.[0]?.current_period_end;
     if (periodEnd) {
       const expiresAt = new Date(periodEnd * 1000).toISOString();
+      // PAY-003: current_period_end is the source of truth for a paid period,
+      // but it must never shrink time the subscriber has already paid for
+      // (e.g. a late/delayed event reporting an earlier period end).
+      const expiryResult = db.exec(`SELECT subscription_expires_at FROM subscribers WHERE id = ?`, [subscriberId]);
+      const currentExpires = expiryResult.length && expiryResult[0].values.length ? expiryResult[0].values[0][0] : null;
+      let finalExpires = expiresAt;
+      if (currentExpires && new Date(currentExpires).getTime() > new Date(expiresAt).getTime()) {
+        finalExpires = currentExpires;
+      }
       db.run(`UPDATE subscribers SET subscription_expires_at = ?, next_billing_date = ? WHERE id = ?`,
-        [expiresAt, expiresAt, subscriberId]);
+        [finalExpires, finalExpires, subscriberId]);
     }
   }
 
@@ -265,10 +277,11 @@ function handleSubscriptionDeleted(db, subscription) {
 
 function handlePaymentFailed(db, invoice) {
   const customerId = invoice.customer;
-  const subResult = db.exec(`SELECT id, status FROM subscribers WHERE stripe_customer_id = ?`, [customerId]);
+  const subResult = db.exec(`SELECT id, status, plan FROM subscribers WHERE stripe_customer_id = ?`, [customerId]);
   if (!subResult.length || !subResult[0].values.length) return;
   const subscriberId = subResult[0].values[0][0];
   const currentStatus = subResult[0].values[0][1];
+  const plan = subResult[0].values[0][2];
 
   // PAY-001: a failed recurring payment moves an active subscriber to past_due
   // (access is blocked by the can-watch gate). A cancelled/expired subscriber is
@@ -279,8 +292,8 @@ function handlePaymentFailed(db, invoice) {
 
   db.run(
     `INSERT INTO payments (subscriber_id, amount, currency, status, provider_payment_intent_id, provider_customer_id, plan, failure_reason)
-     VALUES (?, ?, 'usd', 'failed', ?, ?, 'monthly', ?)`,
-    [subscriberId, (invoice.amount_paid || 0) / 100, invoice.payment_intent, customerId, invoice.last_finalization_error?.message || 'Unknown']
+     VALUES (?, ?, 'usd', 'failed', ?, ?, ?, ?)`,
+    [subscriberId, (invoice.amount_paid || 0) / 100, invoice.payment_intent, customerId, plan, invoice.last_finalization_error?.message || 'Unknown']
   );
 
   logger.warn('Payment failed', { subscriberId, invoiceId: invoice.id });

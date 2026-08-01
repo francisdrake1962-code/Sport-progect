@@ -4,7 +4,22 @@
 
 ---
 
-## [5.11.0] - 2026-08-01
+## [5.12.0] - 2026-08-01
+
+### Fixed — Paid-period integrity (PAY-003), failed-payment plan, honest production config
+
+Round 5 of the Devil's Advocate audit.
+
+- `server/services/payment.service.js` — **PAY-003**: `customer.subscription.updated` (active) now treats Stripe `current_period_end` as the source of truth but **never shrinks already-paid time** — a late/delayed event reporting an earlier period end leaves the existing `subscription_expires_at` intact. The local plan-duration expiry in `checkout.session.completed` is explicitly marked as a temporary fallback (authoritative value arrives with the follow-up `subscription.updated` event).
+- `server/services/payment.service.js` — `invoice.payment_failed` no longer hard-codes `plan = 'monthly'` in the recorded payment: it now stores the subscriber's actual plan.
+- `server/helpers/config.js` — **honest production config**: `STRIPE_MONTHLY_PRICE_ID` and `STRIPE_ANNUAL_PRICE_ID` added to `REQUIRED_IN_PRODUCTION` (a production deploy without them cannot create a checkout). Mux keys are optional but now validated **all-or-none** (`MUX_ACCESS_TOKEN_ID/SECRET`, `MUX_SIGNING_KEY_ID/SIGNING_KEY`): a partial set is an error in production (silently breaks only some video paths) and a warning in development.
+- `tests/payment.test.js` — 3 new tests (PAY-003: never-shrink guard, later `current_period_end` extends, payment_failed records the real plan).
+- `tests/config.test.js` — 3 new tests (production without Price IDs rejected, partial Mux credentials rejected, complete Mux set accepted).
+- Full suite: **912/912 tests, 17 suites**; eslint 0 errors.
+
+---
+
+
 
 ### Fixed — Subscription state machine (PAY-001) + atomic webhook processing (PAY-002)
 

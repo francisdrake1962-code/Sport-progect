@@ -46,3 +46,46 @@ corrected with tests first (TDD).
 4. **DB-001**: migrations still run without an automated pre-migration backup/rollback runbook.
 5. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
 6. `config.js` `REQUIRED_IN_PRODUCTION` does not yet include `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_ANNUAL_PRICE_ID`, or the four Mux env vars.
+
+---
+
+# Devil's Advocate Audit — Round 5 (PAY-003 / config honesty)
+
+Date: 2026-08-01 | Version: 5.12.0 | Auditor: opencode
+
+## Outcome
+
+Round 5 closed the PAY-003 follow-up and hardened production config, each with
+tests first (TDD). One High and two Medium findings were corrected.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-40 | High (PAY-003) | `customer.subscription.updated` (active) overwrote `subscription_expires_at` with `current_period_end` unconditionally — a late/delayed event reporting an earlier period end could **shrink already-paid time** (ТЗ: «тесты не допускают уменьшения уже оплаченного срока»). The local fallback in `checkout.session.completed` was also undocumented. | `current_period_end` stays the source of truth, but the update now only ever extends: an existing later `subscription_expires_at` is preserved. The local `now + PLAN_DURATIONS` computation is explicitly marked as a temporary fallback (authoritative value arrives with the follow-up `subscription.updated`). | `tests/payment.test.js` — PAY-003 block: paid expiry is not shrunk by an earlier `current_period_end`; a later `current_period_end` extends; normal case still writes `periodEnd` exactly. |
+| DA-41 | Medium (data quality) | `handlePaymentFailed` hard-coded `plan='monthly'` on the recorded failed payment — an annual subscriber's failure was misreported in payment history/admin. | The failed-payment row now stores the subscriber's actual `plan` from `subscribers`. | `tests/payment.test.js` — PAY-003 block: annual subscriber + `invoice.payment_failed` → recorded plan is `annual`. |
+| DA-42 | Medium (config honesty) | `REQUIRED_IN_PRODUCTION` lacked the Stripe Price IDs (checkout cannot be created without them → silent runtime 400s in production). Mux keys were silently optional and could be **partially** set (signed playback works, uploads fail — no diagnostic). | `STRIPE_MONTHLY_PRICE_ID` / `STRIPE_ANNUAL_PRICE_ID` added to `REQUIRED_IN_PRODUCTION`. Mux stays optional but is validated all-or-none: a partial set is a `ConfigError` in production, a warning in development. | `tests/config.test.js`: production without Price IDs rejected; partial Mux rejected (lists missing vars); complete Mux set accepted. |
+
+## TDD record
+
+1. Added 3 PAY-003 tests + 1 payment_failed plan test. Confirmed red: expiry shrank to the earlier `periodEnd`, and the recorded plan was `monthly`.
+2. Implemented never-shrink guard in `handleSubscriptionUpdated`, fallback comment in `handleCheckoutCompleted`, and subscriber-plan lookup in `handlePaymentFailed`.
+3. Added 3 config tests (Price IDs required, Mux all-or-none in prod, complete Mux set OK) and updated the baseline acceptance test to include the new required vars. Implemented in `config.js`.
+4. Full suite, lint and build green.
+
+## Verification after correction
+
+- `npx jest --runInBand`: **17 suites, 912/912 tests passed** (906 before + 6 new).
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings — hero-poster.jpg).
+
+## Decisions recorded
+
+- Price IDs are fail-fast required in production (honest config), consistent with the existing Stripe key requirement — a production deploy that cannot create checkouts must not boot silently.
+- Mux keys remain per-lesson optional (a Cloudflare-only deploy must stay valid) but partial configuration is now impossible without a clear error.
+
+## Remaining risks (deferred to later rounds)
+
+1. **OPS-001**: `saveDb()` is a non-atomic sql.js file write (crash during write can damage the DB).
+2. **DB-001**: migrations run without an automated pre-migration backup/rollback runbook.
+3. **DOC-001/DOC-002**: Payment Flow + subscription state machine + provider/recurrence strategy still undocumented in `docs/API.md`/`docs/ARCHITECTURE.md`/ADR.
+4. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
+5. **Manual production step**: create Stripe Price objects and fill `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID` + the four Mux vars (all-or-none).

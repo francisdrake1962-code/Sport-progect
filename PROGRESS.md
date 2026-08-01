@@ -2,24 +2,24 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.11.0
+> Last updated: 2026-08-01 v5.12.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.11.0 (Devil's Advocate Round 4 — atomic Stripe webhook + subscription state machine; see `AUDIT_REPORT_2026-08-01.md`)
-**Tests**: 906/906 passing (17 suites), order-independent (verified with `jest --randomize`)
+**Version**: 5.12.0 (Devil's Advocate Round 5 — paid-period integrity PAY-003, honest production config; see `AUDIT_REPORT_2026-08-01.md`)
+**Tests**: 912/912 passing (17 suites), order-independent (verified with `jest --randomize`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+deea69ce v5.11.0: Devil's Advocate Round 4 — atomic Stripe webhook (PAY-002), subscription state machine (PAY-001), past_due schema migration 008
 4791d6f v5.10.4: Mux-first direct video uploads, provider-aware lessons/media, settings-driven payment amounts, test-isolated DB
 3935d06a v5.10.0: security hardening — stream-scoped JWT, rate limiting, Stripe config validation, dead code removal, order-independent tests
 da4d14b v5.9.0: fix systemic API response unwrap + frontend bugs
-b00f76e v5.8.1: fix device fingerprint caching
 ```
 
 ---
@@ -43,6 +43,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | Audit Fixes v5.9.0 | API response unwrap, frontend bugs, test port | ✅ DONE (v5.9.0) |
 | Security Hardening Round 4 | Stream-scoped JWT, rate limiting, Stripe config, dead code, test fixes | ✅ DONE (v5.10.0) |
 | Devil's Advocate Round 4 | PAY-002 atomic webhook, PAY-001 subscription state machine, `past_due` schema | ✅ DONE (v5.11.0) |
+| Devil's Advocate Round 5 | PAY-003 paid-period integrity, failed-payment plan, honest production config (Price IDs + Mux all-or-none) | ✅ DONE (v5.12.0) |
 
 ---
 
@@ -211,18 +212,23 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ## NEXT ACTIONS (for the next session)
 
+### v5.12.0 — Devil's Advocate Round 5: PAY-003 + config (DONE)
+- ✅ PAY-003: `subscription.updated` (active) sets expiry from `current_period_end` but never shrinks already-paid time; local plan-duration expiry in `checkout.session.completed` explicitly marked as temporary fallback
+- ✅ `invoice.payment_failed` records the subscriber's real plan (no hard-coded `monthly`)
+- ✅ Config: `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID` now required in production; Mux keys optional but all-or-none (partial set = error in production, warning in dev)
+- ✅ 912/912 tests, 17 suites; lint 0 errors; build passes
+
 ### v5.11.0 — Devil's Advocate Round 4: PAY-002 + PAY-001 (DONE)
 - ✅ Atomic webhook (PAY-002): one transaction for event + payment + subscription + audit; failure rolls back and stays retryable; concurrent duplicates → one effect
 - ✅ State machine (PAY-001): `trial/active/past_due/cancelled/expired`; `unpaid`→`past_due` (not `expired`), `canceled`→`cancelled` (access to period end), `past_due` handled, unknown statuses no-op, `invoice.payment_failed`→`past_due`, Stripe `active` restores + re-syncs `current_period_end`
 - ✅ Migration `008_subscription_state.sql`: `subscribers.status` CHECK now includes `'past_due'`; runner toggles `PRAGMA foreign_keys` per migration
 - ✅ 906/906 tests, 17 suites; lint 0 errors; build passes
 
-### Next round — candidate items (PAY-003 first):
-1. ⏳ **PAY-003**: derive `subscription_expires_at` from Stripe `current_period_end` on `checkout.session.completed` (fetch subscription or rely on the follow-up `subscription.updated`); add contract test that paid time never shrinks.
-2. ⏳ Fix `handlePaymentFailed` hard-coded `plan='monthly'` (take plan from subscription metadata).
-3. ⏳ OPS-001: atomic `saveDb()` (write temp file in same dir → fsync → rename) + backup before migration + restore runbook.
-4. ⏳ `config.js`: add `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_ANNUAL_PRICE_ID`, `MUX_ACCESS_TOKEN_ID`, `MUX_ACCESS_TOKEN_SECRET`, `MUX_SIGNING_KEY_ID`, `MUX_SIGNING_KEY` to `REQUIRED_IN_PRODUCTION`.
-5. ⏳ DOC-001/DOC-002: Payment Flow + provider/recurrence strategy in `docs/API.md`, `docs/ARCHITECTURE.md`, ADR; mark `saveDb()` non-atomic + CSP `unsafe-inline` + hero-poster as known debts.
+### Next round — candidate items:
+1. ⏳ **OPS-001**: atomic `saveDb()` (write temp file in same dir → fsync → rename) + backup before migration + restore runbook.
+2. ⏳ **DOC-001/DOC-002**: Payment Flow + provider/recurrence strategy in `docs/API.md`, `docs/ARCHITECTURE.md`, ADR; document the subscription state machine and PAY-003 period-integrity rule; mark `saveDb()` non-atomic + CSP `unsafe-inline` + hero-poster as known debts.
+3. ⏳ **DB-001**: backup/rollback runbook for versioned migrations (currently migrate-on-start, no rollback path).
+4. ⚠️ **Manual step for production**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair).
 
 ### v5.10.4 — Mux-first video upload (DONE)
 - ✅ Migration 007: `video_uploads` + `provider`/`mux_upload_id`/`mux_asset_id`/`mux_playback_id`

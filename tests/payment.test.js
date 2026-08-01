@@ -631,6 +631,64 @@ describe('Payment Module — PAY-001 subscription state machine', () => {
   });
 });
 
+describe('Payment Module — PAY-003 period source of truth', () => {
+  test('subscription.updated never shrinks an already-paid expiry', async () => {
+    const db = await getDb();
+    const farFuture = new Date(Date.now() + 40 * 86400000).toISOString();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = ?, stripe_customer_id = 'cus_pay003_shrink', email_confirmed = 1 WHERE email = 'maria@example.com'`, [farFuture]);
+    saveDb();
+
+    const periodEnd = Math.floor(Date.now() / 1000) + 30 * 86400;
+    const paymentService = require('../server/services/payment.service');
+    const result = await paymentService.handleWebhookEvent({
+      id: 'evt_pay003_shrink_' + Date.now(),
+      type: 'customer.subscription.updated',
+      data: { object: { customer: 'cus_pay003_shrink', status: 'active', items: { data: [{ current_period_end: periodEnd }] } } }
+    });
+    expect(result.processed).toBe(true);
+
+    const row = db.exec(`SELECT subscription_expires_at FROM subscribers WHERE email = 'maria@example.com'`);
+    const stored = row[0].values[0][0];
+    expect(new Date(stored).getTime()).toBeGreaterThanOrEqual(new Date(farFuture).getTime() - 1000);
+  });
+
+  test('subscription.updated extends expiry to current_period_end when it is later', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '-1 day'), stripe_customer_id = 'cus_pay003_extend', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+
+    const periodEnd = Math.floor(Date.now() / 1000) + 45 * 86400;
+    const paymentService = require('../server/services/payment.service');
+    const result = await paymentService.handleWebhookEvent({
+      id: 'evt_pay003_extend_' + Date.now(),
+      type: 'customer.subscription.updated',
+      data: { object: { customer: 'cus_pay003_extend', status: 'active', items: { data: [{ current_period_end: periodEnd }] } } }
+    });
+    expect(result.processed).toBe(true);
+
+    const row = db.exec(`SELECT subscription_expires_at FROM subscribers WHERE email = 'maria@example.com'`);
+    const stored = new Date(row[0].values[0][0]).getTime();
+    expect(stored).toBeCloseTo(new Date(periodEnd * 1000).getTime(), -3);
+  });
+
+  test('invoice.payment_failed records the subscriber plan, not a hard-coded monthly', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'annual', status = 'active', subscription_expires_at = datetime('now', '+300 days'), stripe_customer_id = 'cus_pay003_plan', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+
+    const paymentService = require('../server/services/payment.service');
+    const result = await paymentService.handleWebhookEvent({
+      id: 'evt_pay003_plan_' + Date.now(),
+      type: 'invoice.payment_failed',
+      data: { object: { customer: 'cus_pay003_plan', amount_paid: 0, payment_intent: 'pi_pay003_plan', last_finalization_error: { message: 'card_declined' } } }
+    });
+    expect(result.processed).toBe(true);
+
+    const row = db.exec(`SELECT plan FROM payments WHERE provider_payment_intent_id = 'pi_pay003_plan'`);
+    expect(row[0].values[0][0]).toBe('annual');
+  });
+});
+
 describe('Payment Module — Subscription cancel', () => {
   test('subscriber can request cancel (Stripe not configured returns 500)', async () => {
     const db = await getDb();

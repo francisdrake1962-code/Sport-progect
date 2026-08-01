@@ -4,6 +4,20 @@
 
 ---
 
+## [5.20.0] - 2026-08-01
+
+### Fixed — stream-token per-code frontend (API-003 residual)
+
+Round 13 of the Devil's Advocate audit.
+
+- `src/pages/player.html`: `api()` helper now parses the API-001 error body and attaches `err.status` + `err.code` to thrown errors (no more regex-parsing the message for the status).
+- Extracted `renderDenied(lesson, complexName, code, freeUsed, freeLimit)` — the access-denial screen is now defined once and shared by the `can-watch` and `stream-token` branches.
+- Replaced the `stream-token` `} catch(_){}` (which swallowed every refusal) with per-code actions: 403 `EMAIL_CONFIRMATION_REQUIRED` → «Подтвердите email», gate 403s (`PAYMENT_PAST_DUE`/`SUBSCRIPTION_EXPIRED`/`SUBSCRIPTION_REQUIRED`/`FREE_LIMIT_REACHED`) → `renderDenied`, 503 `STREAMING_NOT_CONFIGURED` → «Видео временно недоступно»; unknown failures fall through to the outer error UI.
+- `tests/integrity.test.js`: **3 new assertions** (page references `STREAMING_NOT_CONFIGURED` and `EMAIL_CONFIRMATION_REQUIRED`; the `stream-token` catch is no longer a bare `catch(_)`).
+- Full suite: **949/949 tests, 20 suites** (randomized); eslint 0 errors; build passes.
+
+---
+
 ## [5.19.0] - 2026-08-01
 
 ### Added — Password reset (AUTH-001)

@@ -209,4 +209,22 @@ describe('Content Integrity', () => {
       });
     });
   });
+
+  describe('Round 13 — player.html stream-token per-code handling', () => {
+    const playerHtml = readHTML(path.join(pagesDir, 'player.html'));
+
+    test('should handle STREAMING_NOT_CONFIGURED (503) with a dedicated message', () => {
+      expect(playerHtml).toMatch(/STREAMING_NOT_CONFIGURED/);
+    });
+
+    test('should reference EMAIL_CONFIRMATION_REQUIRED in the player page', () => {
+      expect(playerHtml).toMatch(/EMAIL_CONFIRMATION_REQUIRED/);
+    });
+
+    test('should not swallow stream-token failures silently', () => {
+      const m = playerHtml.match(/api\('\/api\/user\/stream-token\/'\s*\+\s*lesson\.id\)[\s\S]*?\}\s*catch\s*\(([^)]*)\)\s*\{/);
+      expect(m).toBeTruthy();
+      expect(m[1].trim()).not.toBe('_');
+    });
+  });
 });

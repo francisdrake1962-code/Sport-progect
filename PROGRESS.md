@@ -2,20 +2,22 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.19.0 (Round 12 — AUTH-001, pushed)
+> Last updated: 2026-08-01 v5.20.0 (Round 13 — stream-token per-code frontend, pushed)
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.19.0 (Devil's Advocate Round 12 — password reset AUTH-001; see `AUDIT_REPORT_2026-08-01.md`)
-**Tests**: 946/946 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
+**Version**: 5.20.0 (Devil's Advocate Round 13 — API-003 residual: stream-token per-code actions in player.html; see `AUDIT_REPORT_2026-08-01.md`)
+**Tests**: 949/949 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+v5.20.0: Devil's Advocate Round 13 — stream-token per-code frontend (api() attaches err.status/code, shared renderDenied, EMAIL_CONFIRMATION_REQUIRED + gate 403 + STREAMING_NOT_CONFIGURED actions replace catch(_){}, 3 integrity tests)
+v5.19.1: CI fix — ESLint 10 requires Node >=20.19, GitHub Actions matrix 18 -> 22/24, engines + DEPLOYMENT.md updated (GitHub 'project not successful' notifications were failing lint on Node 18)
 v5.19.0: Devil's Advocate Round 12 — AUTH-001 password reset (request-reset always {success:true}, one-time 1h SHA-256 token, reset-password, token_version session revocation of all old JWTs, reset page + login link, 9 tests)
 v5.18.0: Devil's Advocate Round 11 — API-001 unified error format `{success:false, error:{code,message}, requestId}` across payment/auth/user (sendError helper, all inline errors converted, frontend errText, 10 contract tests, 6 tests updated)
 dbc37025b v5.17.0: Devil's Advocate Round 10 — API-003 machine-readable access denial codes (can-watch/stream-token/login, access-before-provider, per-code frontend actions)
@@ -193,7 +195,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 ### All Phase 4 deliverables done:
 
 **CI/CD Pipeline**:
-- `.github/workflows/ci.yml` — GitHub Actions: lint + test (Node 18+20 matrix) + build
+- `.github/workflows/ci.yml` — GitHub Actions: lint + test (Node 22+24 matrix, ESLint 10) + build
 - `eslint.config.js` — ESLint flat config, 0 errors, 65 warnings
 - `package.json` — `lint` / `lint:fix` scripts
 
@@ -274,10 +276,17 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - ✅ `tests/password-reset.test.js`: 9 тестов (no-reveal, TTL, invalid/missing/expired token, короткий пароль, полный флоу с ревокацией и one-time, шаблон письма, rate limit)
 - ✅ 946/946 tests, 20 suites (randomized); lint 0 errors; build passes
 
+### v5.20.0 — Devil's Advocate Round 13: API-003 residual — stream-token per-code frontend (DONE)
+- ✅ `player.html` `api()` helper attaches `err.status` + `err.code` (parsed from the API-001 `{success:false, error:{code}}` body) instead of regex-parsing the error message
+- ✅ Extracted shared `renderDenied(lesson, complexName, code, freeUsed, freeLimit)` used by both `can-watch` and `stream-token`
+- ✅ `stream-token` `} catch(_){}` replaced with per-code actions: 403 `EMAIL_CONFIRMATION_REQUIRED` → «Подтвердите email», gate 403s (`PAYMENT_PAST_DUE`/`SUBSCRIPTION_EXPIRED`/`SUBSCRIPTION_REQUIRED`/`FREE_LIMIT_REACHED`) → `renderDenied`, 503 `STREAMING_NOT_CONFIGURED` → «Видео временно недоступно»; unknown failures fall through to the outer error UI
+- ✅ `tests/integrity.test.js`: 3 new assertions (page references `STREAMING_NOT_CONFIGURED` + `EMAIL_CONFIRMATION_REQUIRED`; stream-token catch no longer `catch(_)`)
+- ✅ 949/949 tests, 20 suites (randomized); lint 0 errors; build passes
+
 ### Next round — candidate items:
-1. ⚠️ **API-003 остаточный** — `player.html` сейчас глотает ошибки `stream-token` (`catch(_){}`); по коду показать действие и для stream-token-отказов.
-2. ⚠️ **Единый формат ошибок на admin-эндпоинтах** (`server/index.js` + admin CRUD) — legacy string `{error}` ещё жив на вне-auth/payment/user путях.
-3. ⚠️ **Manual production step**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair); в GitHub сделать `quality-gate` required check.
+1. ⚠️ **Единый формат ошибок на admin-эндпоинтах** (`server/index.js` + admin CRUD) — legacy string `{error}` ещё жив на вне-auth/payment/user путях.
+2. ⚠️ **Manual production step**: create Stripe Price objects and set `STRIPE_MONTHLY_PRICE_ID`/`STRIPE_ANNUAL_PRICE_ID`; fill `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (all-or-none with signing pair); в GitHub сделать `quality-gate` required check.
+3. ⚠️ P2-кандидаты из IMPROVEMENT_TZ: ARC-001, OBS-001, UX-001, UX-002, ARCH-001, DB-002, NFR-001.
 
 ### v5.10.4 — Mux-first video upload (DONE)
 - ✅ Migration 007: `video_uploads` + `provider`/`mux_upload_id`/`mux_asset_id`/`mux_playback_id`

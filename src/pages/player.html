@@ -191,7 +191,13 @@
             return fetch(path, { headers: headers }).then(function(res) {
                 if (!res.ok) {
                     return res.text().then(function(body) {
-                        throw new Error('API error ' + res.status + ' ' + path + (body ? ' — ' + body.substring(0, 200) : ''));
+                        var err = new Error('API error ' + res.status + ' ' + path + (body ? ' — ' + body.substring(0, 200) : ''));
+                        err.status = res.status;
+                        try {
+                            var parsed = JSON.parse(body);
+                            if (parsed && parsed.error && parsed.error.code) err.code = parsed.error.code;
+                        } catch(_) {}
+                        throw err;
                     });
                 }
                 return res.json();
@@ -323,28 +329,12 @@
                 try {
                     var access = await api('/api/user/can-watch/' + lesson.id);
                     if (!access.allowed) {
-                        var deniedTitle = 'Бесплатный период окончен';
-                        var deniedText = 'Вы просмотрели ' + access.freeUsed + ' из ' + access.freeLimit + ' бесплатных занятий. Оформите подписку для полного доступа.';
-                        if (access.code === 'SUBSCRIPTION_EXPIRED') {
-                            deniedTitle = 'Подписка истекла';
-                            deniedText = 'Ваш доступ к подписке завершился. Продлите подписку, чтобы продолжить.';
-                        } else if (access.code === 'PAYMENT_PAST_DUE') {
-                            deniedTitle = 'Оплата не прошла';
-                            deniedText = 'Последний платёж не удался. Обновите способ оплаты, чтобы восстановить доступ.';
-                        } else if (access.code === 'SUBSCRIPTION_REQUIRED') {
-                            deniedTitle = 'Подписка требуется';
-                            deniedText = 'Это занятие доступно только по подписке.';
-                        }
-                        root.innerHTML = renderHeader(lesson, complexName) +
-                            '<div class="player-empty"><div class="player-empty__icon">⏰</div>' +
-                            '<div class="player-empty__title">' + deniedTitle + '</div>' +
-                            '<div class="player-empty__text">' + deniedText + '</div>' +
-                            '<a href="plans.html" class="btn btn--primary">Выбрать план</a></div>';
+                        root.innerHTML = renderDenied(lesson, complexName, access.code, access.freeUsed, access.freeLimit);
                         return;
                     }
                 } catch(e) {
-                    var errStatus = e.message ? e.message.match(/\d+/) : null;
-                    if (errStatus && parseInt(errStatus[0]) === 403) {
+                    var errStatus = e.status ? e.status : (e.message ? e.message.match(/\d+/) : null);
+                    if (errStatus && (parseInt(errStatus) === 403 || parseInt(errStatus[0]) === 403)) {
                         root.innerHTML = renderHeader(lesson, complexName) +
                             '<div class="player-empty"><div class="player-empty__icon">📧</div>' +
                             '<div class="player-empty__title">Подтвердите email</div>' +
@@ -366,7 +356,31 @@
                         videoLanguage = tokenData.videoLanguage || 'ru';
                         isOriginal = tokenData.isOriginal !== undefined ? tokenData.isOriginal : true;
                     }
-                } catch(_) {}
+                } catch(e) {
+                    var stStatus = e.status ? e.status : (e.message ? e.message.match(/\d+/) : null);
+                    var stStatusNum = typeof stStatus === 'number' ? stStatus : (stStatus ? parseInt(Array.isArray(stStatus) ? stStatus[0] : stStatus) : 0);
+                    var stCode = e.code || '';
+                    if (stStatusNum === 403 && stCode === 'EMAIL_CONFIRMATION_REQUIRED') {
+                        root.innerHTML = renderHeader(lesson, complexName) +
+                            '<div class="player-empty"><div class="player-empty__icon">📧</div>' +
+                            '<div class="player-empty__title">Подтвердите email</div>' +
+                            '<div class="player-empty__text">Проверьте почту и перейдите по ссылке для подтверждения.</div>' +
+                            '<a href="login.html" class="btn btn--primary">На главную</a></div>';
+                        return;
+                    }
+                    if (stStatusNum === 403 && (stCode === 'PAYMENT_PAST_DUE' || stCode === 'SUBSCRIPTION_EXPIRED' || stCode === 'SUBSCRIPTION_REQUIRED' || stCode === 'FREE_LIMIT_REACHED')) {
+                        root.innerHTML = renderDenied(lesson, complexName, stCode);
+                        return;
+                    }
+                    if (stStatusNum === 503 && stCode === 'STREAMING_NOT_CONFIGURED') {
+                        root.innerHTML = renderHeader(lesson, complexName) +
+                            '<div class="player-empty"><div class="player-empty__icon">📡</div>' +
+                            '<div class="player-empty__title">Видео временно недоступно</div>' +
+                            '<div class="player-empty__text">Стриминг ещё не настроен. Пожалуйста, попробуйте позже.</div>' +
+                            '<a href="lessons.html" class="btn btn--primary">Все занятия</a></div>';
+                        return;
+                    }
+                }
 
                 var directVideoUrl = (function() {
                     var vUrl = lesson.video_url || lesson.video || '';
@@ -474,6 +488,30 @@
                 '<div class="player-empty__text">Выберите занятие из каталога</div>' +
                 '<a href="lessons.html" class="btn btn--primary">Все занятия</a>' +
                 '</div>';
+        }
+
+        /* API-003: per-code action screen for access denials (shared by can-watch and stream-token). */
+        function renderDenied(lesson, complexName, code, freeUsed, freeLimit) {
+            var deniedTitle = 'Бесплатный период окончен';
+            var deniedText = 'Оформите подписку для полного доступа.';
+            if (freeUsed != null && freeLimit != null) {
+                deniedText = 'Вы просмотрели ' + freeUsed + ' из ' + freeLimit + ' бесплатных занятий. Оформите подписку для полного доступа.';
+            }
+            if (code === 'SUBSCRIPTION_EXPIRED') {
+                deniedTitle = 'Подписка истекла';
+                deniedText = 'Ваш доступ к подписке завершился. Продлите подписку, чтобы продолжить.';
+            } else if (code === 'PAYMENT_PAST_DUE') {
+                deniedTitle = 'Оплата не прошла';
+                deniedText = 'Последний платёж не удался. Обновите способ оплаты, чтобы восстановить доступ.';
+            } else if (code === 'SUBSCRIPTION_REQUIRED') {
+                deniedTitle = 'Подписка требуется';
+                deniedText = 'Это занятие доступно только по подписке.';
+            }
+            return renderHeader(lesson, complexName) +
+                '<div class="player-empty"><div class="player-empty__icon">⏰</div>' +
+                '<div class="player-empty__title">' + deniedTitle + '</div>' +
+                '<div class="player-empty__text">' + deniedText + '</div>' +
+                '<a href="plans.html" class="btn btn--primary">Выбрать план</a></div>';
         }
 
         /* ── Resume Prompt (MWH pattern: check saved position, show resume dialog) ── */

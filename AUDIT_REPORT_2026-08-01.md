@@ -244,7 +244,7 @@ build actually failed, and the lint step covered only `server/`.
 
 ---
 
-# Devil's Advocate Audit ó Round 10 (API-003)
+# Devil's Advocate Audit ÔøΩ Round 10 (API-003)
 
 Date: 2026-08-01 | Version: 5.17.0 | Auditor: opencode
 
@@ -257,8 +257,8 @@ provider problems (503) instead of the access reason for a denied user.
 
 | ID | Severity | Finding | Resolution | Verification |
 | --- | --- | --- | --- | --- |
-| DA-49 | Medium (API-003) | `can-watch`/`stream-token` denial responses had no stable machine-readable `code`; the frontend could only guess intent (e.g. any 403 on `can-watch` was rendered as "confirm email"). `stream-token` also checked provider availability *before* access, so a denied user got `503 Streaming not configured` ó revealing the deployment setup and masking the real reason. | Both gates now return a stable `code` while keeping existing fields and HTTP statuses: `GRANTED`, `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `FREE_LIMIT_REACHED`, `SUBSCRIPTION_REQUIRED`, `EMAIL_CONFIRMATION_REQUIRED`. `stream-token` checks access first (403 + code, before any provider check). No video path or Stripe internals are exposed. | `tests/payment.test.js` ó API-003 block: one contract test per code (8 tests) plus the existing past_due test now asserts `PAYMENT_PAST_DUE`. |
-| DA-50 | Medium (API-003) | `POST /api/user/login` rejected unconfirmed users with a `FORBIDDEN` code ó not the TZ-listed `EMAIL_CONFIRMATION_REQUIRED` ó and login.html's `EMAIL_NOT_CONFIRMED` string match never fired against the structured error. | `ForbiddenError` gained an optional machine code; login returns `403` with `error.code = 'EMAIL_CONFIRMATION_REQUIRED'`. Frontend (login.html/player.html) now acts on the machine code and renders per-code actions (subscription expired / payment failed / subscription required / free limit). | API-003 login contract test (403 + code); frontend built cleanly. |
+| DA-49 | Medium (API-003) | `can-watch`/`stream-token` denial responses had no stable machine-readable `code`; the frontend could only guess intent (e.g. any 403 on `can-watch` was rendered as "confirm email"). `stream-token` also checked provider availability *before* access, so a denied user got `503 Streaming not configured` ÔøΩ revealing the deployment setup and masking the real reason. | Both gates now return a stable `code` while keeping existing fields and HTTP statuses: `GRANTED`, `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `FREE_LIMIT_REACHED`, `SUBSCRIPTION_REQUIRED`, `EMAIL_CONFIRMATION_REQUIRED`. `stream-token` checks access first (403 + code, before any provider check). No video path or Stripe internals are exposed. | `tests/payment.test.js` ÔøΩ API-003 block: one contract test per code (8 tests) plus the existing past_due test now asserts `PAYMENT_PAST_DUE`. |
+| DA-50 | Medium (API-003) | `POST /api/user/login` rejected unconfirmed users with a `FORBIDDEN` code ÔøΩ not the TZ-listed `EMAIL_CONFIRMATION_REQUIRED` ÔøΩ and login.html's `EMAIL_NOT_CONFIRMED` string match never fired against the structured error. | `ForbiddenError` gained an optional machine code; login returns `403` with `error.code = 'EMAIL_CONFIRMATION_REQUIRED'`. Frontend (login.html/player.html) now acts on the machine code and renders per-code actions (subscription expired / payment failed / subscription required / free limit). | API-003 login contract test (403 + code); frontend built cleanly. |
 
 ## TDD record
 
@@ -272,7 +272,7 @@ provider problems (503) instead of the access reason for a denied user.
 
 - `npx jest --runInBand --silent`: **18 suites, 924/924 tests passed**.
 - `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
-- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings ó hero-poster.jpg).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings ÔøΩ hero-poster.jpg).
 
 ## Decisions recorded
 
@@ -289,7 +289,7 @@ provider problems (503) instead of the access reason for a denied user.
 
 ---
 
-# Devil's Advocate Audit ó Round 11 (API-001)
+# Devil's Advocate Audit ÔøΩ Round 11 (API-001)
 
 Date: 2026-08-01 | Version: 5.18.0 | Auditor: opencode
 
@@ -303,7 +303,7 @@ could not rely on stable codes and the frontend had to guess from English text.
 | ID | Severity | Finding | Resolution | Verification |
 | --- | --- | --- | --- | --- |
 | DA-51 | High (API-001) | payment/auth/user error responses were inconsistent: inline `{ error: 'string' }` (validations, gates, 500s, RBAC, auth middleware, rate-limiters) vs structured `{ success:false, error:{code,message,requestId} }` from `formatError`. The frontend rendered `[object Object]` on several pages because `error` became an object in some paths, and could not switch on codes. `validateBody` (shared by all three domains) and the auth middleware (server/auth.js) returned raw strings. | Added `sendError(res, status, code, message, requestId, extra)` to `errors.js`; `formatError` now also emits `requestId` at the top level (kept nested for old clients). Converted **every** inline error in `routes/payment.js`, `routes/user.js` (incl. 4 rate-limiters), `routes/auth.js`, `middleware/validation.js`, `middleware/rbac.js` and `server/auth.js` to `sendError`/`formatError` with stable codes (e.g. `INVALID_PLAN`, `VALIDATION_ERROR`, `EMAIL_ALREADY_REGISTERED`, `INVALID_CONFIRMATION_TOKEN`, `NO_TOKEN`/`TOKEN_REVOKED`/`INVALID_TOKEN`, `FORBIDDEN`, `RATE_LIMITED`, gate codes, `STREAMING_NOT_CONFIGURED`, domain 500 codes). Gate 403s keep the top-level `code` (API-003 compatibility). `error` stays a top-level key (transition), `error.message` keeps the old English text. | New `tests/error-format.test.js` (10 contract tests across register/login/confirm/can-watch/stream-token/payment/admin-auth) asserting `success:false`, `error.code`, `error.message`, top-level `requestId`. 6 existing tests updated from string `.error` assertions to `error.code`/`error.message`. |
-| DA-52 | Medium (frontend) | `profile.html` (4 places) and `plans.html` rendered `esc(d.error)` / `data.error` ó with the structured shape this shows `[object Object]`. | Added `errText(d)` helper in `profile.html` (object > `.message`, string > itself) and inline extraction in `plans.html`. `login.html` already switches on `error.code`. | Frontend build passes; no remaining frontend `.error` string reads on converted endpoints (grep-verified). |
+| DA-52 | Medium (frontend) | `profile.html` (4 places) and `plans.html` rendered `esc(d.error)` / `data.error` ÔøΩ with the structured shape this shows `[object Object]`. | Added `errText(d)` helper in `profile.html` (object > `.message`, string > itself) and inline extraction in `plans.html`. `login.html` already switches on `error.code`. | Frontend build passes; no remaining frontend `.error` string reads on converted endpoints (grep-verified). |
 
 ## TDD record
 
@@ -317,7 +317,7 @@ could not rely on stable codes and the frontend had to guess from English text.
 
 - `npx jest --runInBand --randomize --silent`: **19 suites, 934/934 tests passed**.
 - `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
-- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings ó hero-poster.jpg).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings ÔøΩ hero-poster.jpg).
 
 ## Decisions recorded
 
@@ -329,14 +329,14 @@ could not rely on stable codes and the frontend had to guess from English text.
 ## Remaining risks (deferred to later rounds)
 
 1. **AUTH-001**: password reset flow (request, one-time TTL token, change, revoke sessions).
-2. Admin CRUD / uploads / proxy endpoints in `server/index.js` still use the legacy string `{ error }` shape ó not part of the payment/auth/user acceptance scope; can be unified in a later round.
+2. Admin CRUD / uploads / proxy endpoints in `server/index.js` still use the legacy string `{ error }` shape ÔøΩ not part of the payment/auth/user acceptance scope; can be unified in a later round.
 3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented known debts).
 4. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); mark `quality-gate` as required status check in branch protection.
 5. `player.html` still swallows `stream-token` errors silently (`catch(_){}`); per-code action for stream-token denials can be surfaced in a later round.
 
 ---
 
-# Devil's Advocate Audit ó Round 12 (AUTH-001)
+# Devil's Advocate Audit ÔøΩ Round 12 (AUTH-001)
 
 Date: 2026-08-01 | Version: 5.19.0 | Auditor: opencode
 
@@ -349,26 +349,26 @@ TTL + session revocation + enumeration protection.
 
 | ID | Severity | Finding | Resolution | Verification |
 | --- | --- | --- | --- | --- |
-| DA-53 | High (AUTH-001) | No password recovery existed. A subscriber with a forgotten password could never log in again; there was no token store, no reset endpoint, no TTL and no way to invalidate previously issued JWTs after a password change (only `revokeCurrentToken` existed for the acting token). | Added `POST /api/user/request-reset` (always `{success:true}`, never reveals email existence, rate-limited `RATE_LIMIT_MAX_RESET` default 3/min) and `POST /api/user/reset-password` (one-time SHA-256-hashed token with 1-hour TTL, `INVALID_RESET_TOKEN` / `VALIDATION_ERROR` / `RESET_FAILED` codes, rate-limited `RATE_LIMIT_MAX_RESET_PASSWORD` default 5/min). Reset bumps `subscribers.token_version`; subscriber JWTs now carry `ver` and auth middleware rejects tokens whose `ver` does not match the current version, so **all old sessions are rejected** after a password change. Migration `009_password_reset.sql` adds the three columns (base schema updated too; ALTER is idempotent). | New `tests/password-reset.test.js` (9 tests: no-reveal on unknown email, token stored with TTL and never leaked in the response, invalid/missing/expired token 400, short password 400, full flow ó old session `TOKEN_REVOKED`, old password 401, new password works, one-time reuse rejected; email template contains no password; rate limit 429). |
-| DA-54 | Medium (frontend) | No UI existed for the flow. | New `src/pages/reset-password.html` (request email + set-new-password views keyed off `?token=`), `login.html` "«‡·˚ÎË Ô‡ÓÎ¸?" link, clean URL route `/reset-password` + webpack page entry. `tests/integrity.test.js` exempt lists updated for the new standalone auth page. | Frontend build passes; 946/946 tests randomized. |
+| DA-53 | High (AUTH-001) | No password recovery existed. A subscriber with a forgotten password could never log in again; there was no token store, no reset endpoint, no TTL and no way to invalidate previously issued JWTs after a password change (only `revokeCurrentToken` existed for the acting token). | Added `POST /api/user/request-reset` (always `{success:true}`, never reveals email existence, rate-limited `RATE_LIMIT_MAX_RESET` default 3/min) and `POST /api/user/reset-password` (one-time SHA-256-hashed token with 1-hour TTL, `INVALID_RESET_TOKEN` / `VALIDATION_ERROR` / `RESET_FAILED` codes, rate-limited `RATE_LIMIT_MAX_RESET_PASSWORD` default 5/min). Reset bumps `subscribers.token_version`; subscriber JWTs now carry `ver` and auth middleware rejects tokens whose `ver` does not match the current version, so **all old sessions are rejected** after a password change. Migration `009_password_reset.sql` adds the three columns (base schema updated too; ALTER is idempotent). | New `tests/password-reset.test.js` (9 tests: no-reveal on unknown email, token stored with TTL and never leaked in the response, invalid/missing/expired token 400, short password 400, full flow ÔøΩ old session `TOKEN_REVOKED`, old password 401, new password works, one-time reuse rejected; email template contains no password; rate limit 429). |
+| DA-54 | Medium (frontend) | No UI existed for the flow. | New `src/pages/reset-password.html` (request email + set-new-password views keyed off `?token=`), `login.html` "ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ?" link, clean URL route `/reset-password` + webpack page entry. `tests/integrity.test.js` exempt lists updated for the new standalone auth page. | Frontend build passes; 946/946 tests randomized. |
 
 ## TDD record
 
 1. Wrote `tests/password-reset.test.js` (9 contract tests). Confirmed red (9 failed).
 2. Implemented migration `009`, `auth.service.requestPasswordReset/resetPassword`, `ver` claim in `generateToken`, auth-middleware version check, mailer `sendPasswordResetEmail`/`RESET_PASSWORD_HTML`, routes + reset limiters (custom `keyGenerator` using `ipKeyGenerator` for IPv6 safety; test-only `x-test-key` to isolate the rate-limit check).
-3. Green on the new suite; full run exposed 3 `integrity.test.js` failures for the new page ó added `reset-password.html` to the standalone-page exempt lists and switched the back link to `login.html` (project convention).
+3. Green on the new suite; full run exposed 3 `integrity.test.js` failures for the new page ÔøΩ added `reset-password.html` to the standalone-page exempt lists and switched the back link to `login.html` (project convention).
 4. Full suite randomized, lint, build all green.
 
 ## Verification after correction
 
 - `npx jest --runInBand --randomize --silent`: **20 suites, 946/946 tests passed** (934 + 9 new reset tests + 3 new integrity assertions picked up by the page scan).
 - `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
-- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings ó hero-poster.jpg).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings ÔøΩ hero-poster.jpg).
 
 ## Decisions recorded
 
 - **Enumeration protection**: `request-reset` always answers `{success:true}`; invalid-format emails short-circuit to the same response; server errors are logged, not surfaced.
-- **Token storage**: the raw 32-byte token is never stored ó only its SHA-256 hash, matching the `token_blocklist` practice (stronger than the plaintext `confirmation_token` legacy).
+- **Token storage**: the raw 32-byte token is never stored ÔøΩ only its SHA-256 hash, matching the `token_blocklist` practice (stronger than the plaintext `confirmation_token` legacy).
 - **One-time + TTL**: token is cleared on successful use; expiry checked as ISO timestamp.
 - **Session revocation**: `subscribers.token_version` + `ver` JWT claim + middleware comparison. Old tokens (no `ver` claim, pre-deploy) are unaffected; every new login bakes in the current version. Admin tokens carry no `ver` and are untouched.
 - **Rate limits**: `RATE_LIMIT_MAX_RESET` (3/min prod) and `RATE_LIMIT_MAX_RESET_PASSWORD` (5/min prod); both use a custom `keyGenerator` (IPv6-safe via `ipKeyGenerator`) and honor `x-test-key` only under `NODE_ENV=test` so tests can exercise 429 in isolation.
@@ -376,7 +376,49 @@ TTL + session revocation + enumeration protection.
 
 ## Remaining risks (deferred to later rounds)
 
-1. **API-003 ÓÒÚ‡ÚÓ˜Ì˚È**: `player.html` still swallows `stream-token` errors (`catch(_){}`); per-code action for stream-token denials can be surfaced later.
+1. **API-003 ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ**: `player.html` still swallows `stream-token` errors (`catch(_){}`); per-code action for stream-token denials can be surfaced later.
 2. **Admin/CRUD legacy errors**: `server/index.js` + admin CRUD still use the legacy string `{error}` shape (outside the API-001 payment/auth/user scope).
 3. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
 4. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); `quality-gate` as required status check in branch protection.
+
+---
+
+# Devil's Advocate Audit ‚Äî Round 13 (API-003 residual: stream-token per-code frontend)
+
+Date: 2026-08-01 | Version: 5.20.0 | Auditor: opencode
+
+## Outcome
+
+Round 13 closes the last API-003 residual from Round 12's remaining risks:
+`player.html` was silently swallowing `stream-token` denials with `catch(_){}`
+‚Äî a `STREAMING_NOT_CONFIGURED` (503) or any gate 403 left the user staring at a
+broken/empty player with no action. The page now surfaces a per-code action for
+every machine-readable stream-token error, matching the `can-watch` pattern.
+
+| ID | Severity | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-55 | Medium (API-003 residual) | `src/pages/player.html` `stream-token` call ended in `} catch(_){}` ‚Äî every stream-token refusal (`STREAMING_NOT_CONFIGURED` 503, `EMAIL_CONFIRMATION_REQUIRED` 403, `PAYMENT_PAST_DUE` / `SUBSCRIPTION_EXPIRED` / `SUBSCRIPTION_REQUIRED` / `FREE_LIMIT_REACHED` 403) was swallowed; the player rendered with no `streamUrl`, no message and no action. | `api()` helper now parses the API-001 error body and attaches `err.status` + `err.code`. The `stream-token` catch branches per code: 403 `EMAIL_CONFIRMATION_REQUIRED` ‚Üí ¬´–ü–æ–¥—Ç–≤–µ—Ä–¥–∏—Ç–µ email¬ª screen; other gate 403s ‚Üí shared `renderDenied(lesson, complexName, code, freeUsed, freeLimit)` (extracted from the `can-watch` branch, so both use one definition); 503 `STREAMING_NOT_CONFIGURED` ‚Üí ¬´–í–∏–¥–µ–æ –≤—Ä–µ–º–µ–Ω–Ω–æ –Ω–µ–¥–æ—Å—Ç—É–ø–Ω–æ¬ª; unknown errors still fall through to the outer error UI. | `tests/integrity.test.js` ‚Äî 3 new assertions: page references `STREAMING_NOT_CONFIGURED`, references `EMAIL_CONFIRMATION_REQUIRED`, and the `stream-token` catch no longer matches `catch(_)` (verified red before the fix, green after). |
+
+## TDD record
+
+1. Added 3 `tests/integrity.test.js` assertions for the player page. Confirmed red (all 3 failed on the old `catch(_){}`).
+2. Implemented: `api()` attaches `err.status`/`err.code`; extracted `renderDenied()` shared by `can-watch` and `stream-token`; replaced `catch(_){}` with per-code branches (email confirm, gate denial, streaming-not-configured).
+3. Full suite randomized, lint, build all green.
+
+## Verification after correction
+
+- `npx jest --runInBand --randomize --silent`: **20 suites, 949/949 tests passed** (946 + 3 new integrity assertions).
+- `npm.cmd run lint`: 0 errors, 13 warnings (all pre-existing).
+- `npm.cmd run build`: passes (2 pre-existing webpack performance warnings ‚Äî hero-poster.jpg).
+
+## Decisions recorded
+
+- **Structured errors on the frontend**: `api()` now attaches `status` + `code` (parsed from the API-001 `{success:false, error:{code}}` body) to thrown errors, so page logic stops regex-parsing `err.message` for the status (the old `can-watch` catch kept a fallback to the message regex for safety).
+- **Single source of denial UI**: `renderDenied()` centralizes the ¬´‚è∞¬ª denial screen (titles for `SUBSCRIPTION_EXPIRED`, `PAYMENT_PAST_DUE`, `SUBSCRIPTION_REQUIRED`, free-limit default) and is now used by both `can-watch` and `stream-token`.
+- **Graceful degradation**: unknown stream-token failures still fall through to the outer ¬´–û—à–∏–±–∫–∞ –∑–∞–≥—Ä—É–∑–∫–∏¬ª UI instead of being swallowed.
+
+## Remaining risks (deferred to later rounds)
+
+1. **Admin/CRUD legacy errors**: `server/index.js` + admin CRUD still use the legacy string `{error}` shape (outside the API-001 payment/auth/user scope).
+2. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget.
+3. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none); `quality-gate` as required status check in branch protection.

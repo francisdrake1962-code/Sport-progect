@@ -446,6 +446,191 @@ describe('Payment Module — File structure', () => {
   });
 });
 
+describe('Payment Module — PAY-002 atomic webhook processing', () => {
+  test('failed processing leaves the event retryable (no persisted event row)', async () => {
+    const paymentService = require('../server/services/payment.service');
+    const eventId = 'evt_pay002_fail_' + Date.now();
+    await expect(paymentService.handleWebhookEvent({
+      id: eventId,
+      type: 'invoice.payment_failed',
+      data: { object: null }
+    })).rejects.toThrow();
+
+    const db = await getDb();
+    const result = db.exec(`SELECT 1 FROM payment_events WHERE event_id = ?`, [eventId]);
+    expect(result.length).toBe(0);
+  });
+
+  test('retry after a failed attempt completes the operation', async () => {
+    const db = await getDb();
+    const subResult = db.exec(`SELECT id FROM subscribers WHERE email = 'maria@example.com'`);
+    const subId = subResult[0].values[0][0];
+    db.run(`UPDATE subscribers SET status = 'active', stripe_customer_id = 'cus_pay002_retry' WHERE id = ?`, [subId]);
+    saveDb();
+
+    const paymentService = require('../server/services/payment.service');
+    const eventId = 'evt_pay002_retry_' + Date.now();
+    const result = await paymentService.handleWebhookEvent({
+      id: eventId,
+      type: 'invoice.payment_failed',
+      data: { object: {
+        customer: 'cus_pay002_retry',
+        amount_paid: 0,
+        payment_intent: 'pi_pay002_retry',
+        last_finalization_error: { message: 'card_declined' }
+      } }
+    });
+    expect(result.processed).toBe(true);
+
+    const payResult = db.exec(`SELECT status, provider_payment_intent_id, failure_reason FROM payments WHERE provider_payment_intent_id = 'pi_pay002_retry'`);
+    expect(payResult.length).toBe(1);
+    expect(payResult[0].values[0][0]).toBe('failed');
+    expect(payResult[0].values[0][2]).toBe('card_declined');
+  });
+
+  test('two identical concurrent events produce exactly one business effect', async () => {
+    const db = await getDb();
+    const subResult = db.exec(`SELECT id FROM subscribers WHERE email = 'elena@example.com'`);
+    const subId = subResult[0].values[0][0];
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '+5 days'), stripe_customer_id = 'cus_pay002_conc' WHERE id = ?`, [subId]);
+    saveDb();
+
+    const paymentService = require('../server/services/payment.service');
+    const eventId = 'evt_pay002_conc_' + Date.now();
+    const event = {
+      id: eventId,
+      type: 'checkout.session.completed',
+      data: { object: {
+        id: 'cs_pay002_conc',
+        subscription: 'sub_pay002_conc',
+        customer: 'cus_pay002_conc',
+        payment_intent: 'pi_pay002_conc',
+        metadata: { subscriber_id: String(subId), plan: 'monthly' }
+      } }
+    };
+    const results = await Promise.all([
+      paymentService.handleWebhookEvent(JSON.parse(JSON.stringify(event))),
+      paymentService.handleWebhookEvent(JSON.parse(JSON.stringify(event))),
+    ]);
+    const processed = results.filter(r => r.processed).length;
+    const idempotent = results.filter(r => r.idempotent).length;
+    expect(processed).toBe(1);
+    expect(idempotent).toBe(1);
+
+    const subAfter = db.exec(`SELECT status FROM subscribers WHERE id = ?`, [subId]);
+    expect(subAfter[0].values[0][0]).toBe('active');
+    const eventsCount = db.exec(`SELECT COUNT(*) FROM payment_events WHERE event_id = ?`, [eventId]);
+    expect(eventsCount[0].values[0][0]).toBe(1);
+  });
+});
+
+describe('Payment Module — PAY-001 subscription state machine', () => {
+  const getSubscriberState = async (email) => {
+    const db = await getDb();
+    const result = db.exec(`SELECT plan, status, subscription_expires_at FROM subscribers WHERE email = ?`, [email]);
+    const r = result[0].values[0];
+    return { plan: r[0], status: r[1], expires_at: r[2] };
+  };
+
+  const sendSubscriptionUpdated = (customer, status, periodEnd) => {
+    const paymentService = require('../server/services/payment.service');
+    return paymentService.handleWebhookEvent({
+      id: 'evt_state_' + customer + '_' + status + '_' + Date.now(),
+      type: 'customer.subscription.updated',
+      data: { object: {
+        customer,
+        status,
+        items: periodEnd ? { data: [{ current_period_end: periodEnd }] } : undefined
+      } }
+    });
+  };
+
+  test('past_due webhook transitions active subscriber to past_due', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '+30 days'), stripe_customer_id = 'cus_state_pastdue', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const result = await sendSubscriptionUpdated('cus_state_pastdue', 'past_due');
+    expect(result.processed).toBe(true);
+    expect((await getSubscriberState('maria@example.com')).status).toBe('past_due');
+  });
+
+  test('unpaid webhook maps to past_due, NOT expired', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '+30 days'), stripe_customer_id = 'cus_state_unpaid', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const result = await sendSubscriptionUpdated('cus_state_unpaid', 'unpaid');
+    expect(result.processed).toBe(true);
+    expect((await getSubscriberState('maria@example.com')).status).toBe('past_due');
+  });
+
+  test('canceled webhook maps to cancelled (access kept until expiry), NOT expired', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'annual', status = 'active', subscription_expires_at = datetime('now', '+15 days'), stripe_customer_id = 'cus_state_canceled', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const result = await sendSubscriptionUpdated('cus_state_canceled', 'canceled');
+    expect(result.processed).toBe(true);
+    const state = await getSubscriberState('maria@example.com');
+    expect(state.status).toBe('cancelled');
+    expect(state.expires_at).toBeTruthy();
+  });
+
+  test('trialing webhook maps to local trial status', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'trial', status = 'active', subscription_expires_at = datetime('now', '+7 days'), stripe_customer_id = 'cus_state_trialing', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const result = await sendSubscriptionUpdated('cus_state_trialing', 'trialing');
+    expect(result.processed).toBe(true);
+    expect((await getSubscriberState('maria@example.com')).status).toBe('trial');
+  });
+
+  test('active webhook restores status and sets expiry from current_period_end', async () => {
+    const periodEnd = Math.floor(Date.now() / 1000) + 30 * 86400;
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'past_due', subscription_expires_at = datetime('now', '-1 day'), stripe_customer_id = 'cus_state_active', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const result = await sendSubscriptionUpdated('cus_state_active', 'active', periodEnd);
+    expect(result.processed).toBe(true);
+    const state = await getSubscriberState('maria@example.com');
+    expect(state.status).toBe('active');
+    const expectedIso = new Date(periodEnd * 1000).toISOString();
+    expect(new Date(state.expires_at).getTime()).toBeCloseTo(new Date(expectedIso).getTime(), -3);
+  });
+
+  test('unrecognized subscription status does not change access', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '+30 days'), stripe_customer_id = 'cus_state_unknown', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const result = await sendSubscriptionUpdated('cus_state_unknown', 'incomplete_expired');
+    expect(result.processed).toBe(true);
+    expect((await getSubscriberState('maria@example.com')).status).toBe('active');
+  });
+
+  test('past_due subscriber cannot watch paid lesson', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'past_due', subscription_expires_at = datetime('now', '+30 days'), email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const login = await api('POST', '/api/user/login', { email: 'maria@example.com', password: 'password123' });
+    const res = await api('GET', '/api/user/can-watch/8', null, login.body.token);
+    expect(res.status).toBe(200);
+    expect(res.body.allowed).toBe(false);
+    expect(res.body.reason).toBe('subscription_expired');
+  });
+
+  test('invoice.payment_failed transitions an active subscriber to past_due', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'monthly', status = 'active', subscription_expires_at = datetime('now', '+30 days'), stripe_customer_id = 'cus_state_failed', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+    const paymentService = require('../server/services/payment.service');
+    const result = await paymentService.handleWebhookEvent({
+      id: 'evt_state_failed_' + Date.now(),
+      type: 'invoice.payment_failed',
+      data: { object: { customer: 'cus_state_failed', amount_paid: 0, payment_intent: 'pi_state_failed', last_finalization_error: { message: 'card_declined' } } }
+    });
+    expect(result.processed).toBe(true);
+    expect((await getSubscriberState('maria@example.com')).status).toBe('past_due');
+  });
+});
+
 describe('Payment Module — Subscription cancel', () => {
   test('subscriber can request cancel (Stripe not configured returns 500)', async () => {
     const db = await getDb();

@@ -43,6 +43,7 @@ async function runMigrations() {
   for (const file of pending) {
     const filePath = path.join(MIGRATIONS_DIR, file);
     const sql = fs.readFileSync(filePath, 'utf8');
+    db.run('PRAGMA foreign_keys = OFF');
     try {
       db.run('BEGIN');
       const statements = sql.split(';').map(s => s.trim()).filter(s => s.length > 0);
@@ -66,6 +67,8 @@ async function runMigrations() {
       try { db.run('ROLLBACK'); } catch {}
       console.error(`Migration failed: ${file}`, err.message);
       throw err;
+    } finally {
+      db.run('PRAGMA foreign_keys = ON');
     }
   }
 

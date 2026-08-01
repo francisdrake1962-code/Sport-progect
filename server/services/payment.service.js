@@ -123,39 +123,52 @@ async function getSubscriptionStatus(subscriberId) {
 
 async function handleWebhookEvent(event) {
   const db = await getDb();
-  const eventType = event.type;
   const eventId = event.id;
+  const eventType = event.type;
 
-  const existing = db.exec(`SELECT 1 FROM payment_events WHERE event_id = ?`, [eventId]);
-  if (existing.length && existing[0].values.length) {
-    logger.info('Duplicate webhook event, skipping', { eventId, eventType });
-    return { idempotent: true };
+  // PAY-002: event record, payment/subscription changes and audit happen in ONE
+  // transaction. On any failure the whole event is rolled back, leaving it
+  // retryable by Stripe (no partial state, no skipped duplicates).
+  try {
+    db.run('BEGIN');
+
+    const existing = db.exec(`SELECT 1 FROM payment_events WHERE event_id = ?`, [eventId]);
+    if (existing.length && existing[0].values.length) {
+      db.run('COMMIT');
+      logger.info('Duplicate webhook event, skipping', { eventId, eventType });
+      return { idempotent: true };
+    }
+
+    db.run(`INSERT INTO payment_events (event_id, event_type, payload) VALUES (?, ?, ?)`, [eventId, eventType, JSON.stringify(event.data)]);
+
+    switch (eventType) {
+      case 'checkout.session.completed':
+        handleCheckoutCompleted(db, event.data.object);
+        break;
+      case 'customer.subscription.updated':
+        handleSubscriptionUpdated(db, event.data.object);
+        break;
+      case 'customer.subscription.deleted':
+        handleSubscriptionDeleted(db, event.data.object);
+        break;
+      case 'invoice.payment_failed':
+        handlePaymentFailed(db, event.data.object);
+        break;
+      default:
+        logger.info('Unhandled webhook event', { eventType });
+    }
+
+    db.run('COMMIT');
+    saveDb();
+    return { processed: true, eventType };
+  } catch (err) {
+    try { db.run('ROLLBACK'); } catch {}
+    logger.error('Webhook event rolled back (retryable)', { eventId, eventType, error: err.message });
+    throw err;
   }
-
-  db.run(`INSERT INTO payment_events (event_id, event_type, payload) VALUES (?, ?, ?)`, [eventId, eventType, JSON.stringify(event.data)]);
-
-  switch (eventType) {
-    case 'checkout.session.completed':
-      await handleCheckoutCompleted(db, event.data.object);
-      break;
-    case 'customer.subscription.updated':
-      await handleSubscriptionUpdated(db, event.data.object);
-      break;
-    case 'customer.subscription.deleted':
-      await handleSubscriptionDeleted(db, event.data.object);
-      break;
-    case 'invoice.payment_failed':
-      await handlePaymentFailed(db, event.data.object);
-      break;
-    default:
-      logger.info('Unhandled webhook event', { eventType });
-  }
-
-  saveDb();
-  return { processed: true, eventType };
 }
 
-async function handleCheckoutCompleted(db, session) {
+function handleCheckoutCompleted(db, session) {
   const subscriberId = session.metadata?.subscriber_id ? parseInt(session.metadata.subscriber_id) : null;
   const plan = session.metadata?.plan;
   if (!subscriberId || !plan) {
@@ -200,27 +213,47 @@ async function handleCheckoutCompleted(db, session) {
   logger.info('Checkout completed', { subscriberId, plan, expiresAt: finalExpires });
 }
 
-async function handleSubscriptionUpdated(db, subscription) {
-  const customerId = subscription.customer;
-  const subResult = db.exec(`SELECT id FROM subscribers WHERE stripe_customer_id = ?`, [customerId]);
-  if (!subResult.length || !subResult[0].values.length) return;
-  const subscriberId = subResult[0].values[0][0];
+// PAY-001: documented subscription state machine.
+// Stripe status -> local subscribers.status. Unknown Stripe statuses are
+// ignored (an unrecognized event never changes access). `paused` is intentionally
+// left unmapped: Stripe keeps access during a pause, which the current active+
+// expiry model already preserves.
+const STRIPE_STATUS_TO_LOCAL = {
+  active: 'active',
+  trialing: 'trial',
+  past_due: 'past_due',
+  unpaid: 'past_due',
+  canceled: 'cancelled',
+};
 
-  if (subscription.status === 'active') {
+function handleSubscriptionUpdated(db, subscription) {
+  const customerId = subscription.customer;
+  const subResult = db.exec(`SELECT id, status FROM subscribers WHERE stripe_customer_id = ?`, [customerId]);
+  if (!subResult.length || !subResult[0].values.length) return;
+  const row = subResult[0].values[0];
+  const subscriberId = row[0];
+
+  const localStatus = STRIPE_STATUS_TO_LOCAL[subscription.status];
+  if (!localStatus) {
+    logger.info('Unrecognized subscription status, access unchanged', { subscriberId, status: subscription.status });
+    return;
+  }
+
+  db.run(`UPDATE subscribers SET status = ? WHERE id = ?`, [localStatus, subscriberId]);
+
+  if (localStatus === 'active') {
     const periodEnd = subscription.items?.data?.[0]?.current_period_end;
     if (periodEnd) {
       const expiresAt = new Date(periodEnd * 1000).toISOString();
       db.run(`UPDATE subscribers SET subscription_expires_at = ?, next_billing_date = ? WHERE id = ?`,
         [expiresAt, expiresAt, subscriberId]);
     }
-  } else if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
-    db.run(`UPDATE subscribers SET status = 'expired' WHERE id = ?`, [subscriberId]);
   }
 
-  logger.info('Subscription updated', { subscriberId, status: subscription.status });
+  logger.info('Subscription status updated', { subscriberId, status: subscription.status, localStatus });
 }
 
-async function handleSubscriptionDeleted(db, subscription) {
+function handleSubscriptionDeleted(db, subscription) {
   const customerId = subscription.customer;
   const subResult = db.exec(`SELECT id FROM subscribers WHERE stripe_customer_id = ?`, [customerId]);
   if (!subResult.length || !subResult[0].values.length) return;
@@ -230,11 +263,19 @@ async function handleSubscriptionDeleted(db, subscription) {
   logger.info('Subscription cancelled via webhook', { subscriberId });
 }
 
-async function handlePaymentFailed(db, invoice) {
+function handlePaymentFailed(db, invoice) {
   const customerId = invoice.customer;
-  const subResult = db.exec(`SELECT id FROM subscribers WHERE stripe_customer_id = ?`, [customerId]);
+  const subResult = db.exec(`SELECT id, status FROM subscribers WHERE stripe_customer_id = ?`, [customerId]);
   if (!subResult.length || !subResult[0].values.length) return;
   const subscriberId = subResult[0].values[0][0];
+  const currentStatus = subResult[0].values[0][1];
+
+  // PAY-001: a failed recurring payment moves an active subscriber to past_due
+  // (access is blocked by the can-watch gate). A cancelled/expired subscriber is
+  // left untouched.
+  if (currentStatus === 'active') {
+    db.run(`UPDATE subscribers SET status = 'past_due' WHERE id = ?`, [subscriberId]);
+  }
 
   db.run(
     `INSERT INTO payments (subscriber_id, amount, currency, status, provider_payment_intent_id, provider_customer_id, plan, failure_reason)

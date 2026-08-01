@@ -4,7 +4,21 @@
 
 ---
 
-## [5.10.4] - 2026-07-31
+## [5.11.0] - 2026-08-01
+
+### Fixed — Subscription state machine (PAY-001) + atomic webhook processing (PAY-002)
+
+Round 4 of the Devil's Advocate audit (`AUDIT_REPORT_2026-08-01.md`), starting from the P0 chain in `docs/IMPROVEMENT_TZ.md`.
+
+- `server/services/payment.service.js` — **atomic webhook (PAY-002)**: event record, payment/subscription changes and audit now run in one `BEGIN…COMMIT` (with `ROLLBACK` on failure). A failed event leaves no `payment_events` row, so Stripe's retry reprocesses it cleanly; two identical concurrent events produce exactly one business effect. Sub-handlers are synchronous — no `await` inside the critical section, so concurrent webhooks cannot interleave or nest transactions.
+- `server/services/payment.service.js` — **state machine (PAY-001)**: documented `STRIPE_STATUS_TO_LOCAL` map — `active→active`, `trialing→trial`, `past_due→past_due`, `unpaid→past_due` (no unconditional `expired`), `canceled→cancelled` (access kept until expiry, not killed). Unknown Stripe statuses never change access. A Stripe `active` event restores local status and re-syncs `subscription_expires_at`/`next_billing_date` from `current_period_end`.
+- `server/services/payment.service.js` — `invoice.payment_failed` now moves an `active` subscriber to `past_due` (access is blocked by the `can-watch`/`stream-token` gate); cancelled/expired subscribers are untouched.
+- `server/migrations/008_subscription_state.sql` — recreates `subscribers` so the `status` CHECK includes `'past_due'` (SQLite cannot alter a CHECK). All 16 columns preserved, data copied 1:1, subscribers indexes restored.
+- `server/helpers/migrations.js` — migration runner disables `PRAGMA foreign_keys` for the duration of each migration (so `DROP TABLE` doesn't cascade into referencing rows) and re-enables it afterwards.
+- `tests/payment.test.js` — 11 new tests: PAY-002 (failed event retryable, retry completes, concurrent duplicates → one effect) and PAY-001 (past_due/unpaid/canceled/trialing/active transitions, unrecognized status no-op, past_due blocked at `/can-watch`, `invoice.payment_failed` → `past_due`).
+- Full suite: **906/906 tests, 17 suites**; eslint 0 errors.
+
+---
 
 ### Changed — Video uploads: Mux-first direct upload (Cloudflare disk-upload removed)
 - `server/index.js`:

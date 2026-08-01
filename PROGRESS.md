@@ -2,24 +2,24 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-07-31 v5.10.4
+> Last updated: 2026-08-01 v5.11.0
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.10.4 (complete — Mux-first video upload + admin Mux settings; Cloudflare disk-upload removed)
-**Tests**: 895/895 passing (17 suites), order-independent (verified with `jest --randomize`)
+**Version**: 5.11.0 (Devil's Advocate Round 4 — atomic Stripe webhook + subscription state machine; see `AUDIT_REPORT_2026-08-01.md`)
+**Tests**: 906/906 passing (17 suites), order-independent (verified with `jest --randomize`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+4791d6f v5.10.4: Mux-first direct video uploads, provider-aware lessons/media, settings-driven payment amounts, test-isolated DB
+3935d06a v5.10.0: security hardening — stream-scoped JWT, rate limiting, Stripe config validation, dead code removal, order-independent tests
 da4d14b v5.9.0: fix systemic API response unwrap + frontend bugs
 b00f76e v5.8.1: fix device fingerprint caching
-9c99c53 v5.8.0: i18n internationalization
-0eb29a9 v5.7.0: fix video sound (muted → unmute via play().then)
 ```
 
 ---
@@ -42,6 +42,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 | i18n Internationalization | Multi-language UI + lesson_media | ✅ DONE (v5.8.0) |
 | Audit Fixes v5.9.0 | API response unwrap, frontend bugs, test port | ✅ DONE (v5.9.0) |
 | Security Hardening Round 4 | Stream-scoped JWT, rate limiting, Stripe config, dead code, test fixes | ✅ DONE (v5.10.0) |
+| Devil's Advocate Round 4 | PAY-002 atomic webhook, PAY-001 subscription state machine, `past_due` schema | ✅ DONE (v5.11.0) |
 
 ---
 
@@ -153,6 +154,29 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 
 ---
 
+## DEVIL'S ADVOCATE ROUND 4 — ✅ PAY-001/PAY-002 COMPLETE (v5.11.0)
+
+### What was done (full report: `AUDIT_REPORT_2026-08-01.md`)
+- **PAY-002 atomic webhook**: event record + payment/subscriber changes + audit in ONE transaction. Failure → `ROLLBACK` → no `payment_events` row → Stripe retry reprocesses. Concurrent duplicate events → one business effect. Sub-handlers made synchronous so no `await` inside the critical section.
+- **PAY-001 state machine** (`STRIPE_STATUS_TO_LOCAL`): `active→active`, `trialing→trial`, `past_due→past_due`, `unpaid→past_due`, `canceled→cancelled` (access until expiry), unknown statuses no-op. Stripe `active` restores status + re-syncs expiry from `current_period_end`. `invoice.payment_failed` → `active`→`past_due`.
+- **Schema**: `server/migrations/008_subscription_state.sql` — recreated `subscribers` so `status` CHECK includes `'past_due'` (all 16 columns preserved incl. `preferred_language`, indexes restored). Migration runner now toggles `PRAGMA foreign_keys` off/on per migration so `DROP TABLE` can't cascade.
+- **Tests**: +11 in `tests/payment.test.js` → **906/906, 17 suites**; lint 0 errors; build passes.
+
+### Fixed P0s:
+- [x] DA-37 (PAY-002) — webhook not atomic; failed event was never retryable
+- [x] DA-38 (PAY-001) — `unpaid`→`expired` bug, `canceled` killed access, `past_due` unhandled (card-failure subscriber kept watching)
+- [x] DA-39 (schema) — `subscribers.status` CHECK rejected `past_due`
+
+### Remaining (next rounds, prioritized):
+- [ ] PAY-003: `current_period_end` as single source of truth (local 30/365 days only as fallback, marked)
+- [ ] `handlePaymentFailed` hard-codes `plan='monthly'`
+- [ ] OPS-001: atomic `saveDb()` (temp file + rename)
+- [ ] DB-001: automated pre-migration backup + rollback runbook
+- [ ] `REQUIRED_IN_PRODUCTION` + `STRIPE_MONTHLY_PRICE_ID` / `STRIPE_ANNUAL_PRICE_ID` / Mux vars
+- [ ] DOC-001/DOC-002: Payment Flow doc in `docs/API.md` + `docs/ARCHITECTURE.md`, ADR update
+
+---
+
 ## PHASE 4 STATUS — ✅ COMPLETE (v5.4.0)
 
 ### All Phase 4 deliverables done:
@@ -186,6 +210,19 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 ---
 
 ## NEXT ACTIONS (for the next session)
+
+### v5.11.0 — Devil's Advocate Round 4: PAY-002 + PAY-001 (DONE)
+- ✅ Atomic webhook (PAY-002): one transaction for event + payment + subscription + audit; failure rolls back and stays retryable; concurrent duplicates → one effect
+- ✅ State machine (PAY-001): `trial/active/past_due/cancelled/expired`; `unpaid`→`past_due` (not `expired`), `canceled`→`cancelled` (access to period end), `past_due` handled, unknown statuses no-op, `invoice.payment_failed`→`past_due`, Stripe `active` restores + re-syncs `current_period_end`
+- ✅ Migration `008_subscription_state.sql`: `subscribers.status` CHECK now includes `'past_due'`; runner toggles `PRAGMA foreign_keys` per migration
+- ✅ 906/906 tests, 17 suites; lint 0 errors; build passes
+
+### Next round — candidate items (PAY-003 first):
+1. ⏳ **PAY-003**: derive `subscription_expires_at` from Stripe `current_period_end` on `checkout.session.completed` (fetch subscription or rely on the follow-up `subscription.updated`); add contract test that paid time never shrinks.
+2. ⏳ Fix `handlePaymentFailed` hard-coded `plan='monthly'` (take plan from subscription metadata).
+3. ⏳ OPS-001: atomic `saveDb()` (write temp file in same dir → fsync → rename) + backup before migration + restore runbook.
+4. ⏳ `config.js`: add `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_ANNUAL_PRICE_ID`, `MUX_ACCESS_TOKEN_ID`, `MUX_ACCESS_TOKEN_SECRET`, `MUX_SIGNING_KEY_ID`, `MUX_SIGNING_KEY` to `REQUIRED_IN_PRODUCTION`.
+5. ⏳ DOC-001/DOC-002: Payment Flow + provider/recurrence strategy in `docs/API.md`, `docs/ARCHITECTURE.md`, ADR; mark `saveDb()` non-atomic + CSP `unsafe-inline` + hero-poster as known debts.
 
 ### v5.10.4 — Mux-first video upload (DONE)
 - ✅ Migration 007: `video_uploads` + `provider`/`mux_upload_id`/`mux_asset_id`/`mux_playback_id`

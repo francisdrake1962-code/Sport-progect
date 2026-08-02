@@ -44,15 +44,25 @@ beforeAll(async () => {
   const path = require('path');
   const videosDir = path.join(__dirname, '..', 'videos');
   const placeholder = path.join(videosDir, 'placeholder.mp4');
-  if (!fs.existsSync(placeholder)) {
+  try {
     fs.mkdirSync(videosDir, { recursive: true });
     fs.writeFileSync(placeholder, Buffer.alloc(4096));
+  } catch (err) {
+    throw new Error(`Cannot create fixture video ${placeholder}: ${err.message}`);
+  }
+  if (!fs.existsSync(placeholder) || fs.statSync(placeholder).size < 1024) {
+    throw new Error(`Fixture video ${placeholder} missing or too small`);
   }
   const adminDist = path.join(__dirname, '..', 'dist', 'admin');
   const adminIndex = path.join(adminDist, 'index.html');
-  if (!fs.existsSync(adminIndex)) {
+  try {
     fs.mkdirSync(adminDist, { recursive: true });
     fs.writeFileSync(adminIndex, '<!DOCTYPE html><html><head><title>Admin</title></head><body></body></html>');
+  } catch (err) {
+    throw new Error(`Cannot create fixture ${adminIndex}: ${err.message}`);
+  }
+  if (!fs.existsSync(adminIndex) || fs.statSync(adminIndex).size === 0) {
+    throw new Error(`Fixture ${adminIndex} missing or empty`);
   }
 
   const { resetDb } = require('../server/db');

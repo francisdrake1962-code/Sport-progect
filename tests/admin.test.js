@@ -162,3 +162,19 @@ describe('Admin Panel — CSS and JS files exist', () => {
     expect(fs.existsSync(path.join(adminDir, 'js', 'sidebar.js'))).toBe(true);
   });
 });
+
+describe('Admin Panel — User view entry', () => {
+  test('api.js should expose enterUserView entry point', () => {
+    const api = fs.readFileSync(path.join(adminDir, 'js', 'api.js'), 'utf8');
+    expect(api).toMatch(/enterUserView\(\)/);
+    expect(api).toMatch(/localStorage\.setItem\('user_token', adminToken\)/);
+    expect(api).toMatch(/'\.\.\/dashboard\.html'/);
+  });
+
+  test('sidebar.js should include a "Просмотр как пользователь" link with action', () => {
+    const sidebar = fs.readFileSync(path.join(adminDir, 'js', 'sidebar.js'), 'utf8');
+    expect(sidebar).toMatch(/Просмотр как пользователь/);
+    expect(sidebar).toMatch(/enterUserView\(\)/);
+    expect(sidebar).toMatch(/item\.action/);
+  });
+});

@@ -4,6 +4,10 @@ function getSidebar(activePage) {
         { section: 'Обзор', items: [
             { href: 'index.html', icon: '📊', label: 'Дашборд' },
         ]},
+        { section: 'Сайт', items: [
+            { action: 'enterUserView()', icon: '👁️', label: 'Просмотр как пользователь' },
+            { href: '../index.html', icon: '🌐', label: 'Открыть сайт', target: '_blank' },
+        ]},
         { section: 'Контент', items: [
             { href: 'lessons.html', icon: '🎬', label: 'Уроки' },
             { href: 'complexes.html', icon: '📚', label: 'Комплексы' },
@@ -34,12 +38,18 @@ function getSidebar(activePage) {
         <nav class="sidebar__nav">
             ${links.map(group => `
                 <div class="sidebar__section">${esc(group.section)}</div>
-                ${group.items.map(item => `
-                    <a href="${item.href}" class="sidebar__link${activePage === item.href ? ' sidebar__link--active' : ''}" aria-label="${esc(item.label)}">
+                ${group.items.map(item => {
+                    if (item.action) {
+                        return `<a href="#" onclick="${item.action}; return false;" class="sidebar__link" aria-label="${esc(item.label)}">
+                            <span class="sidebar__link-icon" aria-hidden="true">${item.icon}</span>
+                            ${esc(item.label)}
+                        </a>`;
+                    }
+                    return `<a href="${item.href}" class="sidebar__link${activePage === item.href ? ' sidebar__link--active' : ''}"${item.target ? ` target="${item.target}"` : ''} aria-label="${esc(item.label)}">
                         <span class="sidebar__link-icon" aria-hidden="true">${item.icon}</span>
                         ${esc(item.label)}
-                    </a>
-                `).join('')}
+                    </a>`;
+                }).join('')}
             `).join('')}
         </nav>
     </aside>`;

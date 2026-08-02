@@ -58,9 +58,30 @@ class ApiClient {
     localStorage.removeItem('admin_token');
     window.location.href = 'login.html';
   }
+
+  // Enter the subscriber-facing area (demo view). The admin JWT is valid for
+  // both /api/* (admin) and /api/user/* (demo), so we mirror it as user_token
+  // and open the user dashboard; the server serves read-only demo data.
+  enterUserView() {
+    const adminToken = localStorage.getItem('admin_token');
+    if (!adminToken) {
+      window.location.href = 'login.html';
+      return;
+    }
+    localStorage.setItem('user_token', adminToken);
+    try {
+      const adminData = JSON.parse(localStorage.getItem('admin_data') || 'null');
+      if (adminData && adminData.name) {
+        localStorage.setItem('user_data', JSON.stringify({ name: adminData.name, plan: 'annual', status: 'active', free_sessions_used: 0 }));
+      }
+    } catch { /* ignore malformed cached admin data */ }
+    window.location.href = '../dashboard.html';
+  }
 }
 
 window.api = new ApiClient();
+
+window.enterUserView = function() { window.api.enterUserView(); };
 
 function esc(str) {
   if (str === null || str === undefined) return '';

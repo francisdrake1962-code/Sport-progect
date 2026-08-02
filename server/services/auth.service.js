@@ -110,7 +110,58 @@ async function loginSubscriber(email, password) {
     throw new ForbiddenError('Подтвердите email перед входом', 'EMAIL_CONFIRMATION_REQUIRED');
   }
   const token = generateToken({ id: user.id, email: user.email, role: 'subscriber', ver: user.token_version || 0 });
-  return { token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, status: user.status, free_sessions_used: user.free_sessions_used } };
+  return { token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, status: user.status, free_sessions_used: user.free_sessions_used }, role: 'subscriber' };
+}
+
+// Unified login: tries the subscribers table first (site users), then the
+// users table (admins/super_admins). Returns the account role plus the
+// frontend destination so a single login form can serve everyone.
+async function loginUnified(email, password) {
+  if (!email || !password) throw new ValidationError('Email and password required');
+  const db = await getDb();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const subResult = db.exec(
+    `SELECT id, email, password, name, plan, status, free_sessions_used, email_confirmed, token_version FROM subscribers WHERE email = ?`,
+    [normalizedEmail]
+  );
+  if (subResult.length && subResult[0].values.length) {
+    const row = subResult[0].values[0];
+    const user = { id: row[0], email: row[1], password: row[2], name: row[3], plan: row[4], status: row[5], free_sessions_used: row[6], email_confirmed: row[7], token_version: row[8] || 0 };
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new UnauthorizedError('Invalid credentials');
+    if (!user.email_confirmed) {
+      const tokenResult = db.exec(`SELECT confirmation_token FROM subscribers WHERE email = ?`, [normalizedEmail]);
+      const confirmationToken = (tokenResult.length && tokenResult[0].values.length) ? tokenResult[0].values[0][0] : null;
+      if (process.env.MAIL_PROVIDER === 'console' && confirmationToken) {
+        logger.info(`Confirmation link: http://localhost:${process.env.PORT || 3000}/api/user/confirm/${confirmationToken}`);
+      }
+      throw new ForbiddenError('Подтвердите email перед входом', 'EMAIL_CONFIRMATION_REQUIRED');
+    }
+    const token = generateToken({ id: user.id, email: user.email, role: 'subscriber', ver: user.token_version || 0 });
+    logger.info('Unified login (subscriber)', { userId: user.id, email: user.email });
+    return {
+      token,
+      role: 'subscriber',
+      redirect: 'dashboard.html',
+      user: { id: user.id, email: user.email, name: user.name, plan: user.plan, status: user.status, free_sessions_used: user.free_sessions_used },
+    };
+  }
+
+  const adminResult = db.exec(`SELECT id, email, password, name, role FROM users WHERE email = ?`, [normalizedEmail]);
+  if (!adminResult.length || !adminResult[0].values.length) throw new UnauthorizedError('Invalid credentials');
+  const arow = adminResult[0].values[0];
+  const admin = { id: arow[0], email: arow[1], password: arow[2], name: arow[3], role: arow[4] };
+  const adminValid = await bcrypt.compare(password, admin.password);
+  if (!adminValid) throw new UnauthorizedError('Invalid credentials');
+  const token = generateToken(admin);
+  logger.info('Unified login (admin)', { userId: admin.id, email: admin.email, role: admin.role });
+  return {
+    token,
+    role: admin.role,
+    redirect: 'admin/',
+    user: { id: admin.id, email: admin.email, name: admin.name, role: admin.role },
+  };
 }
 
 // AUTH-001: request a password reset. The response is identical whether or not
@@ -170,6 +221,7 @@ async function resetPassword(token, newPassword) {
 
 module.exports = {
   loginAdmin,
+  loginUnified,
   getAdminProfile,
   changeAdminPassword,
   registerSubscriber,

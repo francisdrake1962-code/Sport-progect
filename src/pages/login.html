@@ -138,12 +138,19 @@
             btn.disabled = true; btn.textContent = 'Вход...';
             let responseData = null;
             try {
-                const res = await fetch('/api/user/login', {
+                const res = await fetch('/api/login', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({ email, password })
                 });
                 responseData = await res.json();
                 if (!res.ok) throw new Error(responseData.error && responseData.error.code ? responseData.error.code : (responseData.error || 'Login failed'));
+                if (responseData.role && responseData.role !== 'subscriber') {
+                    localStorage.setItem('admin_token', responseData.token);
+                    localStorage.setItem('user_token', responseData.token);
+                    localStorage.setItem('user_data', JSON.stringify(responseData.user));
+                    window.location.href = 'admin/index.html';
+                    return;
+                }
                 localStorage.setItem('user_token', responseData.token);
                 localStorage.setItem('user_data', JSON.stringify(responseData.user));
                 sendFingerprint(responseData.token);

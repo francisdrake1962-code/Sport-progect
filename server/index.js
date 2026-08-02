@@ -368,6 +368,26 @@ app.use('/api/user', userRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/i18n', i18nRoutes);
 
+const authService = require('./services/auth.service');
+
+const unifiedLoginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 100,
+  message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many login attempts. Try again in 1 minute.' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/api/login', unifiedLoginLimiter, async (req, res, next) => {
+  try {
+    const { email, password } = req.body || {};
+    const result = await authService.loginUnified(email, password);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
 const api = express.Router();
 api.use(authMiddleware);
 api.use(requireAdmin);

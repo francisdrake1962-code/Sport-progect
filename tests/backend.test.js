@@ -459,6 +459,136 @@ describe('API Integration — User Me', () => {
   });
 });
 
+describe('API Integration — Unified Login (/api/login)', () => {
+  test('POST /api/login with admin credentials returns admin role and redirect', async () => {
+    const res = await apiRequest('POST', '/api/login', { email: 'admin@qigong.com', password: 'admin123' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.role).toBe('admin');
+    expect(res.body.redirect).toBe('admin/');
+    expect(res.body.token).toBeDefined();
+    expect(res.body.token.split('.')).toHaveLength(3);
+  });
+
+  test('POST /api/login with super_admin credentials returns super_admin role', async () => {
+    const res = await apiRequest('POST', '/api/login', { email: 'superadmin@qigong.com', password: 'super123' });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe('super_admin');
+    expect(res.body.redirect).toBe('admin/');
+  });
+
+  test('POST /api/login with subscriber credentials returns subscriber role and dashboard redirect', async () => {
+    await apiRequest('POST', '/api/user/register', { name: 'Юнифайд Юзер', email: 'unified@test.com', password: 'password123' });
+    const res = await apiRequest('POST', '/api/login', { email: 'unified@test.com', password: 'password123' });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe('subscriber');
+    expect(res.body.redirect).toBe('dashboard.html');
+    expect(res.body.user.plan).toBeDefined();
+  });
+
+  test('POST /api/login should reject wrong password', async () => {
+    const res = await apiRequest('POST', '/api/login', { email: 'admin@qigong.com', password: 'wrong' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  test('POST /api/login should reject unknown email', async () => {
+    const res = await apiRequest('POST', '/api/login', { email: 'nobody@test.com', password: 'whatever' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  test('POST /api/login should reject missing fields', async () => {
+    const res = await apiRequest('POST', '/api/login', { email: 'admin@qigong.com' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+});
+
+describe('API Integration — Admin Demo View Mode', () => {
+  let adminToken;
+
+  beforeAll(async () => {
+    const login = await apiRequest('POST', '/api/login', { email: 'admin@qigong.com', password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  test('GET /api/user/dashboard returns demo profile for admin token', async () => {
+    const res = await apiRequest('GET', '/api/user/dashboard', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.user).toBeDefined();
+    expect(res.body.user.plan).toBe('annual');
+    expect(res.body.user.name).toBe('Администратор');
+    expect(res.body.lessonCount).toBeGreaterThanOrEqual(0);
+  });
+
+  test('GET /api/user/me returns demo profile for admin token', async () => {
+    const res = await apiRequest('GET', '/api/user/me', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('Администратор');
+    expect(res.body.plan).toBe('annual');
+  });
+
+  test('GET /api/user/can-watch/:id returns allowed for admin token', async () => {
+    const res = await apiRequest('GET', '/api/user/can-watch/1', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.allowed).toBe(true);
+    expect(res.body.code).toBe('GRANTED');
+  });
+
+  test('GET /api/user/onboarding reports completed for admin token', async () => {
+    const res = await apiRequest('GET', '/api/user/onboarding', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.completed).toBe(true);
+  });
+
+  test('GET /api/user/calendar works in demo mode', async () => {
+    const res = await apiRequest('GET', '/api/user/calendar', null, adminToken);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.schedule)).toBe(true);
+  });
+
+  test('write endpoints are blocked in demo mode', async () => {
+    const putMe = await apiRequest('PUT', '/api/user/me', { name: 'Хакер' }, adminToken);
+    expect(putMe.status).toBe(403);
+    const putLang = await apiRequest('PUT', '/api/user/language', { language: 'en' }, adminToken);
+    expect(putLang.status).toBe(403);
+    const postOnboarding = await apiRequest('POST', '/api/user/onboarding', { experience: 'beginner' }, adminToken);
+    expect(postOnboarding.status).toBe(403);
+    const postSelections = await apiRequest('POST', '/api/user/free-selections', { lesson_ids: [1] }, adminToken);
+    expect(postSelections.status).toBe(403);
+  });
+
+  test('data-export is blocked for admin in demo mode', async () => {
+    const res = await apiRequest('GET', '/api/user/data-export', null, adminToken);
+    expect(res.status).toBe(403);
+  });
+
+  test('demo mode does not write progress', async () => {
+    const res = await apiRequest('POST', '/api/user/watch-progress', { lesson_id: 1, position_seconds: 10, completed: true }, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const progress = await apiRequest('GET', '/api/user/progress', null, adminToken);
+    expect(progress.body.data).toEqual([]);
+    expect(progress.body.pagination.total).toBe(0);
+  });
+
+  test('POST /api/login should prefer subscriber account when email exists in both tables', async () => {
+    const email = 'overlap-' + Date.now() + '@test.com';
+    await apiRequest('POST', '/api/user/register', { name: 'Пересечение', email, password: 'subpassword123' });
+    const { getDb, saveDb } = require('../server/db');
+    const bcrypt = require('bcryptjs');
+    const db = await getDb();
+    db.run(`INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
+      [email, bcrypt.hashSync('adminpassword1', 10), 'Overlap Admin', 'admin']);
+    saveDb();
+    const res = await apiRequest('POST', '/api/login', { email, password: 'subpassword123' });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe('subscriber');
+    expect(res.body.redirect).toBe('dashboard.html');
+  });
+});
+
 describe('API Integration — Confirm Resend', () => {
   test('POST /api/user/confirm/resend should handle valid email', async () => {
     const res = await apiRequest('POST', '/api/user/confirm/resend', { email: 'testuser@test.com' });

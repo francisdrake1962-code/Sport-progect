@@ -1,7 +1,55 @@
 import '../styles/main.css';
 import './i18n.js';
 
+// RBAC-aware header. A single login page now serves both subscribers and
+// admins, so the public header must show role-appropriate links:
+//   guest      -> Войти / Начать бесплатно
+//   subscriber -> Дашборд · Профиль · Выйти
+//   admin      -> Админ-панель · Выйти  (admins may also visit user pages)
+function applyAuthNav() {
+    var nav = document.querySelector('.header__nav');
+    if (!nav) return;
+
+    var adminToken = localStorage.getItem('admin_token');
+    var userToken = localStorage.getItem('user_token');
+    if (!adminToken && !userToken) return;
+
+    var langWrap = nav.querySelector('.header__language, #lang-switcher');
+    nav.innerHTML = '';
+
+    if (langWrap) nav.appendChild(langWrap);
+
+    var links = [];
+    if (adminToken) {
+        links.push({ href: 'dashboard.html', text: 'Дашборд', cls: 'header__login' });
+        links.push({ href: 'profile.html', text: 'Профиль', cls: 'header__login' });
+        links.push({ href: 'admin/index.html', text: 'Админ-панель', cls: 'header__login' });
+    } else if (userToken) {
+        links.push({ href: 'dashboard.html', text: 'Дашборд', cls: 'header__login' });
+        links.push({ href: 'profile.html', text: 'Профиль', cls: 'header__login' });
+    }
+    links.push({ href: '#', text: 'Выйти', cls: 'header__login header__login--logout' });
+
+    links.forEach(function(link) {
+        var a = document.createElement('a');
+        a.href = link.href;
+        a.textContent = link.text;
+        a.className = link.cls;
+        if (link.href === '#') {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                localStorage.removeItem('admin_token');
+                localStorage.removeItem('user_token');
+                localStorage.removeItem('user_data');
+                window.location.href = '/';
+            });
+        }
+        nav.appendChild(a);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    applyAuthNav();
     if (window.i18n) window.i18n.init();
 
     // Language switcher dropdown

@@ -91,6 +91,24 @@ const resetPasswordLimiter = rateLimit({
 
 router.use(userApiLimiter);
 
+// Demo-view mode: admins may open the public pages to verify how content and
+// video render. Their admin JWT carries role admin/super_admin, but there is no
+// subscriber row for them, so we replace req.user with a non-existent subscriber
+// id. Read-only endpoints then return real content (lessons, schedule, programs)
+// with empty personal data; write/access endpoints short-circuit below.
+const DEMO_SUBSCRIBER_ID = -1;
+
+function demoUserForAdmin(req, res, next) {
+  authMiddleware(req, res, () => {
+    if (req.user && (req.user.role === 'admin' || req.user.role === 'super_admin')) {
+      req.isDemoAdmin = true;
+      req.demoAdmin = { id: req.user.id, email: req.user.email, role: req.user.role };
+      req.user = { id: DEMO_SUBSCRIBER_ID, email: 'demo@admin.local', name: 'Администратор', role: req.user.role };
+    }
+    next();
+  });
+}
+
 router.get('/stats', async (req, res) => {
   try {
     const db = await getDb();
@@ -210,7 +228,14 @@ router.post('/login', authLimiter, validateBody({
   }
 });
 
-router.get('/me', authMiddleware, async (req, res, next) => {
+router.get('/me', demoUserForAdmin, async (req, res, next) => {
+  if (req.isDemoAdmin) {
+    return res.json({
+      id: req.user.id, email: req.user.email, name: 'Администратор',
+      plan: 'annual', status: 'active', free_sessions_used: 0,
+      subscription_started_at: null, next_billing_date: null, preferred_language: 'ru',
+    });
+  }
   try {
     const profile = await progressService.getSubscriberProfile(req.user.id);
     res.json(profile);
@@ -219,7 +244,10 @@ router.get('/me', authMiddleware, async (req, res, next) => {
   }
 });
 
-router.put('/me', authMiddleware, async (req, res, next) => {
+router.put('/me', demoUserForAdmin, async (req, res, next) => {
+  if (req.isDemoAdmin) {
+    return sendError(res, 403, 'FORBIDDEN', 'Демо-режим: редактирование недоступно', req.requestId);
+  }
   try {
     const { name, current_password, new_password } = req.body;
     const updated = await progressService.updateSubscriberProfile(req.user.id, name, current_password, new_password);
@@ -232,7 +260,7 @@ router.put('/me', authMiddleware, async (req, res, next) => {
   }
 });
 
-router.post('/logout', authMiddleware, (req, res) => {
+router.post('/logout', demoUserForAdmin, (req, res) => {
   authService.revokeCurrentToken(req.token);
   res.json({ success: true });
 });
@@ -325,7 +353,8 @@ router.post('/confirm/:token', async (req, res) => {
   }
 });
 
-router.post('/watch-progress', authMiddleware, async (req, res) => {
+router.post('/watch-progress', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ success: true });
   try {
     const { lesson_id, position_seconds, completed } = req.body;
     const lessonId = Number(lesson_id);
@@ -372,7 +401,8 @@ router.post('/watch-progress', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/progress', authMiddleware, async (req, res) => {
+router.get('/progress', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } });
   try {
     const { page, limit } = parsePagination(req.query);
     const db = await getDb();
@@ -397,7 +427,8 @@ router.get('/progress', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/progress/:lessonId', authMiddleware, async (req, res) => {
+router.get('/progress/:lessonId', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ position_seconds: 0, completed: false, duration: null });
   try {
     const lessonId = Number(req.params.lessonId);
     if (!Number.isInteger(lessonId) || lessonId <= 0) {
@@ -423,7 +454,14 @@ router.get('/progress/:lessonId', authMiddleware, async (req, res) => {
 // Hybrid free access model (intentional decision):
 // 1. is_free lessons: unlimited access for all registered+confirmed users
 // 2. Trial: up to 7 paid lessons from the archive (tracked by free_sessions_used)
-router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
+router.get('/can-watch/:lessonId', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) {
+    const lessonId = Number(req.params.lessonId);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      return sendError(res, 400, 'INVALID_LESSON_ID', 'Invalid lesson ID', req.requestId);
+    }
+    return res.json({ allowed: true, reason: 'admin_preview', code: 'GRANTED' });
+  }
   try {
     const lessonId = Number(req.params.lessonId);
     if (!Number.isInteger(lessonId) || lessonId <= 0) {
@@ -490,13 +528,52 @@ router.get('/can-watch/:lessonId', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
+async function issueStreamToken(req, res, lessonId, cfUid, provider, userLang, isOriginal) {
+  if (!(await isStreamConfigured()) && !(await isMuxConfigured())) {
+    return sendError(res, 503, 'STREAMING_NOT_CONFIGURED', 'Streaming not configured', req.requestId);
+  }
+
+  let streamUrl = null;
+  if (cfUid && provider === 'mux' && (await isMuxConfigured())) {
+    const muxToken = await signMuxPlaybackId(cfUid);
+    if (muxToken) {
+      streamUrl = await getMuxStreamUrl(cfUid, muxToken);
+    }
+  } else if (cfUid && (await isStreamConfigured())) {
+    const signedToken = await generateSignedToken(cfUid);
+    if (signedToken) {
+      streamUrl = await getStreamUrl(cfUid, signedToken);
+    }
+  }
+
+  const videoAccessToken = jwt.sign(
+    { scope: 'stream', lessonId, subscriberId: req.user.id, jti: crypto.randomUUID() },
+    JWT_SECRET,
+    { algorithm: 'HS256', expiresIn: '15m' }
+  );
+
+  res.json({ streamUrl, videoLanguage: userLang, isOriginal, videoAccessToken });
+}
+
+router.get('/stream-token/:lessonId', demoUserForAdmin, async (req, res) => {
   try {
     const lessonId = Number(req.params.lessonId);
     if (!Number.isInteger(lessonId) || lessonId <= 0) {
       return sendError(res, 400, 'INVALID_LESSON_ID', 'Invalid lesson ID', req.requestId);
     }
     const db = await getDb();
+
+    const lessonResult = db.exec(`SELECT is_free, cf_video_uid, video_url, video_provider FROM lessons WHERE id = ?`, [lessonId]);
+    if (!lessonResult.length || !lessonResult[0].values.length) {
+      return sendError(res, 404, 'LESSON_NOT_FOUND', 'Lesson not found', req.requestId);
+    }
+    const lrow = lessonResult[0].values[0];
+    const originalCfUid = lrow[1], lessonProvider = lrow[3] || 'cloudflare';
+
+    if (req.isDemoAdmin) {
+      // Demo view: grant the original-language stream, no per-subscriber data.
+      return issueStreamToken(req, res, lessonId, originalCfUid, lessonProvider, 'ru', true);
+    }
 
     const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed, subscription_expires_at, preferred_language FROM subscribers WHERE id = ?`, [req.user.id]);
     if (!userResult.length || !userResult[0].values.length) {
@@ -506,13 +583,7 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
     if (!urow[3]) return sendError(res, 403, 'EMAIL_CONFIRMATION_REQUIRED', 'EMAIL_NOT_CONFIRMED', req.requestId, { code: 'EMAIL_CONFIRMATION_REQUIRED' });
 
     const userLang = urow[5] || 'ru';
-
-    const lessonResult = db.exec(`SELECT is_free, cf_video_uid, video_url, video_provider FROM lessons WHERE id = ?`, [lessonId]);
-    if (!lessonResult.length || !lessonResult[0].values.length) {
-      return sendError(res, 404, 'LESSON_NOT_FOUND', 'Lesson not found', req.requestId);
-    }
-    const lrow = lessonResult[0].values[0];
-    const isFree = lrow[0], originalCfUid = lrow[1], lessonProvider = lrow[3] || 'cloudflare';
+    const isFree = lrow[0];
 
     // API-003: access is checked BEFORE provider availability, so a denied user
     // gets a stable machine-readable 403 code instead of a misleading 503.
@@ -534,10 +605,6 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
           return sendError(res, 403, 'SUBSCRIPTION_REQUIRED', 'subscription_required', req.requestId, { code: 'SUBSCRIPTION_REQUIRED' });
         }
       }
-    }
-
-    if (!(await isStreamConfigured()) && !(await isMuxConfigured())) {
-      return sendError(res, 503, 'STREAMING_NOT_CONFIGURED', 'Streaming not configured', req.requestId);
     }
 
     let provider = lessonProvider;
@@ -563,33 +630,14 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       }
     }
 
-    let streamUrl = null;
-    if (cfUid && provider === 'mux' && (await isMuxConfigured())) {
-      const muxToken = await signMuxPlaybackId(cfUid);
-      if (muxToken) {
-        streamUrl = await getMuxStreamUrl(cfUid, muxToken);
-      }
-    } else if (cfUid && (await isStreamConfigured())) {
-      const signedToken = await generateSignedToken(cfUid);
-      if (signedToken) {
-        streamUrl = await getStreamUrl(cfUid, signedToken);
-      }
-    }
-
-    const videoAccessToken = jwt.sign(
-      { scope: 'stream', lessonId, subscriberId: req.user.id, jti: crypto.randomUUID() },
-      JWT_SECRET,
-      { algorithm: 'HS256', expiresIn: '15m' }
-    );
-
-    res.json({ streamUrl, videoLanguage, isOriginal, videoAccessToken });
+    return issueStreamToken(req, res, lessonId, cfUid, provider, videoLanguage, isOriginal);
   } catch (err) {
     req.log && req.log.error('stream-token error', err.message);
     sendError(res, 500, 'STREAM_TOKEN_FAILED', 'Stream token generation failed', req.requestId);
   }
 });
 
-router.get('/calendar', authMiddleware, async (req, res) => {
+router.get('/calendar', demoUserForAdmin, async (req, res) => {
   try {
     const db = await getDb();
     const scheduleResult = db.exec(`SELECT s.date, s.theme, s.lesson_id, l.title, l.duration, l.is_free
@@ -669,7 +717,7 @@ router.get('/calendar', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/lessons-filter', authMiddleware, async (req, res) => {
+router.get('/lessons-filter', demoUserForAdmin, async (req, res) => {
   try {
     const { page, limit } = parsePagination(req.query);
     const db = await getDb();
@@ -725,7 +773,8 @@ router.get('/lessons-filter', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/onboarding', authMiddleware, async (req, res) => {
+router.get('/onboarding', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ completed: true });
   try {
     const db = await getDb();
     const result = db.exec(
@@ -750,7 +799,10 @@ router.get('/onboarding', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/onboarding', authMiddleware, async (req, res) => {
+router.post('/onboarding', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) {
+    return sendError(res, 403, 'FORBIDDEN', 'Демо-режим: редактирование недоступно', req.requestId);
+  }
   try {
     const { experience, goals, preferred_duration, preferred_time, focus_zones } = req.body;
     const validExperiences = ['beginner', 'intermediate', 'advanced'];
@@ -781,7 +833,7 @@ router.post('/onboarding', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/categories', authMiddleware, async (req, res) => {
+router.get('/categories', demoUserForAdmin, async (req, res) => {
   try {
     const db = await getDb();
     const zoneCounts = db.exec(
@@ -811,7 +863,8 @@ router.get('/categories', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/recommendations', authMiddleware, async (req, res) => {
+router.get('/recommendations', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ recommendations: [] });
   try {
     const limit = Math.min(parseInt(req.query.limit) || 5, 20);
     const excludeWatched = req.query.exclude_watched !== 'false';
@@ -823,7 +876,8 @@ router.get('/recommendations', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/workout-feedback', authMiddleware, async (req, res) => {
+router.post('/workout-feedback', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ success: true });
   try {
     const { lesson_id, mood } = req.body;
     const lessonId = Number(lesson_id);
@@ -848,7 +902,8 @@ router.post('/workout-feedback', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/workout-feedback', authMiddleware, async (req, res) => {
+router.get('/workout-feedback', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ feedback: [] });
   try {
     const { page, limit } = parsePagination(req.query);
     const db = await getDb();
@@ -883,7 +938,8 @@ router.get('/workout-feedback', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/workout-feedback/:lessonId', authMiddleware, async (req, res) => {
+router.get('/workout-feedback/:lessonId', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ feedback: null });
   try {
     const lessonId = Number(req.params.lessonId);
     if (!Number.isInteger(lessonId) || lessonId <= 0) {
@@ -903,18 +959,22 @@ router.get('/workout-feedback/:lessonId', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/dashboard', authMiddleware, async (req, res) => {
+router.get('/dashboard', demoUserForAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const userResult = db.exec(
-      `SELECT name, plan, status, free_sessions_used FROM subscribers WHERE id = ?`, [req.user.id]
-    );
-    const user = userResult.length && userResult[0].values.length ? {
-      name: userResult[0].values[0][0],
-      plan: userResult[0].values[0][1],
-      status: userResult[0].values[0][2],
-      free_sessions_used: userResult[0].values[0][3] || 0,
-    } : null;
+    const user = req.isDemoAdmin
+      ? { name: 'Администратор', plan: 'annual', status: 'active', free_sessions_used: 0 }
+      : (() => {
+          const userResult = db.exec(
+            `SELECT name, plan, status, free_sessions_used FROM subscribers WHERE id = ?`, [req.user.id]
+          );
+          return userResult.length && userResult[0].values.length ? {
+            name: userResult[0].values[0][0],
+            plan: userResult[0].values[0][1],
+            status: userResult[0].values[0][2],
+            free_sessions_used: userResult[0].values[0][3] || 0,
+          } : null;
+        })();
 
     const progressResult = db.exec(
       `SELECT wl.lesson_id, wl.position_seconds, wl.completed, wl.watched_at, l.title, l.duration, l.video_url
@@ -971,7 +1031,8 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
 
 /* ── Free Lesson Selection (trial users pick 7 lessons) ── */
 
-router.get('/free-selections', authMiddleware, async (req, res) => {
+router.get('/free-selections', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) return res.json({ selections: [], limit: FREE_LIMIT });
   try {
     const db = await getDb();
     const result = db.exec(
@@ -990,7 +1051,10 @@ router.get('/free-selections', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/free-selections', authMiddleware, async (req, res) => {
+router.post('/free-selections', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) {
+    return sendError(res, 403, 'FORBIDDEN', 'Демо-режим: редактирование недоступно', req.requestId);
+  }
   try {
     const { lesson_ids } = req.body;
     if (!Array.isArray(lesson_ids)) {
@@ -1025,7 +1089,12 @@ router.post('/free-selections', authMiddleware, async (req, res) => {
 
 /* ── Device Fingerprint (anti-abuse) ── */
 
-router.post('/fingerprint', authMiddleware, async (req, res) => {
+router.post('/fingerprint', demoUserForAdmin, async (req, res) => {
+  if (req.isDemoAdmin) {
+    const { fingerprint } = req.body;
+    if (!fingerprint) return sendError(res, 400, 'FINGERPRINT_REQUIRED', 'fingerprint required', req.requestId);
+    return res.json({ success: true, accountsFromThisDevice: 1, otherAccounts: [] });
+  }
   try {
     const { fingerprint } = req.body;
     if (!fingerprint) return sendError(res, 400, 'FINGERPRINT_REQUIRED', 'fingerprint required', req.requestId);
@@ -1067,7 +1136,10 @@ router.post('/fingerprint', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/data-export', authMiddleware, requireRole('subscriber'), async (req, res) => {
+router.get('/data-export', demoUserForAdmin, requireRole('subscriber'), async (req, res) => {
+  if (req.isDemoAdmin) {
+    return sendError(res, 403, 'FORBIDDEN', 'Демо-режим: выгрузка данных недоступна', req.requestId);
+  }
   try {
     const db = await getDb();
     const profile = queryToObjects(db.exec(`SELECT id, email, name, plan, status, free_sessions_used, subscription_started_at, joined_at FROM subscribers WHERE id = ?`, [req.user.id]));
@@ -1091,7 +1163,10 @@ router.get('/data-export', authMiddleware, requireRole('subscriber'), async (req
   }
 });
 
-router.delete('/account', authMiddleware, requireRole('subscriber'), requireDangerousActionConfirmation, async (req, res) => {
+router.delete('/account', demoUserForAdmin, requireRole('subscriber'), requireDangerousActionConfirmation, async (req, res) => {
+  if (req.isDemoAdmin) {
+    return sendError(res, 403, 'FORBIDDEN', 'Демо-режим: удаление недоступно', req.requestId);
+  }
   try {
     const db = await getDb();
     db.run(`UPDATE subscribers SET name = 'Deleted User', email = 'deleted_' || id || '@anonymized.local', plan = 'trial', status = 'inactive', stripe_customer_id = NULL, stripe_subscription_id = NULL, subscription_expires_at = NULL WHERE id = ?`, [req.user.id]);
@@ -1140,7 +1215,10 @@ router.get('/detect-language', async (req, res) => {
 });
 
 /* ── i18n: save language preference ── */
-router.put('/language', authMiddleware, requireRole('subscriber'), async (req, res) => {
+router.put('/language', demoUserForAdmin, requireRole('subscriber'), async (req, res) => {
+  if (req.isDemoAdmin) {
+    return sendError(res, 403, 'FORBIDDEN', 'Демо-режим: редактирование недоступно', req.requestId);
+  }
   try {
     const { language } = req.body;
     if (!language || !VALID_LANGUAGES.includes(language)) {

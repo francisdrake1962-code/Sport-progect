@@ -1,3 +1,4 @@
+/* eslint-disable-next-line no-unused-vars -- called from admin HTML pages */
 function getSidebar(activePage) {
     const links = [
         { section: 'Обзор', items: [
@@ -44,9 +45,9 @@ function getSidebar(activePage) {
     </aside>`;
 }
 
+/* eslint-disable-next-line no-unused-vars -- called from admin HTML pages */
 function getTopbar(title) {
-    return `
-    <header class="topbar">
+    return `    <header class="topbar">
         <h1 class="topbar__title">${esc(title)}</h1>
         <div class="topbar__actions">
             <a href="../index.html" class="btn btn--secondary btn--sm" target="_blank">Открыть сайт</a>

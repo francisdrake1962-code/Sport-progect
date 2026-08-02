@@ -68,7 +68,7 @@ async function loginSubscriber() {
 }
 
 function stubMuxApi(routes) {
-  global.fetch = jest.fn((url, options) => {
+  global.fetch = jest.fn((url, _options) => {
     const u = String(url);
     for (const route of routes) {
       if (route.match(u)) {

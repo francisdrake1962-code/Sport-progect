@@ -18,7 +18,7 @@ class ApiClient {
     let res;
     try {
       res = await fetch(this.baseUrl + path, fetchOpts);
-    } catch (e) {
+    } catch {
       throw new Error('Network error — check your connection');
     }
 

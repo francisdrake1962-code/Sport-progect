@@ -118,8 +118,6 @@ describe('E2E — Scenario 3: Lesson → Progress', () => {
     const login = await api('POST', '/api/user/login', {
       email: 'maria@example.com', password: 'password123'
     });
-    const me = await api('GET', '/api/user/me', null, login.body.token);
-    const subId = me.body.id;
     const res = await api('POST', '/api/user/watch-progress', {
       lesson_id: 1, position_seconds: 120, completed: true
     }, login.body.token);

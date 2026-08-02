@@ -292,7 +292,7 @@ describe('API Integration — CRUD Endpoints', () => {
     { name: 'promo-codes', path: '/api/promo-codes', fields: { code: 'TEST123', discount: '15%', max_uses: 100, current_uses: 0, active: 1 }, updateField: { code: 'TEST456' } },
   ];
 
-  endpoints.forEach(({ name, path: epPath, fields, updateField }) => {
+  endpoints.forEach(({ path: epPath, fields, updateField }) => {
     test(`GET ${epPath} should return paginated list`, async () => {
       const res = await apiRequest('GET', epPath, null, token);
       expect(res.status).toBe(200);

@@ -1,3 +1,4 @@
+/* eslint-disable-next-line no-unused-vars -- called from admin HTML pages */
 function initStreamUpload(lessonId, lang) {
   var container = document.getElementById('stream-upload-container');
   if (!container) return;
@@ -190,7 +191,7 @@ function startPolling(uploadId, resultDiv, statusDiv, progressBar, cfInput, urlI
         resultDiv.style.display = 'block';
         resultDiv.innerHTML = '<span style="color:var(--admin-danger);">⏱ Таймаут ожидания. Проверьте статус позже.</span>';
       }
-    }).catch(function (err) {
+    }).catch(function () {
       if (attempts < maxAttempts) setTimeout(poll, 5000);
     });
   }

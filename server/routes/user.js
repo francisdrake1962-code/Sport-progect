@@ -512,7 +512,7 @@ router.get('/stream-token/:lessonId', authMiddleware, async (req, res) => {
       return sendError(res, 404, 'LESSON_NOT_FOUND', 'Lesson not found', req.requestId);
     }
     const lrow = lessonResult[0].values[0];
-    const isFree = lrow[0], originalCfUid = lrow[1], videoUrl = lrow[2], lessonProvider = lrow[3] || 'cloudflare';
+    const isFree = lrow[0], originalCfUid = lrow[1], lessonProvider = lrow[3] || 'cloudflare';
 
     // API-003: access is checked BEFORE provider availability, so a denied user
     // gets a stable machine-readable 403 code instead of a misleading 503.

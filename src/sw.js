@@ -1,5 +1,3 @@
-const CACHE_NAME = 'qigong-v5';
-
 self.addEventListener('install', () => {
   self.skipWaiting();
 });

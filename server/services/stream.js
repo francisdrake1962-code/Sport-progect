@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
-const path = require('path');
 const { getDb, saveDb, getSetting } = require('../db');
 
 let cachedConfig = null;
@@ -233,7 +232,6 @@ async function processReadyVideo(videoUid, uploadId) {
   const row = uploads[0].values[0];
   const lessonId = row[1];
   const language = row[2];
-  const replacesUid = row[3];
 
   db.run(`UPDATE video_uploads SET status = 'ready', ready_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`, [uploadId]);
 
@@ -291,7 +289,7 @@ function startStatusPolling(videoUid, lessonId, language, uploadId) {
 }
 
 function stopAllPolling() {
-  for (const [uid, timer] of activePolling) {
+  for (const [, timer] of activePolling) {
     clearInterval(timer);
   }
   activePolling.clear();

@@ -6,36 +6,37 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Вход — Цигун и суставная разминка</title>
-    <link rel="stylesheet" href="styles/main.css">
+    
     <style>
-        .auth-page { min-height:100vh; background:linear-gradient(135deg,#0a0f0c 0%,#1a3a20 100%); display:flex; align-items:center; justify-content:center; padding:1rem; }
-        .auth-card { background:#111a14; border:1px solid #2a3a2e; border-radius:16px; padding:2.5rem; width:100%; max-width:420px; }
+        .auth-page { min-height:100vh; background:linear-gradient(135deg,#faf7f2 0%,#f1ece2 100%); display:flex; align-items:center; justify-content:center; padding:1rem; }
+        .auth-card { background:#ffffff; border:1px solid #e3d8c3; border-radius:16px; padding:2.5rem; width:100%; max-width:420px; }
         .auth-card__logo { text-align:center; margin-bottom:1.5rem; }
         .auth-card__logo img { width:80px; height:auto; }
-        .auth-card__title { color:#fff; font-size:1.4rem; font-weight:700; text-align:center; margin-bottom:0.3rem; }
-        .auth-card__sub { color:#7a9a80; text-align:center; font-size:0.9rem; margin-bottom:1.5rem; }
-        .auth-tabs { display:flex; gap:0; margin-bottom:1.5rem; background:#0d1a10; border-radius:8px; overflow:hidden; }
-        .auth-tab { flex:1; padding:0.6rem; text-align:center; cursor:pointer; color:#7a9a80; font-size:0.9rem; font-weight:500; border:none; background:none; transition:all .15s; }
-        .auth-tab.active { background:#1a5e2a; color:#fff; }
+        .auth-card__title { color:#2b2721; font-size:1.4rem; font-weight:700; text-align:center; margin-bottom:0.3rem; }
+        .auth-card__sub { color:#8f8578; text-align:center; font-size:0.9rem; margin-bottom:1.5rem; }
+        .auth-tabs { display:flex; gap:0; margin-bottom:1.5rem; background:#f1ece2; border-radius:8px; overflow:hidden; }
+        .auth-tab { flex:1; padding:0.6rem; text-align:center; cursor:pointer; color:#8f8578; font-size:0.9rem; font-weight:500; border:none; background:none; transition:all .15s; }
+        .auth-tab.active { background:#8a6f52;color:#f5efe4; }
         .form-group { margin-bottom:1rem; }
-        .form-group label { display:block; color:#9fc5a8; font-size:0.85rem; margin-bottom:0.3rem; }
-        .form-group input { width:100%; padding:0.7rem 0.9rem; background:#0d1a10; border:1px solid #2a3a2e; border-radius:8px; color:#fff; font-size:0.95rem; outline:none; transition:border-color .15s; }
-        .form-group input:focus { border-color:#1a5e2a; }
-        .auth-btn { width:100%; padding:0.8rem; background:#1a5e2a; color:#fff; border:none; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; transition:background .15s; margin-top:0.5rem; }
-        .auth-btn:hover { background:#228b33; }
+        .form-group label { display:block; color:#8a6f52; font-size:0.85rem; margin-bottom:0.3rem; }
+        .form-group input { width:100%; padding:0.7rem 0.9rem; background:#f1ece2; border:1px solid #e3d8c3; border-radius:8px; color:#2b2721; font-size:0.95rem; outline:none; transition:border-color .15s; }
+        .form-group input:focus { border-color:#8a6f52; }
+        .auth-btn { width:100%; padding:0.8rem; background:#8a6f52;color:#f5efe4; border:none; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; transition:background .15s; margin-top:0.5rem; }
+        .auth-btn:hover { background:#a07f58; }
         .auth-btn:disabled { opacity:0.5; cursor:not-allowed; }
-        .auth-error { color:#e55; font-size:0.85rem; margin-top:0.5rem; text-align:center; display:none; }
-        .auth-success { color:#5a5; font-size:0.85rem; margin-top:0.5rem; text-align:center; display:none; }
+        .auth-error { color:#c96a54; font-size:0.85rem; margin-top:0.5rem; text-align:center; display:none; }
+        .auth-success { color:#9aa87f; font-size:0.85rem; margin-top:0.5rem; text-align:center; display:none; }
         .auth-link { text-align:center; margin-top:1rem; }
-        .auth-link a { color:#7acc8a; text-decoration:none; font-size:0.85rem; }
-        .auth-link a:hover { color:#fff; }
+        .auth-link a { color:#8a6f52; text-decoration:none; font-size:0.85rem; }
+        .auth-link a:hover { color:#2b2721; }
         .auth-back { text-align:center; margin-top:1.5rem; }
-        .auth-back a { color:#5a7a60; text-decoration:none; font-size:0.85rem; }
-        .auth-back a:hover { color:#9fc5a8; }
-        .auth-divider { text-align:center; color:#5a7a60; font-size:0.8rem; margin:1rem 0; }
+        .auth-back a { color:#7c6f5d; text-decoration:none; font-size:0.85rem; }
+        .auth-back a:hover { color:#8a6f52; }
+        .auth-divider { text-align:center; color:#7c6f5d; font-size:0.8rem; margin:1rem 0; }
     </style>
 </head>
 <body>
+    <noscript><div style="padding:2rem;text-align:center;font-family:sans-serif;background:#faf7f2;color:#2b2721;min-height:100vh;"><h1>Сайт требует JavaScript</h1><p>Включите JavaScript, чтобы пользоваться сайтом.</p></div></noscript>
     <div class="auth-page">
         <div class="auth-card">
             <div class="auth-card__logo"><img src="images/logo.svg" alt="Логотип"></div>
@@ -162,7 +163,7 @@
                 window.location.href = 'dashboard.html';
             } catch(err) {
                 if (err.message === 'EMAIL_CONFIRMATION_REQUIRED' || err.message === 'EMAIL_NOT_CONFIRMED') {
-                    let html = 'Email не подтверждён. Проверьте почту. <button id="resend-btn" style="background:none;border:none;color:#7acc8a;cursor:pointer;text-decoration:underline;font-size:0.85rem;">Отправить письмо повторно</button>';
+                    let html = 'Email не подтверждён. Проверьте почту. <button id="resend-btn" style="background:none;border:none;color:#8a6f52;cursor:pointer;text-decoration:underline;font-size:0.85rem;">Отправить письмо повторно</button>';
                     loginError.innerHTML = html;
                     loginError.style.display = 'block';
                     document.getElementById('resend-btn').addEventListener('click', async function() {
@@ -209,10 +210,10 @@
                 if (!res.ok) throw new Error(data.error || 'Registration failed');
                 regSuccess.innerHTML = 'Письмо отправлено! Проверьте почту <b>' + escHtml(email) + '</b> и перейдите по ссылке для подтверждения.';
                 if (data.confirmation_token && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-                    regSuccess.innerHTML += '<br><a href="/confirm/' + escHtml(data.confirmation_token) + '" style="color:#7acc8a;display:inline-block;margin-top:0.5rem;">Подтвердить email (dev)</a>';
+                    regSuccess.innerHTML += '<br><a href="/confirm/' + escHtml(data.confirmation_token) + '" style="color:#8a6f52;display:inline-block;margin-top:0.5rem;">Подтвердить email (dev)</a>';
                 }
                 if (data.deviceWarning) {
-                    regSuccess.innerHTML += '<div style="margin-top:0.5rem;padding:0.5rem;background:#2a2a1a;border:1px solid #5a5a2e;border-radius:6px;color:#e0d070;font-size:0.85rem;">' + escHtml(data.deviceWarning) + '</div>';
+                    regSuccess.innerHTML += '<div style="margin-top:0.5rem;padding:0.5rem;background:#ece4d4;border:1px solid #5c5238;border-radius:6px;color:#cbb98a;font-size:0.85rem;">' + escHtml(data.deviceWarning) + '</div>';
                 }
                 regSuccess.style.display = 'block';
                 registerForm.reset();

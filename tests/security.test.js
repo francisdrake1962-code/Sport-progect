@@ -457,8 +457,24 @@ describe('Security — Request Size & Content-Type', () => {
     expect([400, 413]).toContain(res.status);
   });
 
-  test('admin panel files are publicly accessible (SPA design)', async () => {
+  test('admin panel pages require authentication (redirect to login)', async () => {
     const res = await apiRequest('GET', '/admin/');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toContain('/admin/login.html');
+  });
+
+  test('admin login page is publicly accessible', async () => {
+    const res = await apiRequest('GET', '/admin/login.html');
+    expect(res.status).toBe(200);
+  });
+
+  test('admin panel pages are accessible with valid token', async () => {
+    const res = await apiRequest('GET', '/admin/lessons.html', null, adminToken);
+    expect(res.status).toBe(200);
+  });
+
+  test('admin static assets are publicly accessible', async () => {
+    const res = await apiRequest('GET', '/admin/css/admin.css');
     expect(res.status).toBe(200);
   });
 });

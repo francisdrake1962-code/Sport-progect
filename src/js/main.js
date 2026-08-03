@@ -1,6 +1,29 @@
 import '../styles/main.css';
 import './i18n.js';
 
+// CONTENT-001: static sub-pages carry data-content-slug on <body>. When a
+// site_content record exists for that slug, replace the editable block with
+// the admin-saved HTML (title/meta too). No record -> keep the static markup.
+function applySiteContent() {
+    var main = document.getElementById('main-content');
+    var body = document.body;
+    var slug = body && body.getAttribute('data-content-slug');
+    if (!main || !slug) return;
+
+    fetch('/api/content/' + encodeURIComponent(slug))
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (!data || !data.content) return;
+            main.innerHTML = data.content;
+            if (data.meta_title) document.title = data.meta_title;
+            if (data.meta_description) {
+                var meta = document.querySelector('meta[name="description"]');
+                if (meta) meta.setAttribute('content', data.meta_description);
+            }
+        })
+        .catch(function() { /* keep static fallback */ });
+}
+
 // RBAC-aware header. A single login page now serves both subscribers and
 // admins, so the public header must show role-appropriate links:
 //   guest      -> Войти / Начать бесплатно
@@ -21,8 +44,8 @@ function applyAuthNav() {
 
     var links = [];
     if (adminToken) {
-        links.push({ href: 'dashboard.html', text: 'Дашборд', cls: 'header__login' });
-        links.push({ href: 'profile.html', text: 'Профиль', cls: 'header__login' });
+        // Admin browsing the public site: link to the admin panel only. Subscriber
+        // pages are previewed from the panel via "Просмотр как пользователь".
         links.push({ href: 'admin/index.html', text: 'Админ-панель', cls: 'header__login' });
     } else if (userToken) {
         links.push({ href: 'dashboard.html', text: 'Дашборд', cls: 'header__login' });
@@ -48,7 +71,27 @@ function applyAuthNav() {
     });
 }
 
+// When an admin opens user-facing pages (dashboard/profile/lessons/…), show a
+// persistent banner clarifying this is a demo view and how to get back to the
+// admin panel. Only user-facing pages get it (admin pages have their own layout).
+function applyDemoBanner() {
+    if (!localStorage.getItem('admin_token')) return;
+    var allowList = ['dashboard.html', 'profile.html', 'lessons.html', 'calendar.html', 'player.html', 'plans.html', 'picker.html', 'onboarding.html'];
+    var page = window.location.pathname.split('/').pop() || 'index.html';
+    if (allowList.indexOf(page) === -1) return;
+    if (document.getElementById('admin-demo-banner')) return;
+
+    var banner = document.createElement('div');
+    banner.id = 'admin-demo-banner';
+    banner.style.cssText = 'position:sticky;top:0;z-index:1000;background:#332d0a;border-bottom:1px solid #6b5a12;color:#fff;padding:0.5rem 1rem;font-family:sans-serif;font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:0.75rem;flex-wrap:wrap;text-align:center;';
+    banner.innerHTML =
+        '<span>👁️ Режим просмотра как пользователь — данные демонстрационные</span>' +
+        '<a href="/admin/index.html" style="color:#ffd75e;font-weight:600;text-decoration:underline;white-space:nowrap;">Вернуться в админ-панель →</a>';
+    document.body.insertBefore(banner, document.body.firstChild);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    applyDemoBanner();
     applyAuthNav();
     if (window.i18n) window.i18n.init();
 
@@ -136,4 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
             regs.forEach(function(r) { r.unregister(); });
         });
     }
+
+    applySiteContent();
 });

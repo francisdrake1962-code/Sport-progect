@@ -6,106 +6,106 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Занятие — Цигун и суставная разминка</title>
-    <link rel="stylesheet" href="styles/main.css">
+    
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.16"></script>
     <style>
-        .player-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; display:flex; flex-direction:column; }
-        .player-header { background:#111a14; padding:0.75rem 1.5rem; display:flex; align-items:center; gap:1rem; border-bottom:1px solid #2a3a2e; }
-        .player-header__back { color:#9fc5a8; text-decoration:none; font-size:0.95rem; display:flex; align-items:center; gap:0.4rem; }
-        .player-header__back:hover { color:#fff; }
-        .player-header__title { color:#fff; font-size:1rem; font-weight:500; flex:1; text-align:center; }
-        .player-header__badge { background:#1a5e2a; color:#fff; padding:0.2rem 0.6rem; border-radius:999px; font-size:0.75rem; font-weight:600; }
+        .player-page { min-height:100vh; background:#faf7f2; color:#2b2721; display:flex; flex-direction:column; }
+        .player-header { background:#ffffff; padding:0.75rem 1.5rem; display:flex; align-items:center; gap:1rem; border-bottom:1px solid #e3d8c3; }
+        .player-header__back { color:#8a6f52; text-decoration:none; font-size:0.95rem; display:flex; align-items:center; gap:0.4rem; }
+        .player-header__back:hover { color:#2b2721; }
+        .player-header__title { color:#2b2721; font-size:1rem; font-weight:500; flex:1; text-align:center; }
+        .player-header__badge { background:#8a6f52;color:#f5efe4; padding:0.2rem 0.6rem; border-radius:999px; font-size:0.75rem; font-weight:600; }
         .player-wrap { position:relative; width:100%; max-width:960px; margin:0 auto; background:#000; aspect-ratio:16/9; flex-shrink:0; }
         .player-wrap video { width:100%; height:100%; display:block; }
         .player-wrap__overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); cursor:pointer; transition:opacity .2s; }
         .player-wrap__overlay.hidden { opacity:0; pointer-events:none; }
-        .player-wrap__play-btn { width:80px; height:80px; background:rgba(26,94,42,0.95); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .15s; box-shadow:0 4px 24px rgba(0,0,0,0.5); }
+        .player-wrap__play-btn { width:80px; height:80px; background:rgba(138,111,82,0.95); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .15s; box-shadow:0 4px 24px rgba(0,0,0,0.5); }
         .player-wrap__play-btn:hover { transform:scale(1.1); }
-        .player-wrap__play-btn svg { fill:#fff; width:32px; height:32px; margin-left:4px; }
-        .player-controls { background:#111a14; padding:0.5rem 1.5rem; display:flex; align-items:center; gap:0.75rem; border-bottom:1px solid #1e2e22; }
-        .player-controls button { background:none; border:none; color:#9fc5a8; cursor:pointer; padding:0.3rem; display:flex; align-items:center; }
-        .player-controls button:hover { color:#fff; }
+        .player-wrap__play-btn svg { fill:#f5efe4; width:32px; height:32px; margin-left:4px; }
+        .player-controls { background:#ffffff; padding:0.5rem 1.5rem; display:flex; align-items:center; gap:0.75rem; border-bottom:1px solid #e8dcc4; }
+        .player-controls button { background:none; border:none; color:#8a6f52; cursor:pointer; padding:0.3rem; display:flex; align-items:center; }
+        .player-controls button:hover { color:#2b2721; }
         .player-controls button svg { width:22px; height:22px; fill:currentColor; }
         .player-volume { display:flex; align-items:center; gap:0.4rem; margin-left:0.25rem; }
-        .player-volume input[type="range"] { width:80px; height:4px; -webkit-appearance:none; appearance:none; background:#2a3a2e; border-radius:2px; outline:none; cursor:pointer; }
-        .player-volume input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; background:#1a5e2a; border-radius:50%; cursor:pointer; }
-        .player-volume input[type="range"]::-moz-range-thumb { width:14px; height:14px; background:#1a5e2a; border-radius:50%; border:none; cursor:pointer; }
-        .player-volume input[type="range"]::-moz-range-track { background:#2a3a2e; height:4px; border-radius:2px; }
-        .player-progress { flex:1; height:4px; background:#2a3a2e; border-radius:2px; cursor:pointer; position:relative; }
-        .player-progress__fill { height:100%; background:#1a5e2a; border-radius:2px; width:0%; transition:width .1s linear; position:relative; }
-        .player-progress__fill::after { content:''; position:absolute; right:-6px; top:-4px; width:12px; height:12px; background:#1a5e2a; border-radius:50%; opacity:0; transition:opacity .15s; }
+        .player-volume input[type="range"] { width:80px; height:4px; -webkit-appearance:none; appearance:none; background:#e3d8c3; border-radius:2px; outline:none; cursor:pointer; }
+        .player-volume input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; background:#8a6f52; border-radius:50%; cursor:pointer; }
+        .player-volume input[type="range"]::-moz-range-thumb { width:14px; height:14px; background:#8a6f52; border-radius:50%; border:none; cursor:pointer; }
+        .player-volume input[type="range"]::-moz-range-track { background:#e3d8c3; height:4px; border-radius:2px; }
+        .player-progress { flex:1; height:4px; background:#e3d8c3; border-radius:2px; cursor:pointer; position:relative; }
+        .player-progress__fill { height:100%; background:#8a6f52; border-radius:2px; width:0%; transition:width .1s linear; position:relative; }
+        .player-progress__fill::after { content:''; position:absolute; right:-6px; top:-4px; width:12px; height:12px; background:#8a6f52; border-radius:50%; opacity:0; transition:opacity .15s; }
         .player-progress:hover .player-progress__fill::after { opacity:1; }
         .player-progress:hover { height:6px; }
-        .player-progress__buffered { position:absolute; top:0; left:0; height:100%; background:#2a4a30; border-radius:2px; pointer-events:none; }
-        .player-progress__hover { position:absolute; bottom:100%; transform:translateX(-50%); background:#1a2a1e; color:#7acc8a; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; pointer-events:none; white-space:nowrap; display:none; margin-bottom:6px; }
+        .player-progress__buffered { position:absolute; top:0; left:0; height:100%; background:#d8cbb2; border-radius:2px; pointer-events:none; }
+        .player-progress__hover { position:absolute; bottom:100%; transform:translateX(-50%); background:#f1ece2; color:#8a6f52; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; pointer-events:none; white-space:nowrap; display:none; margin-bottom:6px; }
         .player-progress:hover .player-progress__hover { display:block; }
-        .player-time { color:#7a9a80; font-size:0.8rem; min-width:90px; text-align:right; font-variant-numeric:tabular-nums; }
+        .player-time { color:#8f8578; font-size:0.8rem; min-width:90px; text-align:right; font-variant-numeric:tabular-nums; }
         .player-info { max-width:960px; margin:0 auto; width:100%; padding:1.5rem; flex:1; overflow-y:auto; }
         .player-info__meta { display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap; }
-        .player-info__meta .badge { background:#1a3a20; color:#7acc8a; padding:0.2rem 0.6rem; border-radius:4px; font-size:0.75rem; }
-        .player-info__title { font-size:1.5rem; font-weight:700; color:#fff; margin-bottom:0.5rem; }
-        .player-info__desc { color:#9fc5a8; line-height:1.6; margin-bottom:1.5rem; }
+        .player-info__meta .badge { background:#f1ece2; color:#8a6f52; padding:0.2rem 0.6rem; border-radius:4px; font-size:0.75rem; }
+        .player-info__title { font-size:1.5rem; font-weight:700; color:#2b2721; margin-bottom:0.5rem; }
+        .player-info__desc { color:#8a6f52; line-height:1.6; margin-bottom:1.5rem; }
         .player-info__exercises { margin-bottom:1.5rem; }
-        .player-info__exercises h3 { font-size:1rem; color:#7acc8a; margin-bottom:0.75rem; }
+        .player-info__exercises h3 { font-size:1rem; color:#8a6f52; margin-bottom:0.75rem; }
         .exercise-list { list-style:none; padding:0; }
-        .exercise-list li { padding:0.6rem 0.8rem; border-bottom:1px solid #1e2e22; display:flex; align-items:center; gap:0.6rem; color:#ccc; font-size:0.9rem; }
-        .exercise-list li .ex-num { color:#5a7a60; font-weight:600; min-width:1.5rem; }
-        .exercise-list li .ex-zone { color:#7a9a80; font-size:0.8rem; margin-left:auto; }
-        .player-nav { display:flex; gap:0.75rem; margin-top:1.5rem; padding-top:1rem; border-top:1px solid #1e2e22; }
+        .exercise-list li { padding:0.6rem 0.8rem; border-bottom:1px solid #e8dcc4; display:flex; align-items:center; gap:0.6rem; color:#6f675c; font-size:0.9rem; }
+        .exercise-list li .ex-num { color:#7c6f5d; font-weight:600; min-width:1.5rem; }
+        .exercise-list li .ex-zone { color:#8f8578; font-size:0.8rem; margin-left:auto; }
+        .player-nav { display:flex; gap:0.75rem; margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e8dcc4; }
         .player-nav a { flex:1; text-align:center; padding:0.7rem 1rem; border-radius:8px; text-decoration:none; font-weight:500; transition:all .15s; }
-        .player-nav__prev { background:#1a2a1e; color:#9fc5a8; }
-        .player-nav__prev:hover { background:#2a3a2e; color:#fff; }
-        .player-nav__next { background:#1a5e2a; color:#fff; }
-        .player-nav__next:hover { background:#228b33; }
-        .player-nav__list { background:#1a2a1e; color:#9fc5a8; flex:0.4; }
-        .player-nav__list:hover { background:#2a3a2e; color:#fff; }
+        .player-nav__prev { background:#f1ece2; color:#8a6f52; }
+        .player-nav__prev:hover { background:#e3d8c3; color:#2b2721; }
+        .player-nav__next { background:#8a6f52;color:#f5efe4; }
+        .player-nav__next:hover { background:#a07f58; }
+        .player-nav__list { background:#f1ece2; color:#8a6f52; flex:0.4; }
+        .player-nav__list:hover { background:#e3d8c3; color:#2b2721; }
         .player-empty { text-align:center; padding:4rem 1rem; }
         .player-empty__icon { font-size:3rem; margin-bottom:1rem; }
-        .player-empty__title { font-size:1.3rem; color:#fff; margin-bottom:0.5rem; }
-        .player-empty__text { color:#7a9a80; margin-bottom:1.5rem; }
+        .player-empty__title { font-size:1.3rem; color:#2b2721; margin-bottom:0.5rem; }
+        .player-empty__text { color:#8f8578; margin-bottom:1.5rem; }
         .player-loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); z-index:5; }
-        .player-loading__spinner { width:40px; height:40px; border:3px solid #2a3a2e; border-top-color:#1a5e2a; border-radius:50%; animation:spin 1s linear infinite; }
+        .player-loading__spinner { width:40px; height:40px; border:3px solid #e3d8c3; border-top-color:#8a6f52; border-radius:50%; animation:spin 1s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
-        .player-error { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.8); z-index:6; color:#fff; text-align:center; padding:2rem; }
+        .player-error { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.8); z-index:6; color:#f5efe4; text-align:center; padding:2rem; }
         .player-error__icon { font-size:2.5rem; margin-bottom:1rem; }
-        .player-error__msg { color:#e55; font-size:0.9rem; margin-bottom:1rem; }
-        .player-resume { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); z-index:7; color:#fff; text-align:center; padding:2rem; }
+        .player-error__msg { color:#c96a54; font-size:0.9rem; margin-bottom:1rem; }
+        .player-resume { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); z-index:7; color:#f5efe4; text-align:center; padding:2rem; }
         .player-resume__icon { font-size:2.5rem; margin-bottom:1rem; }
         .player-resume__title { font-size:1.2rem; font-weight:600; margin-bottom:0.5rem; }
-        .player-resume__text { color:#7acc8a; font-size:0.9rem; margin-bottom:1.5rem; }
+        .player-resume__text { color:#d3c0a4; font-size:0.9rem; margin-bottom:1.5rem; }
         .player-resume__btns { display:flex; gap:0.75rem; }
         .player-resume__btns button { padding:0.6rem 1.5rem; border:none; border-radius:8px; font-size:0.9rem; font-weight:500; cursor:pointer; transition:all .15s; }
-        .player-resume__btns .btn-resume { background:#1a5e2a; color:#fff; }
-        .player-resume__btns .btn-resume:hover { background:#228b33; }
-        .player-resume__btns .btn-start { background:#2a3a2e; color:#9fc5a8; }
-        .player-resume__btns .btn-start:hover { background:#3a4a3e; color:#fff; }
-        .player-complete { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); z-index:7; color:#fff; text-align:center; padding:2rem; }
+        .player-resume__btns .btn-resume { background:#8a6f52;color:#f5efe4; }
+        .player-resume__btns .btn-resume:hover { background:#a07f58; }
+        .player-resume__btns .btn-start { background:#e3d8c3; color:#8a6f52; }
+        .player-resume__btns .btn-start:hover { background:#d8cbb2; color:#2b2721; }
+        .player-complete { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); z-index:7; color:#f5efe4; text-align:center; padding:2rem; }
         .player-complete__icon { font-size:3rem; margin-bottom:1rem; }
         .player-complete__title { font-size:1.3rem; font-weight:700; margin-bottom:0.5rem; }
-        .player-complete__text { color:#7acc8a; margin-bottom:1.5rem; }
+        .player-complete__text { color:#d3c0a4; margin-bottom:1.5rem; }
         .player-complete__btns { display:flex; gap:0.75rem; }
         .player-complete__btns button { padding:0.6rem 1.5rem; border:none; border-radius:8px; font-size:0.9rem; font-weight:500; cursor:pointer; transition:all .15s; }
-        .player-complete__btns .btn-next { background:#1a5e2a; color:#fff; }
-        .player-complete__btns .btn-next:hover { background:#228b33; }
-        .player-complete__btns .btn-list { background:#2a3a2e; color:#9fc5a8; }
-        .player-complete__btns .btn-list:hover { background:#3a4a3e; color:#fff; }
-        .player-feedback { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.9); z-index:8; color:#fff; text-align:center; padding:2rem; }
+        .player-complete__btns .btn-next { background:#8a6f52;color:#f5efe4; }
+        .player-complete__btns .btn-next:hover { background:#a07f58; }
+        .player-complete__btns .btn-list { background:#e3d8c3; color:#8a6f52; }
+        .player-complete__btns .btn-list:hover { background:#d8cbb2; color:#2b2721; }
+        .player-feedback { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.9); z-index:8; color:#f5efe4; text-align:center; padding:2rem; }
         .player-feedback__icon { font-size:2.5rem; margin-bottom:0.75rem; }
         .player-feedback__title { font-size:1.2rem; font-weight:600; margin-bottom:0.5rem; }
-        .player-feedback__text { color:#7acc8a; font-size:0.9rem; margin-bottom:1.5rem; }
+        .player-feedback__text { color:#d3c0a4; font-size:0.9rem; margin-bottom:1.5rem; }
         .player-feedback__emojis { display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:center; margin-bottom:1.5rem; }
-        .player-feedback__emojis button { width:64px; height:64px; border:2px solid #2a3a2e; border-radius:12px; background:#111a14; font-size:1.8rem; cursor:pointer; transition:all .15s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem; }
-        .player-feedback__emojis button span { font-size:0.6rem; color:#9fc5a8; }
-        .player-feedback__emojis button:hover { border-color:#1a5e2a; transform:scale(1.1); background:#1a2a1e; }
-        .player-feedback__emojis button.selected { border-color:#1a5e2a; background:#1a3a20; }
-        .player-feedback__skip { background:none; border:none; color:#7a9a80; cursor:pointer; font-size:0.85rem; text-decoration:underline; }
-        .player-feedback__skip:hover { color:#fff; }
+        .player-feedback__emojis button { width:64px; height:64px; border:2px solid #e3d8c3; border-radius:12px; background:#ffffff; font-size:1.8rem; cursor:pointer; transition:all .15s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem; }
+        .player-feedback__emojis button span { font-size:0.6rem; color:#8a6f52; }
+        .player-feedback__emojis button:hover { border-color:#8a6f52; transform:scale(1.1); background:#f1ece2; }
+        .player-feedback__emojis button.selected { border-color:#8a6f52; background:#f1ece2; }
+        .player-feedback__skip { background:none; border:none; color:#8f8578; cursor:pointer; font-size:0.85rem; text-decoration:underline; }
+        .player-feedback__skip:hover { color:#2b2721; }
         .player-cast { position:relative; }
-        .player-cast__menu { position:absolute; bottom:100%; right:0; background:#1a2a1e; border:1px solid #2a3a2e; border-radius:8px; padding:0.5rem; min-width:200px; display:none; z-index:10; margin-bottom:0.5rem; }
+        .player-cast__menu { position:absolute; bottom:100%; right:0; background:#f1ece2; border:1px solid #e3d8c3; border-radius:8px; padding:0.5rem; min-width:200px; display:none; z-index:10; margin-bottom:0.5rem; }
         .player-cast__menu.open { display:block; }
-        .player-cast__menu button { display:block; width:100%; text-align:left; padding:0.5rem 0.75rem; background:none; border:none; color:#e0e0e0; font-size:0.85rem; cursor:pointer; border-radius:4px; }
-        .player-cast__menu button:hover { background:#2a3a2e; }
+        .player-cast__menu button { display:block; width:100%; text-align:left; padding:0.5rem 0.75rem; background:none; border:none; color:#2b2721; font-size:0.85rem; cursor:pointer; border-radius:4px; }
+        .player-cast__menu button:hover { background:#e3d8c3; }
         .player-cast__menu button .cast-icon { margin-right:0.5rem; }
         @media (max-width:768px) {
             .player-header { padding:0.5rem 1rem; }
@@ -118,7 +118,7 @@
     </style>
 </head>
 <body>
-    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для просмотра видео необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <noscript><div style="padding:2rem;text-align:center;color:#2b2721;background:#faf7f2;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для просмотра видео необходим JavaScript.</p><a href="/" style="color:#8a6f52;">На главную</a></div></noscript>
     <div class="player-page" id="player-root"></div>
     <script>
     (function() {
@@ -392,7 +392,7 @@
                 var langNote = '';
                 var userLang = localStorage.getItem('preferred_language') || 'ru';
                 if (isOriginal && userLang !== 'ru') {
-                    langNote = '<div style="background:#2a2a1a;border:1px solid #5a5a2e;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;color:#e0d070;font-size:0.85rem;">⚠️ <span data-i18n="player.lang_note">Доступно на русском. Сейчас показывается оригинал с русской озвучкой.</span></div>';
+                    langNote = '<div style="background:#ece4d4;border:1px solid #5c5238;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;color:#cbb98a;font-size:0.85rem;">⚠️ <span data-i18n="player.lang_note">Доступно на русском. Сейчас показывается оригинал с русской озвучкой.</span></div>';
                 }
 
                 root.innerHTML = renderHeader(lesson, complexName) + '<div id="lang-note-slot"></div>' + renderPlayer(lesson) + renderInfo(lesson, [], complexName, allLessons, currentIndex);
@@ -420,11 +420,11 @@
                 '<div class="player-error" id="player-error" style="display:none;">' +
                 '<div class="player-error__icon">⚠️</div>' +
                 '<div class="player-error__msg">Не удалось загрузить видео</div>' +
-                '<button id="btn-retry" style="padding:0.5rem 1rem;background:#1a5e2a;color:#fff;border:none;border-radius:6px;cursor:pointer;">Повторить</button>' +
+                '<button id="btn-retry" style="padding:0.5rem 1rem;background:#8a6f52;color:#f5efe4;border:none;border-radius:6px;cursor:pointer;">Повторить</button>' +
                 '</div>' +
                 '<div class="player-wrap__overlay" id="overlay">' +
                 '<button class="player-wrap__play-btn" aria-label="Воспроизвести">' +
-                '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="8,4 20,12 8,20" fill="#fff"/></svg>' +
+                '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="8,4 20,12 8,20" fill="#2b2721"/></svg>' +
                 '</button></div></div>' +
                 '<div class="player-controls">' +
                 '<button id="btn-play" aria-label="Воспроизвести"><svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg></button>' +
@@ -586,7 +586,7 @@
                 body: JSON.stringify({ lesson_id: Number(lessonId), mood: mood })
             }).then(function() {
                 var section = document.getElementById('feedback-section');
-                if (section) section.innerHTML = '<div style="font-size:2rem;margin-bottom:0.5rem;">✓</div><div style="color:#7acc8a;font-size:0.9rem;">Спасибо за оценку!</div>';
+                if (section) section.innerHTML = '<div style="font-size:2rem;margin-bottom:0.5rem;">✓</div><div style="color:#8a6f52;font-size:0.9rem;">Спасибо за оценку!</div>';
             }).catch(function() {});
         };
 

@@ -938,6 +938,42 @@ describe('API Integration — FAQ Public Endpoint', () => {
   });
 });
 
+describe('API Integration — Site Content', () => {
+  test('GET /api/content/:slug should return seeded page content', async () => {
+    const res = await apiRequest('GET', '/api/content/terms');
+    expect(res.status).toBe(200);
+    expect(res.body.slug).toBe('terms');
+    expect(res.body).toHaveProperty('content');
+    expect(res.body).toHaveProperty('title');
+  });
+
+  test('GET /api/content/:slug should return 404 for unknown slug', async () => {
+    const res = await apiRequest('GET', '/api/content/nonexistent-page');
+    expect(res.status).toBe(404);
+  });
+
+  test('GET /api/content (admin) should list site_content records', async () => {
+    const login = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    const res = await apiRequest('GET', '/api/content', null, login.body.token);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toBeDefined();
+  });
+
+  test('PUT /api/content/:id should update page content (admin)', async () => {
+    const login = await apiRequest('POST', '/api/auth/login', { email: 'admin@qigong.com', password: 'admin123' });
+    const list = await apiRequest('GET', '/api/content', null, login.body.token);
+    const terms = list.body.data.find((r) => r.slug === 'terms');
+    expect(terms).toBeDefined();
+    const res = await apiRequest('PUT', `/api/content/${terms.id}`, { title: 'Обновлённый заголовок' }, login.body.token);
+    expect([200, 201]).toContain(res.status);
+    const after = await apiRequest('GET', '/api/content/terms');
+    expect(after.body.title).toBe('Обновлённый заголовок');
+  });
+});
+
+
 describe('API Integration — Lessons Public Endpoints', () => {
   test('GET /api/lessons should return active lessons', async () => {
     const res = await apiRequest('GET', '/api/lessons');

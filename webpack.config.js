@@ -1,8 +1,31 @@
 const path = require('path');
+const crypto = require('crypto');
+const fs = require('fs');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+
+// Admin JS/CSS keep stable filenames (copied verbatim), so browsers that once
+// received `immutable` headers would never re-fetch them. Version the URLs with
+// a content hash so a deploy changes the URL and busts the stale cache.
+function adminAssetsVersion() {
+  const files = [
+    'src/admin/js/api.js',
+    'src/admin/js/sidebar.js',
+    'src/admin/js/admin.js',
+    'src/admin/js/stream-upload.js',
+    'src/admin/css/admin.css',
+  ];
+  const hash = crypto.createHash('sha1');
+  for (const f of files) {
+    try {
+      hash.update(fs.readFileSync(path.resolve(__dirname, f)));
+    } catch { /* missing file contributes nothing */ }
+  }
+  return hash.digest('hex').slice(0, 10);
+}
+const adminVersion = adminAssetsVersion();
 
 const pages = [
   'is-it-really-free',
@@ -40,6 +63,7 @@ const adminPages = [
   'reviews',
   'feedback',
   'faq',
+  'content',
   'promo',
   'finance',
   'notifications',
@@ -84,9 +108,10 @@ module.exports = {
       template: `./src/admin/${page}.html`,
       filename: `admin/${page}.html`,
       chunks: [],
+      templateParameters: { assetVersion: adminVersion },
     })),
     new MiniCssExtractPlugin({
-      filename: 'styles/main.css',
+      filename: 'styles/[name].[contenthash].css',
     }),
     new CopyWebpackPlugin({
       patterns: [

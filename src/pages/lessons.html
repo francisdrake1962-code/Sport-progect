@@ -6,68 +6,68 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Занятия — Цигун и суставная разминка</title>
-    <link rel="stylesheet" href="styles/main.css">
+    
     <link rel="manifest" href="manifest.json">
     <style>
-        .lessons-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; }
-        .lessons-header { background:#111a14; padding:1rem 1.5rem; display:flex; align-items:center; gap:1rem; border-bottom:1px solid #2a3a2e; position:sticky; top:0; z-index:10; }
-        .lessons-header__back { color:#9fc5a8; text-decoration:none; font-size:0.95rem; }
-        .lessons-header__back:hover { color:#fff; }
-        .lessons-header__title { color:#fff; font-size:1.1rem; font-weight:600; }
-        .lessons-hero { background:linear-gradient(135deg,#0d1a10 0%,#1a3a20 100%); padding:2rem 1.5rem; text-align:center; }
+        .lessons-page { min-height:100vh; background:#faf7f2; color:#2b2721; }
+        .lessons-header { background:#ffffff; padding:1rem 1.5rem; display:flex; align-items:center; gap:1rem; border-bottom:1px solid #e3d8c3; position:sticky; top:0; z-index:10; }
+        .lessons-header__back { color:#8a6f52; text-decoration:none; font-size:0.95rem; }
+        .lessons-header__back:hover { color:#2b2721; }
+        .lessons-header__title { color:#2b2721; font-size:1.1rem; font-weight:600; }
+        .lessons-hero { background:linear-gradient(135deg,#f1ece2 0%,#f1ece2 100%); padding:2rem 1.5rem; text-align:center; }
         .lessons-hero__icon { font-size:2.5rem; margin-bottom:0.5rem; }
-        .lessons-hero__title { font-size:1.5rem; font-weight:700; color:#fff; margin-bottom:0.4rem; }
-        .lessons-hero__sub { color:#7acc8a; font-size:0.95rem; }
+        .lessons-hero__title { font-size:1.5rem; font-weight:700; color:#2b2721; margin-bottom:0.4rem; }
+        .lessons-hero__sub { color:#8a6f52; font-size:0.95rem; }
         .lessons-today { max-width:800px; margin:1.5rem auto; padding:0 1rem; }
-        .lessons-today__card { background:linear-gradient(135deg,#1a3a20 0%,#111a14 100%); border:1px solid #2a5a30; border-radius:12px; padding:1.5rem; cursor:pointer; transition:transform .15s, box-shadow .15s; }
-        .lessons-today__card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(26,94,42,0.2); }
-        .lessons-today__label { color:#5a9a60; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600; }
-        .lessons-today__name { color:#fff; font-size:1.2rem; font-weight:700; margin-bottom:0.3rem; }
-        .lessons-today__meta { color:#7a9a80; font-size:0.85rem; display:flex; gap:0.75rem; align-items:center; }
-        .lessons-today__play { display:inline-flex; align-items:center; gap:0.4rem; background:#1a5e2a; color:#fff; border:none; padding:0.5rem 1rem; border-radius:8px; font-size:0.9rem; font-weight:600; margin-top:1rem; cursor:pointer; transition:background .15s; }
-        .lessons-today__play:hover { background:#228b33; }
-        .lessons-today__play svg { fill:#fff; width:16px; height:16px; }
+        .lessons-today__card { background:linear-gradient(135deg,#f1ece2 0%,#ffffff 100%); border:1px solid #d8cbb2; border-radius:12px; padding:1.5rem; cursor:pointer; transition:transform .15s, box-shadow .15s; }
+        .lessons-today__card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(138,111,82,0.2); }
+        .lessons-today__label { color:#93a077; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600; }
+        .lessons-today__name { color:#2b2721; font-size:1.2rem; font-weight:700; margin-bottom:0.3rem; }
+        .lessons-today__meta { color:#8f8578; font-size:0.85rem; display:flex; gap:0.75rem; align-items:center; }
+        .lessons-today__play { display:inline-flex; align-items:center; gap:0.4rem; background:#8a6f52;color:#f5efe4; border:none; padding:0.5rem 1rem; border-radius:8px; font-size:0.9rem; font-weight:600; margin-top:1rem; cursor:pointer; transition:background .15s; }
+        .lessons-today__play:hover { background:#a07f58; }
+        .lessons-today__play svg { fill:#f5efe4; width:16px; height:16px; }
         .lessons-section { max-width:800px; margin:1.5rem auto; padding:0 1rem; }
-        .lessons-section__title { color:#7acc8a; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:1rem; padding-left:0.25rem; }
-        .complex-card { background:#111a14; border:1px solid #1e2e22; border-radius:10px; margin-bottom:1rem; overflow:hidden; }
+        .lessons-section__title { color:#8a6f52; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:1rem; padding-left:0.25rem; }
+        .complex-card { background:#ffffff; border:1px solid #e8dcc4; border-radius:10px; margin-bottom:1rem; overflow:hidden; }
         .complex-card__header { padding:1rem 1.2rem; cursor:pointer; display:flex; align-items:center; gap:0.75rem; }
-        .complex-card__header:hover { background:#1a2a1e; }
+        .complex-card__header:hover { background:#f1ece2; }
         .complex-card__icon { font-size:1.5rem; }
         .complex-card__info { flex:1; }
-        .complex-card__name { color:#fff; font-weight:600; font-size:1rem; }
-        .complex-card__count { color:#5a7a60; font-size:0.8rem; }
-        .complex-card__arrow { color:#5a7a60; transition:transform .2s; font-size:0.8rem; }
+        .complex-card__name { color:#2b2721; font-weight:600; font-size:1rem; }
+        .complex-card__count { color:#7c6f5d; font-size:0.8rem; }
+        .complex-card__arrow { color:#7c6f5d; transition:transform .2s; font-size:0.8rem; }
         .complex-card.open .complex-card__arrow { transform:rotate(90deg); }
-        .complex-card__lessons { display:none; border-top:1px solid #1e2e22; }
+        .complex-card__lessons { display:none; border-top:1px solid #e8dcc4; }
         .complex-card.open .complex-card__lessons { display:block; }
-        .complex-lesson { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1.2rem; border-bottom:1px solid #151f18; text-decoration:none; color:#ccc; transition:background .1s; }
+        .complex-lesson { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1.2rem; border-bottom:1px solid #ece4d4; text-decoration:none; color:#6f675c; transition:background .1s; }
         .complex-lesson:last-child { border-bottom:none; }
-        .complex-lesson:hover { background:#1a2a1e; }
-        .complex-lesson__num { color:#5a7a60; font-weight:600; font-size:0.85rem; min-width:1.5rem; }
+        .complex-lesson:hover { background:#f1ece2; }
+        .complex-lesson__num { color:#7c6f5d; font-weight:600; font-size:0.85rem; min-width:1.5rem; }
         .complex-lesson__title { flex:1; font-size:0.9rem; }
-        .complex-lesson__duration { color:#5a7a60; font-size:0.8rem; }
-        .complex-lesson__play { color:#1a5e2a; font-size:1.1rem; }
+        .complex-lesson__duration { color:#7c6f5d; font-size:0.8rem; }
+        .complex-lesson__play { color:#8a6f52; font-size:1.1rem; }
         .all-lessons { max-width:800px; margin:1.5rem auto; padding:0 1rem 3rem; }
-        .all-lessons__title { color:#7acc8a; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:1rem; padding-left:0.25rem; }
-        .lesson-row { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; background:#111a14; border:1px solid #1e2e22; border-radius:8px; margin-bottom:0.5rem; text-decoration:none; color:#ccc; transition:all .1s; }
-        .lesson-row:hover { background:#1a2a1e; border-color:#2a5a30; }
-        .lesson-row__num { color:#5a7a60; font-weight:600; min-width:1.8rem; text-align:center; }
+        .all-lessons__title { color:#8a6f52; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:1rem; padding-left:0.25rem; }
+        .lesson-row { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; background:#ffffff; border:1px solid #e8dcc4; border-radius:8px; margin-bottom:0.5rem; text-decoration:none; color:#6f675c; transition:all .1s; }
+        .lesson-row:hover { background:#f1ece2; border-color:#d8cbb2; }
+        .lesson-row__num { color:#7c6f5d; font-weight:600; min-width:1.8rem; text-align:center; }
         .lesson-row__info { flex:1; }
-        .lesson-row__name { color:#fff; font-size:0.95rem; }
-        .lesson-row__meta { color:#5a7a60; font-size:0.8rem; }
-        .lesson-row__play { color:#1a5e2a; font-size:1.1rem; }
-        .selection-bar{position:fixed;bottom:0;left:0;right:0;background:#111a14;border-top:2px solid #1a5e2a;padding:1rem 1.5rem;display:none;z-index:20;box-shadow:0 -4px 24px rgba(0,0,0,0.5)}
+        .lesson-row__name { color:#2b2721; font-size:0.95rem; }
+        .lesson-row__meta { color:#7c6f5d; font-size:0.8rem; }
+        .lesson-row__play { color:#8a6f52; font-size:1.1rem; }
+        .selection-bar{position:fixed;bottom:0;left:0;right:0;background:#ffffff;border-top:2px solid #8a6f52;padding:1rem 1.5rem;display:none;z-index:20;box-shadow:0 -4px 24px rgba(90,74,56,0.18)}
         .selection-bar.show{display:flex;align-items:center;justify-content:space-between;gap:1rem}
-        .selection-bar__info{color:#7acc8a;font-size:0.9rem;font-weight:600}
-        .selection-bar__btn{background:#1a5e2a;color:#fff;border:none;padding:0.6rem 1.5rem;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s}
-        .selection-bar__btn:hover{background:#228b33}
-        .selection-bar__btn:disabled{background:#2a3a2e;color:#5a7a60;cursor:not-allowed}
-        .lesson-select{width:22px;height:22px;border:2px solid #5a7a60;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;background:transparent}
-        .lesson-select:hover{border-color:#1a5e2a}
-        .lesson-select.checked{background:#1a5e2a;border-color:#1a5e2a}
-        .lesson-select.checked::after{content:'✓';color:#fff;font-size:0.8rem;font-weight:700}
-        .lesson-row.selected{border-color:#1a5e2a;background:#0d1a10}
-        .lessons-empty { text-align:center; padding:3rem 1rem; color:#5a7a60; }
+        .selection-bar__info{color:#8a6f52;font-size:0.9rem;font-weight:600}
+        .selection-bar__btn{background:#8a6f52;color:#f5efe4;border:none;padding:0.6rem 1.5rem;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s}
+        .selection-bar__btn:hover{background:#a07f58}
+        .selection-bar__btn:disabled{background:#e3d8c3;color:#7c6f5d;cursor:not-allowed}
+        .lesson-select{width:22px;height:22px;border:2px solid #7c6f5d;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;background:transparent}
+        .lesson-select:hover{border-color:#8a6f52}
+        .lesson-select.checked{background:#8a6f52;border-color:#8a6f52}
+        .lesson-select.checked::after{content:'✓';color:#2b2721;font-size:0.8rem;font-weight:700}
+        .lesson-row.selected{border-color:#8a6f52;background:#f1ece2}
+        .lessons-empty { text-align:center; padding:3rem 1rem; color:#7c6f5d; }
         .lessons-empty__icon { font-size:2rem; margin-bottom:0.5rem; }
         @media (max-width:768px) {
             .lessons-hero { padding:1.5rem 1rem; }
@@ -76,7 +76,7 @@
     </style>
 </head>
 <body>
-    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы приложения необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <noscript><div style="padding:2rem;text-align:center;color:#2b2721;background:#faf7f2;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы приложения необходим JavaScript.</p><a href="/" style="color:#8a6f52;">На главную</a></div></noscript>
     <div class="lessons-page" id="lessons-root"></div>
     <script>
     (function() {
@@ -103,7 +103,7 @@
         async function load() {
             const token = localStorage.getItem('user_token');
             if (!token) {
-                root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">🧘</div><p>Войдите, чтобы начать занятия</p><p style="color:#5a7a60;margin:0.3rem 0 1rem;">Бесплатно — 7 занятий без карты</p><a href="login.html" class="btn btn--primary" style="margin-top:0.5rem;display:inline-block;">Войти</a></div>';
+                root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">🧘</div><p>Войдите, чтобы начать занятия</p><p style="color:#7c6f5d;margin:0.3rem 0 1rem;">Бесплатно — 7 занятий без карты</p><a href="login.html" class="btn btn--primary" style="margin-top:0.5rem;display:inline-block;">Войти</a></div>';
                 return;
             }
             try {
@@ -112,7 +112,7 @@
                     const me = await meRes.json();
                     isTrialUser = me.plan === 'trial';
                     if (isTrialUser && (me.free_sessions_used || 0) >= FREE_LIMIT) {
-                        root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">⏰</div><p>Пробный период завершён</p><p style="color:#5a7a60;margin:0.5rem 0 1rem;">Вы просмотрели все 7 бесплатных занятий</p><a href="plans.html" class="btn btn--primary" style="margin-top:0.5rem;display:inline-block;">Выбрать план</a></div>';
+                        root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">⏰</div><p>Пробный период завершён</p><p style="color:#7c6f5d;margin:0.5rem 0 1rem;">Вы просмотрели все 7 бесплатных занятий</p><a href="plans.html" class="btn btn--primary" style="margin-top:0.5rem;display:inline-block;">Выбрать план</a></div>';
                         return;
                     }
                 }
@@ -172,7 +172,7 @@
                 bindEvents();
                 updateSelectionBar();
             } catch(err) {
-                root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">⚠️</div><p>Ошибка загрузки: ' + esc(err.message) + '</p><a href="/" style="color:#7acc8a;">На главную</a></div>';
+                root.innerHTML = renderHeader() + '<div class="lessons-empty"><div class="lessons-empty__icon">⚠️</div><p>Ошибка загрузки: ' + esc(err.message) + '</p><a href="/" style="color:#8a6f52;">На главную</a></div>';
             }
         }
 
@@ -183,16 +183,16 @@
                 try {
                     var ud = JSON.parse(localStorage.getItem('user_data'));
                     var uname = ud && ud.name ? ud.name.split(' ')[0] : 'Профиль';
-                    profileLink = '<a href="profile.html" style="color:#7acc8a;text-decoration:none;display:flex;align-items:center;gap:0.35rem;margin-left:0.75rem"><span style="font-size:1.5rem;line-height:1;">👤</span><span style="font-size:0.8rem;font-weight:600;">' + esc(uname) + '</span></a>';
+                    profileLink = '<a href="profile.html" style="color:#8a6f52;text-decoration:none;display:flex;align-items:center;gap:0.35rem;margin-left:0.75rem"><span style="font-size:1.5rem;line-height:1;">👤</span><span style="font-size:0.8rem;font-weight:600;">' + esc(uname) + '</span></a>';
                 } catch(e) {
-                    profileLink = '<a href="profile.html" style="color:#7acc8a;text-decoration:none;font-size:1.2rem;margin-left:0.75rem">👤</a>';
+                    profileLink = '<a href="profile.html" style="color:#8a6f52;text-decoration:none;font-size:1.2rem;margin-left:0.75rem">👤</a>';
                 }
             }
             return '<div class="lessons-header">' +
                 '<a href="dashboard.html" class="lessons-header__back">← Моя главная</a>' +
                 '<div class="lessons-header__title">Занятия</div>' +
-                '<a href="calendar.html" style="color:#7acc8a;text-decoration:none;font-size:.85rem;margin-left:auto">📅 Календарь</a>' +
-                '<a href="picker.html" style="color:#7acc8a;text-decoration:none;font-size:.85rem;margin-left:0.75rem">🔍 Подобрать</a>' +
+                '<a href="calendar.html" style="color:#8a6f52;text-decoration:none;font-size:.85rem;margin-left:auto">📅 Календарь</a>' +
+                '<a href="picker.html" style="color:#8a6f52;text-decoration:none;font-size:.85rem;margin-left:0.75rem">🔍 Подобрать</a>' +
                 profileLink +
                 '</div>';
         }
@@ -238,7 +238,7 @@
                 g.lessons.forEach((l, i) => {
                     const checked = selectedIds.has(l.id);
                     const checkHtml = isTrialUser ? '<div class="lesson-select' + (checked ? ' checked' : '') + '" data-select="' + l.id + '"></div>' : '';
-                    html += '<a href="player.html?id=' + l.id + '" class="complex-lesson" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#1a5e2a;background:#0d1a10"' : '') + '>' +
+                    html += '<a href="player.html?id=' + l.id + '" class="complex-lesson" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#8a6f52;background:#f1ece2"' : '') + '>' +
                         '<span class="complex-lesson__num">' + (i+1) + '</span>' +
                         checkHtml +
                         '<span class="complex-lesson__title">' + esc(l.title) + '</span>' +
@@ -248,7 +248,7 @@
                 });
                 html += '</div></div>';
             });
-            if (!hasComplexes) html += '<p style="color:#5a7a60;padding:0.5rem;">Комплексы пока не созданы</p>';
+            if (!hasComplexes) html += '<p style="color:#7c6f5d;padding:0.5rem;">Комплексы пока не созданы</p>';
             html += '</div>';
             return html;
         }
@@ -271,7 +271,7 @@
             lessons.forEach((l, i) => {
                 const checked = selectedIds.has(l.id);
                 const checkHtml = isTrialUser ? '<div class="lesson-select' + (checked ? ' checked' : '') + '" data-select="' + l.id + '"></div>' : '';
-                html += '<a href="player.html?id=' + l.id + '" class="lesson-row" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#1a5e2a;background:#0d1a10"' : '') + '>' +
+                html += '<a href="player.html?id=' + l.id + '" class="lesson-row" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#8a6f52;background:#f1ece2"' : '') + '>' +
                     '<span class="lesson-row__num">' + (i+1) + '</span>' +
                     checkHtml +
                     '<div class="lesson-row__info"><div class="lesson-row__name">' + esc(l.title) + '</div>' +
@@ -302,7 +302,7 @@
             });
             document.querySelectorAll('[data-lesson-row]').forEach(el => {
                 const id = Number(el.dataset.lessonRow);
-                if (selectedIds.has(id)) el.style.borderColor = '#1a5e2a';
+                if (selectedIds.has(id)) el.style.borderColor = '#8a6f52';
                 else el.style.borderColor = '';
             });
         }
@@ -340,7 +340,7 @@
                         });
                         if (res.ok) {
                             saveBtn.textContent = '✓ Сохранено';
-                            saveBtn.style.background = '#228b33';
+                            saveBtn.style.background = '#a07f58';
                             setTimeout(() => { saveBtn.textContent = 'Сохранить выбор'; saveBtn.style.background = ''; }, 2000);
                         }
                     } catch(e) {}

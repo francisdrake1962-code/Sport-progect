@@ -6,45 +6,45 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Подобрать занятие — Цигун</title>
-    <link rel="stylesheet" href="styles/main.css">
+    
     <style>
-        .filter-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; padding:1rem; }
+        .filter-page { min-height:100vh; background:#faf7f2; color:#2b2721; padding:1rem; }
         .filter-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
-        .filter-header__back { color:#9fc5a8; text-decoration:none; font-size:0.95rem; }
-        .filter-header__back:hover { color:#fff; }
-        .filter-header h1 { color:#fff; font-size:1.4rem; font-weight:700; margin:0; }
+        .filter-header__back { color:#8a6f52; text-decoration:none; font-size:0.95rem; }
+        .filter-header__back:hover { color:#2b2721; }
+        .filter-header h1 { color:#2b2721; font-size:1.4rem; font-weight:700; margin:0; }
         .filter-section { margin-bottom:1.5rem; }
-        .filter-section__title { color:#7acc8a; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.75rem; }
+        .filter-section__title { color:#8a6f52; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.75rem; }
         .filter-chips { display:flex; flex-wrap:wrap; gap:0.5rem; }
-        .filter-chip { padding:0.5rem 1rem; border-radius:20px; border:1px solid #2a3a2e; background:#111a14; color:#9fc5a8; font-size:0.85rem; cursor:pointer; transition:all .15s; }
-        .filter-chip:hover { border-color:#1a5e2a; color:#fff; }
-        .filter-chip--active { background:#1a5e2a; color:#fff; border-color:#1a5e2a; }
+        .filter-chip { padding:0.5rem 1rem; border-radius:20px; border:1px solid #e3d8c3; background:#ffffff; color:#8a6f52; font-size:0.85rem; cursor:pointer; transition:all .15s; }
+        .filter-chip:hover { border-color:#8a6f52; color:#2b2721; }
+        .filter-chip--active { background:#8a6f52;color:#f5efe4; border-color:#8a6f52; }
         .lessons-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem; }
-        .lesson-card { background:#111a14; border:1px solid #2a3a2e; border-radius:12px; padding:1.25rem; transition:transform .15s, box-shadow .15s; cursor:pointer; }
-        .lesson-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(26,94,42,0.15); }
-        .lesson-card__title { color:#fff; font-size:1rem; font-weight:600; margin-bottom:0.5rem; }
-        .lesson-card__meta { color:#5a7a60; font-size:0.8rem; margin-bottom:0.75rem; }
+        .lesson-card { background:#ffffff; border:1px solid #e3d8c3; border-radius:12px; padding:1.25rem; transition:transform .15s, box-shadow .15s; cursor:pointer; }
+        .lesson-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(138,111,82,0.15); }
+        .lesson-card__title { color:#2b2721; font-size:1rem; font-weight:600; margin-bottom:0.5rem; }
+        .lesson-card__meta { color:#7c6f5d; font-size:0.8rem; margin-bottom:0.75rem; }
         .lesson-card__tags { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.75rem; }
-        .lesson-card__tag { padding:0.2rem 0.6rem; border-radius:12px; background:#1a2a1e; color:#7acc8a; font-size:0.7rem; }
+        .lesson-card__tag { padding:0.2rem 0.6rem; border-radius:12px; background:#f1ece2; color:#8a6f52; font-size:0.7rem; }
         .lesson-card__btn { display:inline-block; padding:0.5rem 1.2rem; border-radius:6px; font-size:0.85rem; font-weight:600; text-decoration:none; border:none; cursor:pointer; }
-        .lesson-card__btn--play { background:#1a5e2a; color:#fff; }
-        .lesson-card__btn--play:hover { background:#228b33; }
-        .lesson-card__btn--locked { background:#2a2a2a; color:#666; cursor:default; }
-        .lesson-card__free { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; background:#1a5e2a; color:#fff; font-size:0.7rem; font-weight:600; margin-left:0.5rem; }
-        .empty-state { text-align:center; padding:3rem 1rem; color:#5a7a60; }
+        .lesson-card__btn--play { background:#8a6f52;color:#f5efe4; }
+        .lesson-card__btn--play:hover { background:#a07f58; }
+        .lesson-card__btn--locked { background:#ece4d4; color:#8a8072; cursor:default; }
+        .lesson-card__free { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; background:#8a6f52;color:#f5efe4; font-size:0.7rem; font-weight:600; margin-left:0.5rem; }
+        .empty-state { text-align:center; padding:3rem 1rem; color:#7c6f5d; }
         .empty-state__icon { font-size:2rem; margin-bottom:0.5rem; }
-        .duration-slider { width:100%; accent-color:#1a5e2a; }
-        .duration-label { color:#9fc5a8; font-size:0.85rem; }
+        .duration-slider { width:100%; accent-color:#8a6f52; }
+        .duration-label { color:#8a6f52; font-size:0.85rem; }
         @media (max-width:768px) { .lessons-grid { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
-    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для подбора занятий необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <noscript><div style="padding:2rem;text-align:center;color:#2b2721;background:#faf7f2;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для подбора занятий необходим JavaScript.</p><a href="/" style="color:#8a6f52;">На главную</a></div></noscript>
     <div class="filter-page" id="app">
         <div class="filter-header">
             <a href="lessons.html" class="filter-header__back">← Назад</a>
             <h1>Подобрать занятие</h1>
-            <a href="profile.html" id="profile-link" style="color:#7acc8a;text-decoration:none;display:flex;align-items:center;gap:0.35rem;margin-left:auto"><span style="font-size:1.5rem;line-height:1;">👤</span></a>
+            <a href="profile.html" id="profile-link" style="color:#8a6f52;text-decoration:none;display:flex;align-items:center;gap:0.35rem;margin-left:auto"><span style="font-size:1.5rem;line-height:1;">👤</span></a>
         </div>
         <div class="filter-section">
             <div class="filter-section__title">Зона тела</div>

@@ -7,39 +7,40 @@
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Тарифы — Цигун и суставная разминка</title>
     <meta name="description" content="Выберите план подписки на занятия цигун и суставной разминкой.">
-    <link rel="stylesheet" href="styles/main.css">
+    
     <style>
-        .plans-page { min-height:100vh; background:#0a0f0c; color:#e0e0e0; padding:2rem 1rem; }
+        .plans-page { min-height:100vh; background:#faf7f2; color:#2b2721; padding:2rem 1rem; }
         .plans-header { text-align:center; margin-bottom:2rem; }
-        .plans-header__back { color:#9fc5a8; text-decoration:none; font-size:0.95rem; display:inline-block; margin-bottom:1rem; }
-        .plans-header__back:hover { color:#fff; }
-        .plans-header h1 { color:#fff; font-size:1.8rem; font-weight:700; margin-bottom:0.5rem; }
-        .plans-header p { color:#7acc8a; font-size:1rem; }
+        .plans-header__back { color:#8a6f52; text-decoration:none; font-size:0.95rem; display:inline-block; margin-bottom:1rem; }
+        .plans-header__back:hover { color:#2b2721; }
+        .plans-header h1 { color:#2b2721; font-size:1.8rem; font-weight:700; margin-bottom:0.5rem; }
+        .plans-header p { color:#8a6f52; font-size:1rem; }
         .plans-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; max-width:960px; margin:0 auto; }
-        .plan-card { background:#111a14; border:1px solid #2a3a2e; border-radius:16px; padding:2rem; text-align:center; transition:transform .15s, box-shadow .15s; position:relative; }
-        .plan-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(26,94,42,0.15); }
-        .plan-card--popular { border-color:#1a5e2a; }
-        .plan-card--popular::before { content:'Популярный'; position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:#1a5e2a; color:#fff; font-size:0.75rem; font-weight:600; padding:0.2rem 0.8rem; border-radius:20px; }
-        .plan-card__name { color:#fff; font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; }
-        .plan-card__price { color:#7acc8a; font-size:2rem; font-weight:800; margin-bottom:0.25rem; }
-        .plan-card__period { color:#5a7a60; font-size:0.85rem; margin-bottom:1.5rem; }
+        .plan-card { background:#ffffff; border:1px solid #e3d8c3; border-radius:16px; padding:2rem; text-align:center; transition:transform .15s, box-shadow .15s; position:relative; }
+        .plan-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(138,111,82,0.15); }
+        .plan-card--popular { border-color:#8a6f52; }
+        .plan-card--popular::before { content:'Популярный'; position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:#8a6f52;color:#f5efe4; font-size:0.75rem; font-weight:600; padding:0.2rem 0.8rem; border-radius:20px; }
+        .plan-card__name { color:#2b2721; font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; }
+        .plan-card__price { color:#8a6f52; font-size:2rem; font-weight:800; margin-bottom:0.25rem; }
+        .plan-card__period { color:#7c6f5d; font-size:0.85rem; margin-bottom:1.5rem; }
         .plan-card__features { list-style:none; padding:0; margin-bottom:1.5rem; text-align:left; }
-        .plan-card__features li { color:#9fc5a8; font-size:0.9rem; padding:0.4rem 0; border-bottom:1px solid #1e2e22; }
+        .plan-card__features li { color:#8a6f52; font-size:0.9rem; padding:0.4rem 0; border-bottom:1px solid #e8dcc4; }
         .plan-card__features li:last-child { border-bottom:none; }
-        .plan-card__features li::before { content:'✓ '; color:#1a5e2a; font-weight:700; }
+        .plan-card__features li::before { content:'✓ '; color:#8a6f52; font-weight:700; }
         .plan-btn { display:inline-block; padding:0.8rem 2rem; border-radius:8px; text-decoration:none; font-size:1rem; font-weight:600; cursor:pointer; border:none; width:100%; transition:background .15s; }
-        .plan-btn--primary { background:#1a5e2a; color:#fff; }
-        .plan-btn--primary:hover { background:#228b33; }
-        .plan-btn--outline { background:transparent; color:#7acc8a; border:2px solid #2a5a30; }
-        .plan-btn--outline:hover { background:#1a2a1e; }
-        .plans-note { text-align:center; color:#5a7a60; font-size:0.8rem; margin-top:2rem; }
+        .plan-btn--primary { background:#8a6f52;color:#f5efe4; }
+        .plan-btn--primary:hover { background:#a07f58; }
+        .plan-btn--outline { background:transparent; color:#8a6f52; border:2px solid #d8cbb2; }
+        .plan-btn--outline:hover { background:#f1ece2; }
+        .plans-note { text-align:center; color:#7c6f5d; font-size:0.8rem; margin-top:2rem; }
         .plans-back { text-align:center; margin-top:2rem; }
-        .plans-back a { color:#5a7a60; text-decoration:none; font-size:0.85rem; }
-        .plans-back a:hover { color:#9fc5a8; }
+        .plans-back a { color:#7c6f5d; text-decoration:none; font-size:0.85rem; }
+        .plans-back a:hover { color:#8a6f52; }
         @media (max-width:768px) { .plans-grid { grid-template-columns:1fr; max-width:400px; } }
     </style>
 </head>
 <body>
+    <noscript><div style="padding:2rem;text-align:center;font-family:sans-serif;background:#faf7f2;color:#2b2721;min-height:100vh;"><h1>Сайт требует JavaScript</h1><p>Включите JavaScript, чтобы пользоваться сайтом.</p></div></noscript>
     <div class="plans-page">
         <div class="plans-header">
             <a href="/" class="plans-header__back">← На главную</a>
@@ -102,10 +103,10 @@
         var overlay = document.createElement('div');
         overlay.className = 'plans-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
-        overlay.innerHTML = '<div style="background:#111a14;border:1px solid #2a3a2e;border-radius:16px;padding:2.5rem;max-width:400px;width:90%;text-align:center;">' +
-            '<div style="margin-bottom:1rem;"><div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid #2a3a2e;border-top-color:#1a5e2a;border-radius:50%;animation:spin .8s linear infinite;"></div></div>' +
-            '<h2 style="color:#fff;margin-bottom:0.5rem;">Подождите...</h2>' +
-            '<p style="color:#7a9a80;" id="plans-status">Создаём сессию оплаты...</p>' +
+        overlay.innerHTML = '<div style="background:#ffffff;border:1px solid #e3d8c3;border-radius:16px;padding:2.5rem;max-width:400px;width:90%;text-align:center;">' +
+            '<div style="margin-bottom:1rem;"><div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid #e3d8c3;border-top-color:#8a6f52;border-radius:50%;animation:spin .8s linear infinite;"></div></div>' +
+            '<h2 style="color:#2b2721;margin-bottom:0.5rem;">Подождите...</h2>' +
+            '<p style="color:#8f8578;" id="plans-status">Создаём сессию оплаты...</p>' +
             '</div>';
         overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
         document.body.appendChild(overlay);

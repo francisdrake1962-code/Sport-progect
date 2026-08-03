@@ -17,6 +17,7 @@ const adminPages = [
   'subscriptions.html',
   'reviews.html',
   'faq.html',
+  'content.html',
   'promo.html',
   'finance.html',
   'notifications.html',
@@ -46,19 +47,23 @@ describe('Admin Panel — HTML Structure', () => {
       });
 
       test('should link admin CSS', () => {
-        expect(html).toMatch(/href="css\/admin\.css"/);
+        expect(html).toMatch(/href="css\/admin\.css(?:\?v=(?:[a-f0-9]+|<%= assetVersion %>))?"/);
       });
 
       test('should load sidebar.js', () => {
         if (file !== 'login.html') {
-          expect(html).toMatch(/src="js\/sidebar\.js"/);
+          expect(html).toMatch(/src="js\/sidebar\.js(?:\?v=(?:[a-f0-9]+|<%= assetVersion %>))?"/);
         }
       });
 
       test('should load admin.js', () => {
         if (file !== 'login.html') {
-          expect(html).toMatch(/src="js\/admin\.js"/);
+          expect(html).toMatch(/src="js\/admin\.js(?:\?v=(?:[a-f0-9]+|<%= assetVersion %>))?"/);
         }
+      });
+
+      test('should load api.js', () => {
+        expect(html).toMatch(/src="js\/api\.js(?:\?v=(?:[a-f0-9]+|<%= assetVersion %>))?"/);
       });
 
       test('should not have placeholder brackets', () => {
@@ -113,7 +118,7 @@ describe('Admin Panel — Layout Pages (non-login)', () => {
 });
 
 describe('Admin Panel — CRUD Pages have tables', () => {
-  const crudPages = ['lessons.html', 'complexes.html', 'users.html', 'reviews.html', 'faq.html', 'promo.html'];
+  const crudPages = ['lessons.html', 'complexes.html', 'users.html', 'reviews.html', 'faq.html', 'promo.html', 'content.html'];
 
   crudPages.forEach(file => {
     test(`${file} should have a data table`, () => {

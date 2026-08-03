@@ -6,7 +6,7 @@
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <meta name="description" content="Ежедневная практика цигун и суставной разминки. 6 занятий в неделю, 27-31 минута, без спешки и без нагрузки не по силам.">
     <title>Цигун и суставная разминка с Мастер Цигун</title>
-    <meta name="theme-color" content="#1a5e2a">
+    <meta name="theme-color" content="#faf7f2">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="images/logo.svg">
@@ -71,6 +71,7 @@
             <div class="container">
                 <div class="hero__content">
                     <h1 class="hero__title">
+                        <span class="hero__kicker">Ежедневная практика</span>
                         Суставная разминка и цигун с Мастер Цигун
                     </h1>
                     <p class="hero__subtitle">
@@ -92,7 +93,7 @@
 
         <section class="benefits" id="benefits">
             <div class="container">
-                <h2 class="section-title">Что вы получаете</h2>
+                <h2 class="section-title"><span class="section-kicker">Преимущества</span>Что вы получаете</h2>
                 
                 <div class="benefits__grid">
                     <div class="benefit-card">
@@ -132,7 +133,7 @@
 
         <section class="how-it-works" id="how-it-works">
             <div class="container">
-                <h2 class="section-title">Как это устроено</h2>
+                <h2 class="section-title"><span class="section-kicker">Простые шаги</span>Как это устроено</h2>
                 
                 <div class="screenshots__grid">
                     <div class="screenshot-card">
@@ -170,7 +171,7 @@
 
         <section class="feelings" id="feelings">
             <div class="container">
-                <h2 class="section-title">Как вы хотите себя чувствовать?</h2>
+                <h2 class="section-title"><span class="section-kicker">Ваше самочувствие</span>Как вы хотите себя чувствовать?</h2>
                 <p class="feelings__subtitle">Выберите, что важно для вас сейчас</p>
 
                 <div class="feelings__grid">
@@ -235,7 +236,7 @@
 
         <section class="formats" id="formats">
             <div class="container">
-                <h2 class="section-title">Форматы практики</h2>
+                <h2 class="section-title"><span class="section-kicker">Выберите формат</span>Форматы практики</h2>
                 
                 <div class="formats__grid">
                     <div class="format-card format-card--popular">
@@ -292,7 +293,7 @@
 
         <section class="program-structure" id="program-structure">
             <div class="container">
-                <h2 class="section-title">Из чего состоит программа</h2>
+                <h2 class="section-title"><span class="section-kicker">Структура программы</span>Из чего состоит программа</h2>
                 
                 <div class="program-structure__content">
                     <div class="program-structure__item">
@@ -314,17 +315,17 @@
 
         <section class="faq" id="faq">
             <div class="container">
-                <h2 class="section-title">Часто задаваемые вопросы</h2>
+                <h2 class="section-title"><span class="section-kicker">Поддержка</span>Часто задаваемые вопросы</h2>
                 
                 <div class="faq__list" id="faq-list">
-                    <p style="color:#5a7a60;text-align:center;padding:1rem;">Загрузка...</p>
+                    <p style="color:#6f675c;text-align:center;padding:1rem;">Загрузка...</p>
                 </div>
             </div>
         </section>
 
         <section class="testimonials" id="testimonials">
             <div class="container">
-                <h2 class="section-title">Отзывы</h2>
+                <h2 class="section-title"><span class="section-kicker">Истории учеников</span>Отзывы</h2>
                 <div class="testimonials__grid" id="testimonials-grid">
                 </div>
             </div>
@@ -359,7 +360,7 @@
                 }
             }).catch(function() {
                 var grid = document.getElementById('testimonials-grid');
-                grid.innerHTML = '<p style="color:#5a7a60;text-align:center;padding:1rem;">Отзывы загружаются...</p>';
+                grid.innerHTML = '<p style="color:#6f675c;text-align:center;padding:1rem;">Отзывы загружаются...</p>';
             });
 
             fetch('/api/faq').then(function(r) { return r.json(); }).then(function(resp) {
@@ -376,7 +377,7 @@
 
         <section class="pricing" id="pricing">
             <div class="container">
-                <h2 class="section-title">Тарифы</h2>
+                <h2 class="section-title"><span class="section-kicker">Доступ каждому</span>Тарифы</h2>
 
                 <div class="pricing__content">
                     <div class="pricing-card pricing-card--annual">
@@ -412,7 +413,7 @@
 
         <section class="final-cta" id="cta-final">
             <div class="container">
-                <h2>Попробуйте первые 7 занятий бесплатно</h2>
+                <h2 class="final-cta__title"><span class="section-kicker">Начните сегодня</span>Попробуйте первые 7 занятий бесплатно</h2>
                 <p>Без карты, без обязательств. Просто зарегистрируйтесь и начните заниматься.</p>
                 <a href="login.html?tab=register" class="btn btn--primary btn--large">Начать бесплатно</a>
             </div>

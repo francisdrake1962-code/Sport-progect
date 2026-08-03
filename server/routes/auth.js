@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { authMiddleware } = require('../auth');
+const { authMiddleware, setAdminCookie, clearAdminCookie } = require('../auth');
 const authService = require('../services/auth.service');
 const { validateBody } = require('../middleware/validation');
 
@@ -21,6 +21,7 @@ router.post('/login', loginLimiter, validateBody({
   try {
     const { email, password } = req.body;
     const result = await authService.loginAdmin(email, password);
+    setAdminCookie(res, result.token);
     res.json(result);
   } catch (err) {
     next(err);
@@ -38,6 +39,7 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 
 router.post('/logout', authMiddleware, (req, res) => {
   authService.revokeCurrentToken(req.token);
+  clearAdminCookie(res);
   res.json({ success: true });
 });
 

@@ -12,6 +12,7 @@ function getSidebar(activePage) {
             { href: 'lessons.html', icon: '🎬', label: 'Уроки' },
             { href: 'complexes.html', icon: '📚', label: 'Комплексы' },
             { href: 'schedule.html', icon: '📅', label: 'Расписание' },
+            { href: 'content.html', icon: '📄', label: 'Контент страниц' },
         ]},
         { section: 'Пользователи', items: [
             { href: 'users.html', icon: '👥', label: 'Пользователи' },

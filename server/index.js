@@ -7,7 +7,7 @@ const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 const { getDb, saveDb, transaction, cleanupBlocklist } = require('./db');
-const { authMiddleware, JWT_SECRET } = require('./auth');
+const { authMiddleware, JWT_SECRET, setAdminCookie, getAdminTokenFromRequest, isAdminTokenValid } = require('./auth');
 const { requireAdmin, requireRole } = require('./middleware/rbac');
 const { apiVersionMiddleware } = require('./middleware/api-version');
 const { createCrudRoutes, queryToObjects, setAnalyticsTracker, setVersionTracker } = require('./routes/crud');
@@ -96,14 +96,40 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
+// Server-side guard for the admin SPA: admin HTML pages (except login.html)
+// are only served to requests carrying a valid admin/super_admin JWT (via the
+// httpOnly cookie set at login or the Authorization header). Static assets are
+// always public so login.html can render.
+function adminPageGuard(req, res, next) {
+  const urlPath = req.path.replace(/^\/+/, '');
+  const isHtml = urlPath.endsWith('.html');
+  const isLoginPage = urlPath === 'login.html';
+
+  if ((isHtml || urlPath === '') && !isLoginPage) {
+    const token = getAdminTokenFromRequest(req);
+    if (!isAdminTokenValid(token)) {
+      return res.redirect('/admin/login.html');
+    }
+  }
+  next();
+}
+
+app.use('/admin', adminPageGuard);
+
 app.use(express.static(path.join(__dirname, '..', 'dist'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-    } else {
+    } else if (/\.[a-f0-9]{8,}\.[a-z0-9]+$/i.test(path.basename(filePath))) {
+      // Content-hashed assets (e.g. js/main.abc1234….js) are immutable: a new
+      // deploy changes the filename, so a 1-year cache is safe.
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      // Stable filenames (admin js/css, styles/main.css, images) have no content
+      // hash: cache for a short time and revalidate so deploys are picked up.
+      res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
     }
   }
 }));
@@ -363,6 +389,20 @@ app.get('/api/faq', async (req, res) => {
   }
 });
 
+app.get('/api/content/:slug', async (req, res, next) => {
+  if (/^\d+$/.test(req.params.slug)) return next();
+  try {
+    const db = await getDb();
+    const result = db.exec(`SELECT slug, title, meta_title, meta_description, content, updated_at FROM site_content WHERE slug = ?`, [req.params.slug]);
+    const items = queryToObjects(result);
+    if (items.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(items[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/payment', paymentRoutes);
@@ -382,6 +422,9 @@ app.post('/api/login', unifiedLoginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
     const result = await authService.loginUnified(email, password);
+    if (result.role === 'admin' || result.role === 'super_admin') {
+      setAdminCookie(res, result.token);
+    }
     res.json({ success: true, ...result });
   } catch (err) {
     next(err);
@@ -445,6 +488,7 @@ api.delete('/complex-lessons/:key', async (req, res, next) => {
 api.use('/subscribers', createCrudRoutes('subscribers', ['name', 'email', 'plan', 'status', 'email_confirmed', 'free_sessions_used', 'subscription_started_at', 'next_billing_date', 'preferred_language']));
 api.use('/reviews', createCrudRoutes('reviews', ['author', 'text', 'rating', 'status', 'date']));
 api.use('/faq', createCrudRoutes('faq', ['question', 'answer', 'sort_order']));
+api.use('/content', createCrudRoutes('site_content', ['slug', 'title', 'meta_title', 'meta_description', 'content']));
 api.use('/promo-codes', createCrudRoutes('promo_codes', ['code', 'discount', 'max_uses', 'current_uses', 'active']));
 api.use('/transactions', createCrudRoutes('transactions', ['subscriber_id', 'type', 'amount', 'status', 'date']));
 api.use('/notifications', createCrudRoutes('notifications', ['title', 'type', 'text', 'recipients', 'sent_at']));

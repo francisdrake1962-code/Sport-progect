@@ -6,68 +6,68 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Календарь — Цигун и суставная разминка</title>
-    <link rel="stylesheet" href="styles/main.css">
+    
     <style>
-        .cal-page{min-height:100vh;background:#0a0f0c;color:#e0e0e0}
-        .cal-header{background:#111a14;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #2a3a2e;position:sticky;top:0;z-index:10}
-        .cal-header__back{color:#9fc5a8;text-decoration:none;font-size:.95rem}
-        .cal-header__back:hover{color:#fff}
-        .cal-header__title{color:#fff;font-size:1.1rem;font-weight:600}
+        .cal-page{min-height:100vh;background:#faf7f2;color:#2b2721}
+        .cal-header{background:#ffffff;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #e3d8c3;position:sticky;top:0;z-index:10}
+        .cal-header__back{color:#8a6f52;text-decoration:none;font-size:.95rem}
+        .cal-header__back:hover{color:#2b2721}
+        .cal-header__title{color:#2b2721;font-size:1.1rem;font-weight:600}
         .cal-stats{max-width:960px;margin:1rem auto;padding:0 1rem;display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
-        .cal-stat{background:#111a14;border:1px solid #1e2e22;border-radius:8px;padding:.75rem;text-align:center}
-        .cal-stat__value{color:#7acc8a;font-size:1.3rem;font-weight:700}
-        .cal-stat__label{color:#5a7a60;font-size:.75rem;margin-top:.2rem}
+        .cal-stat{background:#ffffff;border:1px solid #e8dcc4;border-radius:8px;padding:.75rem;text-align:center}
+        .cal-stat__value{color:#8a6f52;font-size:1.3rem;font-weight:700}
+        .cal-stat__label{color:#7c6f5d;font-size:.75rem;margin-top:.2rem}
         .cal-progress{max-width:960px;margin:0 auto 1rem;padding:0 1rem}
-        .cal-progress__bar{background:#1a2a1e;border-radius:8px;height:8px;overflow:hidden}
-        .cal-progress__fill{height:100%;background:linear-gradient(90deg,#1a5e2a,#2ecc71);border-radius:8px;transition:width .3s}
-        .cal-progress__text{color:#7a9a80;font-size:.8rem;margin-top:.3rem;text-align:center}
-        .cal-tabs{max-width:960px;margin:0 auto;padding:0 1rem;display:flex;gap:0;background:#111a14;border-radius:8px;overflow:hidden;margin-bottom:1rem}
-        .cal-tab{flex:1;padding:.6rem;text-align:center;cursor:pointer;color:#7a9a80;font-size:.85rem;font-weight:500;border:none;background:none;transition:all .15s}
-        .cal-tab.active{background:#1a5e2a;color:#fff}
+        .cal-progress__bar{background:#f1ece2;border-radius:8px;height:8px;overflow:hidden}
+        .cal-progress__fill{height:100%;background:linear-gradient(90deg,#8a6f52,#b99a74);border-radius:8px;transition:width .3s}
+        .cal-progress__text{color:#8f8578;font-size:.8rem;margin-top:.3rem;text-align:center}
+        .cal-tabs{max-width:960px;margin:0 auto;padding:0 1rem;display:flex;gap:0;background:#ffffff;border-radius:8px;overflow:hidden;margin-bottom:1rem}
+        .cal-tab{flex:1;padding:.6rem;text-align:center;cursor:pointer;color:#8f8578;font-size:.85rem;font-weight:500;border:none;background:none;transition:all .15s}
+        .cal-tab.active{background:#8a6f52;color:#f5efe4}
         .cal-nav{max-width:960px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
         .cal-nav__center{display:flex;align-items:center;gap:.75rem}
-        .cal-nav__title{color:#fff;font-size:1.15rem;font-weight:600}
-        .cal-nav__btn{background:#111a14;color:#9fc5a8;border:1px solid #2a3a2e;padding:.45rem .9rem;border-radius:6px;cursor:pointer;font-size:.85rem;transition:all .15s}
-        .cal-nav__btn:hover{background:#1a2a1e;color:#fff;border-color:#3a5a40}
-        .cal-nav__today{background:#1a5e2a;color:#fff;border:1px solid #1a5e2a;font-weight:600}
-        .cal-nav__today:hover{background:#228b33;border-color:#228b33;color:#fff}
+        .cal-nav__title{color:#2b2721;font-size:1.15rem;font-weight:600}
+        .cal-nav__btn{background:#ffffff;color:#8a6f52;border:1px solid #e3d8c3;padding:.45rem .9rem;border-radius:6px;cursor:pointer;font-size:.85rem;transition:all .15s}
+        .cal-nav__btn:hover{background:#f1ece2;color:#2b2721;border-color:#d8cbb2}
+        .cal-nav__today{background:#8a6f52;color:#f5efe4;border:1px solid #8a6f52;font-weight:600}
+        .cal-nav__today:hover{background:#a07f58;border-color:#a07f58;color:#2b2721}
         .cal-grid{max-width:960px;margin:0 auto;padding:0 1rem 3rem}
         .cal-grid--year{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem}
-        .cal-grid--month{background:#111a14;border:1px solid #1e2e22;border-radius:12px;overflow:hidden}
+        .cal-grid--month{background:#ffffff;border:1px solid #e8dcc4;border-radius:12px;overflow:hidden}
         .cal-grid--week{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem}
-        .cal-day-header{color:#7acc8a;font-size:.8rem;font-weight:600;text-align:center;padding:.7rem .2rem;border-bottom:1px solid #1e2e22;text-transform:uppercase;letter-spacing:.05em}
+        .cal-day-header{color:#8a6f52;font-size:.8rem;font-weight:600;text-align:center;padding:.7rem .2rem;border-bottom:1px solid #e8dcc4;text-transform:uppercase;letter-spacing:.05em}
         .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:.9rem;cursor:pointer;transition:all .15s;position:relative;border:1px solid transparent}
-        .cal-day:hover{background:#1a2a1e;border-color:#2a3a2e}
+        .cal-day:hover{background:#f1ece2;border-color:#e3d8c3}
         .cal-day--empty{cursor:default;border-color:transparent}
-        .cal-day--today{background:rgba(26,94,42,0.25);color:#7acc8a;font-weight:700;border:2px solid #1a5e2a;border-radius:50%}
-        .cal-day--completed{background:#0d3a15;color:#7acc8a}
-        .cal-day--completed:hover{background:#124a1f}
-        .cal-day--rest{color:#3a4a3e}
-        .cal-day--future{color:#7a9a80}
-        .cal-day--has-lesson::after{content:'';position:absolute;bottom:4px;width:5px;height:5px;border-radius:50%;background:#2ecc71}
-        .cal-day--completed::after{background:#2ecc71}
-        .cal-day--future::after{background:#1a5e2a}
-        .cal-month{background:#111a14;border:1px solid #1e2e22;border-radius:8px;overflow:hidden}
-        .cal-month__title{background:#1a2a1e;color:#7acc8a;font-size:.75rem;font-weight:600;padding:.4rem;text-align:center}
+        .cal-day--today{background:rgba(138,111,82,0.25);color:#8a6f52;font-weight:700;border:2px solid #8a6f52;border-radius:50%}
+        .cal-day--completed{background:#f1ece2;color:#8a6f52}
+        .cal-day--completed:hover{background:#f1ece2}
+        .cal-day--rest{color:#8f8578}
+        .cal-day--future{color:#8f8578}
+        .cal-day--has-lesson::after{content:'';position:absolute;bottom:4px;width:5px;height:5px;border-radius:50%;background:#b99a74}
+        .cal-day--completed::after{background:#b99a74}
+        .cal-day--future::after{background:#8a6f52}
+        .cal-month{background:#ffffff;border:1px solid #e8dcc4;border-radius:8px;overflow:hidden}
+        .cal-month__title{background:#f1ece2;color:#8a6f52;font-size:.75rem;font-weight:600;padding:.4rem;text-align:center}
         .cal-month__days{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:2px}
         .cal-month .cal-day-header{font-size:.55rem;padding:.2rem 0;border-bottom:none}
         .cal-month .cal-day{font-size:.65rem;border-radius:4px}
-        .cal-week-card{background:#111a14;border:1px solid #1e2e22;border-radius:10px;padding:1rem;cursor:pointer;transition:all .15s}
-        .cal-week-card:hover{border-color:#2a5a30;transform:translateY(-1px)}
-        .cal-week-card.today{border-color:#1a5e2a;background:#0d1a10}
-        .cal-week-card--missed{border-color:#5a3a1a;background:#1a1508}
-        .cal-week-card__day{color:#5a7a60;font-size:.75rem;margin-bottom:.2rem}
-        .cal-week-card__theme{color:#fff;font-size:.95rem;font-weight:600;margin-bottom:.2rem}
-        .cal-week-card__meta{color:#7a9a80;font-size:.8rem;display:flex;gap:.5rem;align-items:center}
+        .cal-week-card{background:#ffffff;border:1px solid #e8dcc4;border-radius:10px;padding:1rem;cursor:pointer;transition:all .15s}
+        .cal-week-card:hover{border-color:#d8cbb2;transform:translateY(-1px)}
+        .cal-week-card.today{border-color:#8a6f52;background:#f1ece2}
+        .cal-week-card--missed{border-color:#c96a54;background:#f1ece2}
+        .cal-week-card__day{color:#7c6f5d;font-size:.75rem;margin-bottom:.2rem}
+        .cal-week-card__theme{color:#2b2721;font-size:.95rem;font-weight:600;margin-bottom:.2rem}
+        .cal-week-card__meta{color:#8f8578;font-size:.8rem;display:flex;gap:.5rem;align-items:center}
         .cal-week-card__status{margin-left:auto}
-        .cal-empty{text-align:center;padding:3rem 1rem;color:#5a7a60}
+        .cal-empty{text-align:center;padding:3rem 1rem;color:#7c6f5d}
         .cal-empty__icon{font-size:2rem;margin-bottom:.5rem}
         @media(max-width:768px){.cal-stats{grid-template-columns:repeat(2,1fr)}.cal-grid--year{grid-template-columns:repeat(3,1fr)}}
         @media(max-width:480px){.cal-stats{grid-template-columns:1fr 1fr}.cal-grid--year{grid-template-columns:repeat(2,1fr)}}
     </style>
 </head>
 <body>
-    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы календаря необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <noscript><div style="padding:2rem;text-align:center;color:#2b2721;background:#faf7f2;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы календаря необходим JavaScript.</p><a href="/" style="color:#8a6f52;">На главную</a></div></noscript>
 <div class="cal-page" id="cal-root"></div>
 <script>
 (function(){
@@ -85,7 +85,7 @@ let calendarData=null;
 async function api(path){
 const token=localStorage.getItem('user_token');
 if(!token){
-  root.innerHTML='<div class="cal-empty"><div class="cal-empty__icon">🔒</div><div class="cal-empty__title" style="color:#fff;margin-bottom:0.5rem;">Войдите, чтобы видеть календарь</div><p style="color:#7a9a80;margin-bottom:1rem;">Бесплатно — 7 занятий без карты</p><a href="login.html" style="display:inline-block;padding:0.7rem 1.5rem;background:#1a5e2a;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Войти</a></div>';
+  root.innerHTML='<div class="cal-empty"><div class="cal-empty__icon">🔒</div><div class="cal-empty__title" style="color:#2b2721;margin-bottom:0.5rem;">Войдите, чтобы видеть календарь</div><p style="color:#8f8578;margin-bottom:1rem;">Бесплатно — 7 занятий без карты</p><a href="login.html" style="display:inline-block;padding:0.7rem 1.5rem;background:#8a6f52;color:#f5efe4;border-radius:8px;text-decoration:none;font-weight:600;">Войти</a></div>';
   return null;
 }
 const res=await fetch(path,{headers:{'Authorization':'Bearer '+token}});
@@ -100,7 +100,7 @@ calendarData=await api('/api/user/calendar');
 if(!calendarData)return;
 render();
 }catch(err){
-root.innerHTML='<div class="cal-empty"><div class="cal-empty__icon">⚠️</div><p>'+esc(err.message)+'</p><a href="lessons.html" style="color:#7acc8a">К занятиям</a></div>';
+root.innerHTML='<div class="cal-empty"><div class="cal-empty__icon">⚠️</div><p>'+esc(err.message)+'</p><a href="lessons.html" style="color:#8a6f52">К занятиям</a></div>';
 }
 }
 
@@ -223,17 +223,17 @@ html+='<div class="cal-week-card__day">'+DAYS_SHORT[i]+' '+d.getDate()+' '+(MONT
 if(item&&item.theme){
 html+='<div class="cal-week-card__theme">'+esc(item.theme)+'</div>';
 html+='<div class="cal-week-card__meta">';
-html+='<span style="color:#7acc8a;font-weight:600">День '+esc(item.day_number)+'</span>';
+html+='<span style="color:#8a6f52;font-weight:600">День '+esc(item.day_number)+'</span>';
 if(item.duration)html+='<span>⏱ '+esc(item.duration)+' мин</span>';
 if(item.title)html+='<span>'+esc(item.title)+'</span>';
 html+='<span class="cal-week-card__status">';
-if(item.watched&&item.watched.completed)html+='<span style="color:#2ecc71">✓ Пройдено</span>';
-else if(isToday)html+='<span style="color:#1a5e2a">● Сегодня</span>';
-else if(item.is_future)html+='<span style="color:#5a7a60">○ Предстоит</span>';
-else html+='<span style="color:#e8a735">○ Пропущено</span>';
+if(item.watched&&item.watched.completed)html+='<span style="color:#b99a74">✓ Пройдено</span>';
+else if(isToday)html+='<span style="color:#8a6f52">● Сегодня</span>';
+else if(item.is_future)html+='<span style="color:#7c6f5d">○ Предстоит</span>';
+else html+='<span style="color:#c9a45c">○ Пропущено</span>';
 html+='</span></div>';
 }else{
-html+='<div class="cal-week-card__theme" style="color:#5a7a60">Нет занятия</div>';
+html+='<div class="cal-week-card__theme" style="color:#7c6f5d">Нет занятия</div>';
 }
 html+='</div>';
 }

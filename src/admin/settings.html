@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Настройки — Админ-панель</title>
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/admin.css?v=<%= assetVersion %>">
     <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
 </head>
 <body>
+    <noscript><div style="padding:2rem;text-align:center;font-family:sans-serif;background:#111;color:#eee;min-height:100vh;"><h1>Админ-панель требует JavaScript</h1><p>Включите JavaScript, чтобы пользоваться панелью.</p></div></noscript>
     <div class="admin-layout" id="app"></div>
-    <script src="js/sidebar.js"></script><script src="js/api.js"></script><script src="js/admin.js"></script>
+    <script src="js/sidebar.js?v=<%= assetVersion %>"></script><script src="js/api.js?v=<%= assetVersion %>"></script><script src="js/admin.js?v=<%= assetVersion %>"></script>
     <script>
     function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function showMsg(id, msg, isErr) {

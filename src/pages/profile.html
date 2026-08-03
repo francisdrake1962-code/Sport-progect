@@ -6,52 +6,52 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Профиль — Цигун</title>
-    <link rel="stylesheet" href="styles/main.css">
+    
     <style>
-        .profile{min-height:100vh;background:#0a0f0c;color:#e0e0e0;padding:1rem;max-width:600px;margin:0 auto}
+        .profile{min-height:100vh;background:#faf7f2;color:#2b2721;padding:1rem;max-width:600px;margin:0 auto}
         .profile__header{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
-        .profile__header a{color:#9fc5a8;text-decoration:none;font-size:.95rem}
-        .profile__header a:hover{color:#fff}
-        .profile__header h1{color:#fff;font-size:1.4rem;font-weight:700;margin:0}
-        .profile-card{background:#111a14;border:1px solid #2a3a2e;border-radius:12px;padding:1.5rem;margin-bottom:1rem}
-        .profile-card__title{color:#7acc8a;font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
-        .profile-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid #1a2a1e}
+        .profile__header a{color:#8a6f52;text-decoration:none;font-size:.95rem}
+        .profile__header a:hover{color:#2b2721}
+        .profile__header h1{color:#2b2721;font-size:1.4rem;font-weight:700;margin:0}
+        .profile-card{background:#ffffff;border:1px solid #e3d8c3;border-radius:12px;padding:1.5rem;margin-bottom:1rem}
+        .profile-card__title{color:#8a6f52;font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
+        .profile-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid #f1ece2}
         .profile-row:last-child{border-bottom:none}
-        .profile-row__label{color:#9fc5a8;font-size:.85rem}
-        .profile-row__value{color:#fff;font-size:.9rem}
-        .profile-row__value--active{color:#1a5e2a}
-        .profile-row__value--trial{color:#c5a82e}
-        .profile-row__value--expired{color:#a85e1a}
+        .profile-row__label{color:#8a6f52;font-size:.85rem}
+        .profile-row__value{color:#2b2721;font-size:.9rem}
+        .profile-row__value--active{color:#8a6f52}
+        .profile-row__value--trial{color:#b09350}
+        .profile-row__value--expired{color:#a9763a}
         .form-group{margin-bottom:1rem}
-        .form-group label{display:block;color:#9fc5a8;font-size:.8rem;margin-bottom:.35rem}
-        .form-group input{width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box}
-        .form-group input:focus{border-color:#1a5e2a;outline:none}
+        .form-group label{display:block;color:#8a6f52;font-size:.8rem;margin-bottom:.35rem}
+        .form-group input{width:100%;padding:.6rem .8rem;background:#f1ece2;border:1px solid #e3d8c3;border-radius:6px;color:#2b2721;font-size:.9rem;box-sizing:border-box}
+        .form-group input:focus{border-color:#8a6f52;outline:none}
         .btn{display:inline-block;padding:.6rem 1.5rem;border-radius:6px;font-size:.85rem;font-weight:600;border:none;cursor:pointer}
-        .btn--primary{background:#1a5e2a;color:#fff}
-        .btn--primary:hover{background:#228b33}
-        .btn--danger{background:#5e1a1a;color:#fff}
-        .btn--danger:hover{background:#8b2222}
-        .btn--secondary{background:#2a3a2e;color:#9fc5a8}
+        .btn--primary{background:#8a6f52;color:#f5efe4}
+        .btn--primary:hover{background:#a07f58}
+        .btn--danger{background:#a4533f;color:#f5efe4}
+        .btn--danger:hover{background:#8f4230}
+        .btn--secondary{background:#e3d8c3;color:#8a6f52}
         .message{padding:.5rem .8rem;border-radius:6px;font-size:.8rem;margin-top:.5rem}
-        .message--success{background:#1a2a1e;color:#7acc8a}
-        .message--error{background:#2a1a1a;color:#e07070}
-        .progress-bar{width:100%;height:6px;background:#1a2a1e;border-radius:3px;margin-top:.35rem}
-        .progress-bar__fill{height:100%;background:#1a5e2a;border-radius:3px;transition:width .3s}
-        .profile-card textarea{width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit}
-        .profile-card textarea:focus{border-color:#1a5e2a;outline:none}
+        .message--success{background:#f1ece2;color:#8a6f52}
+        .message--error{background:#f1ece2;color:#c96a54}
+        .progress-bar{width:100%;height:6px;background:#f1ece2;border-radius:3px;margin-top:.35rem}
+        .progress-bar__fill{height:100%;background:#8a6f52;border-radius:3px;transition:width .3s}
+        .profile-card textarea{width:100%;padding:.6rem .8rem;background:#f1ece2;border:1px solid #e3d8c3;border-radius:6px;color:#2b2721;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit}
+        .profile-card textarea:focus{border-color:#8a6f52;outline:none}
         .mood-week{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;margin-bottom:.75rem}
-        .mood-day{text-align:center;padding:.5rem .25rem;border-radius:8px;background:#0d1510;border:1px solid #1a2a1e}
-        .mood-day__date{font-size:.65rem;color:#5a7a60;margin-bottom:.25rem}
+        .mood-day{text-align:center;padding:.5rem .25rem;border-radius:8px;background:#f1ece2;border:1px solid #f1ece2}
+        .mood-day__date{font-size:.65rem;color:#7c6f5d;margin-bottom:.25rem}
         .mood-day__emoji{font-size:1.5rem;line-height:1}
-        .mood-day__label{font-size:.6rem;color:#7a9a80;margin-top:.15rem}
+        .mood-day__label{font-size:.6rem;color:#8f8578;margin-top:.15rem}
         .mood-day--empty{opacity:.3}
-        .mood-day--today{border-color:#1a5e2a}
+        .mood-day--today{border-color:#8a6f52}
         .mood-legend{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.5rem}
-        .mood-legend span{font-size:.7rem;color:#7a9a80}
+        .mood-legend span{font-size:.7rem;color:#8f8578}
     </style>
 </head>
 <body>
-    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы профиля необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <noscript><div style="padding:2rem;text-align:center;color:#2b2721;background:#faf7f2;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы профиля необходим JavaScript.</p><a href="/" style="color:#8a6f52;">На главную</a></div></noscript>
     <div class="profile" id="app">
         <div class="profile__header">
             <a href="lessons.html">← Назад</a>
@@ -110,11 +110,11 @@
                 '</div>' +
                 '<div class="profile-card">' +
                 '<div class="profile-card__title">Моё самочувствие</div>' +
-                '<div id="mood-calendar"><p style="color:#9fc5a8;font-size:.85rem;">Загрузка...</p></div>' +
+                '<div id="mood-calendar"><p style="color:#8a6f52;font-size:.85rem;">Загрузка...</p></div>' +
                 '</div>' +
                 '<div class="profile-card">' +
                 '<div class="profile-card__title">Обратная связь</div>' +
-                '<div id="feedback-section"><p style="color:#9fc5a8;font-size:.85rem;">Загрузка...</p></div>' +
+                '<div id="feedback-section"><p style="color:#8a6f52;font-size:.85rem;">Загрузка...</p></div>' +
                 '</div>' +
                 '<div class="profile-card">' +
                 '<div class="profile-card__title">Сменить имя</div>' +
@@ -132,7 +132,7 @@
                 '<div class="profile-card">' +
                 '<div class="profile-card__title">Язык</div>' +
                 '<div class="form-group"><label for="lang-select">Язык интерфейса</label>' +
-                '<select id="lang-select" style="width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;">' +
+                '<select id="lang-select" style="width:100%;padding:.6rem .8rem;background:#f1ece2;border:1px solid #e3d8c3;border-radius:6px;color:#2b2721;font-size:.9rem;box-sizing:border-box;">' +
                 '<option value="ru">Русский</option>' +
                 '<option value="en">English</option>' +
                 '</select></div>' +
@@ -219,7 +219,10 @@
         function loadMoodCalendar() {
             fetch('/api/user/workout-feedback?days=7', { headers: { 'Authorization': 'Bearer ' + token } })
                 .then(function(r) { return r.json(); })
-                .then(function(items) {
+                .then(function(resp) {
+                    var items = (resp && Array.isArray(resp.data)) ? resp.data
+                        : (resp && Array.isArray(resp.feedback)) ? resp.feedback
+                        : (Array.isArray(resp) ? resp : []);
                     var section = document.getElementById('mood-calendar');
                     var today = new Date();
                     var days = [];
@@ -258,12 +261,12 @@
                     });
                     html += '</div>';
                     if (!items.length) {
-                        html = '<p style="color:#9fc5a8;font-size:.85rem;">Пока нет оценок. Завершите занятие и оцените самочувствие!</p>';
+                        html = '<p style="color:#8a6f52;font-size:.85rem;">Пока нет оценок. Завершите занятие и оцените самочувствие!</p>';
                     }
                     section.innerHTML = html;
                 })
                 .catch(function() {
-                    document.getElementById('mood-calendar').innerHTML = '<p style="color:#e07070;font-size:.85rem;">Ошибка загрузки</p>';
+                    document.getElementById('mood-calendar').innerHTML = '<p style="color:#c96a54;font-size:.85rem;">Ошибка загрузки</p>';
                 });
         }
 
@@ -285,26 +288,26 @@
                     document.getElementById('new-ticket-btn').addEventListener('click', showNewTicketForm);
                 })
                 .catch(function() {
-                    document.getElementById('feedback-section').innerHTML = '<p style="color:#e07070;font-size:.85rem;">Ошибка загрузки</p>';
+                    document.getElementById('feedback-section').innerHTML = '<p style="color:#c96a54;font-size:.85rem;">Ошибка загрузки</p>';
                 });
         }
 
         function renderTicketList(tickets) {
             var list = document.getElementById('feedback-list');
             if (!tickets.length) {
-                list.innerHTML = '<p style="color:#9fc5a8;font-size:.85rem;">Вы пока не задавали вопросов</p>';
+                list.innerHTML = '<p style="color:#8a6f52;font-size:.85rem;">Вы пока не задавали вопросов</p>';
                 return;
             }
             list.innerHTML = tickets.map(function(t) {
                 var statusCls = { open: 'profile-row__value--expired', in_progress: 'profile-row__value--trial', resolved: 'profile-row__value--active' };
-                return '<div style="padding:.6rem 0;border-bottom:1px solid #1a2a1e;cursor:pointer;" onclick="openTicket(' + t.id + ')">' +
+                return '<div style="padding:.6rem 0;border-bottom:1px solid #f1ece2;cursor:pointer;" onclick="openTicket(' + t.id + ')">' +
                     '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                    '<span style="color:#fff;font-size:.9rem;font-weight:600;">' + esc(t.subject) + '</span>' +
-                    '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + esc(CATEGORY_LABELS[t.category] || t.category) + '</span>' +
+                    '<span style="color:#2b2721;font-size:.9rem;font-weight:600;">' + esc(t.subject) + '</span>' +
+                    '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#e3d8c3;color:#8a6f52;">' + esc(CATEGORY_LABELS[t.category] || t.category) + '</span>' +
                     '</div>' +
                     '<div style="display:flex;gap:.75rem;margin-top:.25rem;">' +
                     '<span style="font-size:.75rem;" class="' + (statusCls[t.status] || '') + '">' + esc(STATUS_LABELS[t.status] || t.status) + '</span>' +
-                    '<span style="font-size:.75rem;color:#9fc5a8;">' + fmtDate(t.created_at) + '</span>' +
+                    '<span style="font-size:.75rem;color:#8a6f52;">' + fmtDate(t.created_at) + '</span>' +
                     '</div></div>';
             }).join('');
         }
@@ -315,23 +318,23 @@
             var detail = document.getElementById('feedback-detail');
             detail.style.display = 'block';
             detail.innerHTML =
-                '<div style="margin-bottom:.75rem;"><button style="background:none;border:none;color:#9fc5a8;cursor:pointer;font-size:.85rem;" onclick="cancelNewTicket()">← Назад</button></div>' +
-                '<div style="color:#7acc8a;font-size:.85rem;font-weight:600;margin-bottom:.75rem;">Кому направить вопрос:</div>' +
+                '<div style="margin-bottom:.75rem;"><button style="background:none;border:none;color:#8a6f52;cursor:pointer;font-size:.85rem;" onclick="cancelNewTicket()">← Назад</button></div>' +
+                '<div style="color:#8a6f52;font-size:.85rem;font-weight:600;margin-bottom:.75rem;">Кому направить вопрос:</div>' +
                 '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:1rem;" id="category-picker">' +
-                '<div class="cat-option" data-cat="trainer" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#111a14;border:2px solid #2a3a2e;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">🧘</div><div style="font-size:.8rem;color:#9fc5a8;margin-top:.25rem;">Тренеру</div></div>' +
-                '<div class="cat-option" data-cat="technical" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#111a14;border:2px solid #2a3a2e;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">💻</div><div style="font-size:.8rem;color:#9fc5a8;margin-top:.25rem;">Техподдержка</div></div>' +
-                '<div class="cat-option" data-cat="admin" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#111a14;border:2px solid #2a3a2e;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">📋</div><div style="font-size:.8rem;color:#9fc5a8;margin-top:.25rem;">Администрация</div></div>' +
+                '<div class="cat-option" data-cat="trainer" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#ffffff;border:2px solid #e3d8c3;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">🧘</div><div style="font-size:.8rem;color:#8a6f52;margin-top:.25rem;">Тренеру</div></div>' +
+                '<div class="cat-option" data-cat="technical" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#ffffff;border:2px solid #e3d8c3;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">💻</div><div style="font-size:.8rem;color:#8a6f52;margin-top:.25rem;">Техподдержка</div></div>' +
+                '<div class="cat-option" data-cat="admin" onclick="pickCategory(this)" style="text-align:center;padding:.75rem .5rem;background:#ffffff;border:2px solid #e3d8c3;border-radius:8px;cursor:pointer;"><div style="font-size:1.5rem;">📋</div><div style="font-size:.8rem;color:#8a6f52;margin-top:.25rem;">Администрация</div></div>' +
                 '</div>' +
                 '<div class="form-group"><label>Тема</label><input type="text" id="ticket-subject" placeholder="Кратко опишите вопрос"></div>' +
-                '<div class="form-group"><label>Сообщение</label><textarea id="ticket-message" rows="4" style="width:100%;padding:.6rem .8rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit;" placeholder="Опишите подробнее..."></textarea></div>' +
+                '<div class="form-group"><label>Сообщение</label><textarea id="ticket-message" rows="4" style="width:100%;padding:.6rem .8rem;background:#f1ece2;border:1px solid #e3d8c3;border-radius:6px;color:#2b2721;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit;" placeholder="Опишите подробнее..."></textarea></div>' +
                 '<button class="btn btn--primary" id="submit-ticket-btn" onclick="submitTicket()" disabled>Отправить</button>' +
                 '<div id="ticket-msg" style="margin-top:.5rem;"></div>';
         }
 
         var selectedCategory = '';
         window.pickCategory = function(el) {
-            document.querySelectorAll('.cat-option').forEach(function(e) { e.style.borderColor = '#2a3a2e'; });
-            el.style.borderColor = '#1a5e2a';
+            document.querySelectorAll('.cat-option').forEach(function(e) { e.style.borderColor = '#e3d8c3'; });
+            el.style.borderColor = '#8a6f52';
             selectedCategory = el.dataset.cat;
             var btn = document.getElementById('submit-ticket-btn');
             if (btn) btn.disabled = false;
@@ -369,35 +372,35 @@
             document.getElementById('new-ticket-btn').style.display = 'none';
             var detail = document.getElementById('feedback-detail');
             detail.style.display = 'block';
-            detail.innerHTML = '<p style="color:#9fc5a8;">Загрузка...</p>';
+            detail.innerHTML = '<p style="color:#8a6f52;">Загрузка...</p>';
             fetch('/api/feedback/' + id, { headers: { 'Authorization': 'Bearer ' + token } })
                 .then(function(r) { return r.json(); })
                 .then(function(ticket) {
                     var statusCls = { open: 'profile-row__value--expired', in_progress: 'profile-row__value--trial', resolved: 'profile-row__value--active' };
                     detail.innerHTML =
-                        '<div style="margin-bottom:.75rem;"><button style="background:none;border:none;color:#9fc5a8;cursor:pointer;font-size:.85rem;" onclick="cancelNewTicket()">← Назад</button></div>' +
+                        '<div style="margin-bottom:.75rem;"><button style="background:none;border:none;color:#8a6f52;cursor:pointer;font-size:.85rem;" onclick="cancelNewTicket()">← Назад</button></div>' +
                         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;">' +
-                        '<div><span style="color:#fff;font-size:1rem;font-weight:600;">' + esc(ticket.subject) + '</span> ' +
-                        '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#2a3a2e;color:#9fc5a8;">' + esc(CATEGORY_LABELS[ticket.category] || ticket.category) + '</span></div>' +
+                        '<div><span style="color:#2b2721;font-size:1rem;font-weight:600;">' + esc(ticket.subject) + '</span> ' +
+                        '<span style="font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:#e3d8c3;color:#8a6f52;">' + esc(CATEGORY_LABELS[ticket.category] || ticket.category) + '</span></div>' +
                         '<span style="font-size:.8rem;" class="' + (statusCls[ticket.status] || '') + '">' + esc(STATUS_LABELS[ticket.status] || ticket.status) + '</span>' +
                         '</div>' +
                         '<div style="max-height:40vh;overflow-y:auto;margin-bottom:.75rem;">' +
                         (ticket.messages || []).map(function(m) {
                             var isMe = m.sender_type === 'subscriber';
-                            return '<div style="margin-bottom:.5rem;padding:.6rem .8rem;border-radius:8px;max-width:85%;' + (isMe ? 'margin-left:auto;background:#1a2a1e;' : 'background:#111a14;border:1px solid #2a3a2e;') + '">' +
-                                '<div style="font-size:.7rem;font-weight:600;color:#7acc8a;margin-bottom:.2rem;">' + (isMe ? 'Вы' : (m.sender_type === 'admin' ? 'Администратор' : 'Тренер')) + '</div>' +
-                                '<div style="font-size:.85rem;color:#e0e0e0;white-space:pre-wrap;">' + esc(m.message) + '</div>' +
-                                '<div style="font-size:.65rem;color:#9fc5a8;margin-top:.2rem;">' + fmtDate(m.created_at) + '</div>' +
+                            return '<div style="margin-bottom:.5rem;padding:.6rem .8rem;border-radius:8px;max-width:85%;' + (isMe ? 'margin-left:auto;background:#f1ece2;' : 'background:#ffffff;border:1px solid #e3d8c3;') + '">' +
+                                '<div style="font-size:.7rem;font-weight:600;color:#8a6f52;margin-bottom:.2rem;">' + (isMe ? 'Вы' : (m.sender_type === 'admin' ? 'Администратор' : 'Тренер')) + '</div>' +
+                                '<div style="font-size:.85rem;color:#2b2721;white-space:pre-wrap;">' + esc(m.message) + '</div>' +
+                                '<div style="font-size:.65rem;color:#8a6f52;margin-top:.2rem;">' + fmtDate(m.created_at) + '</div>' +
                                 '</div>';
                         }).join('') +
                         '</div>' +
                         (ticket.status !== 'resolved' ?
-                            '<div><textarea id="reply-text" rows="3" style="width:100%;padding:.6rem;background:#0d1510;border:1px solid #2a3a2e;border-radius:6px;color:#fff;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit;" placeholder="Ответ..."></textarea>' +
+                            '<div><textarea id="reply-text" rows="3" style="width:100%;padding:.6rem;background:#f1ece2;border:1px solid #e3d8c3;border-radius:6px;color:#2b2721;font-size:.9rem;box-sizing:border-box;resize:vertical;font-family:inherit;" placeholder="Ответ..."></textarea>' +
                             '<button class="btn btn--primary" style="margin-top:.5rem;" onclick="sendReply(' + ticket.id + ')">Отправить</button></div>' :
-                            '<p style="color:#7acc8a;font-size:.8rem;">Тикет закрыт</p>');
+                            '<p style="color:#8a6f52;font-size:.8rem;">Тикет закрыт</p>');
                 })
                 .catch(function() {
-                    detail.innerHTML = '<p style="color:#e07070;">Ошибка загрузки</p>';
+                    detail.innerHTML = '<p style="color:#c96a54;">Ошибка загрузки</p>';
                 });
         }
 

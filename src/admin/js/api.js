@@ -54,14 +54,21 @@ class ApiClient {
     return data;
   }
 
-  logout() {
+  async logout() {
+    const token = this.getToken();
+    if (token) {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      } catch { /* server logout is best-effort */ }
+    }
     localStorage.removeItem('admin_token');
     window.location.href = 'login.html';
   }
 
   // Enter the subscriber-facing area (demo view). The admin JWT is valid for
   // both /api/* (admin) and /api/user/* (demo), so we mirror it as user_token
-  // and open the user dashboard; the server serves read-only demo data.
+  // and open the user dashboard in a new tab; the server serves read-only demo
+  // data. A banner on user pages shows how to get back to the admin panel.
   enterUserView() {
     const adminToken = localStorage.getItem('admin_token');
     if (!adminToken) {
@@ -75,7 +82,7 @@ class ApiClient {
         localStorage.setItem('user_data', JSON.stringify({ name: adminData.name, plan: 'annual', status: 'active', free_sessions_used: 0 }));
       }
     } catch { /* ignore malformed cached admin data */ }
-    window.location.href = '../dashboard.html';
+    window.open('../dashboard.html', '_blank');
   }
 }
 

@@ -11,7 +11,8 @@ function setVersionTracker(tracker) { versionTracker = tracker; }
 const VALID_TABLES = new Set([
   'users', 'lessons', 'complexes', 'schedule',
   'subscribers', 'reviews', 'faq', 'promo_codes', 'transactions',
-  'notifications', 'settings', 'watched_lessons', 'lesson_zones'
+  'notifications', 'settings', 'watched_lessons', 'lesson_zones',
+  'site_content'
 ]);
 
 function createCrudRoutes(tableName, fields) {

@@ -229,6 +229,18 @@ async function getDb() {
     `);
 
     db.run(`
+      CREATE TABLE IF NOT EXISTS site_content (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug TEXT UNIQUE NOT NULL,
+        title TEXT,
+        meta_title TEXT,
+        meta_description TEXT,
+        content TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    db.run(`
       CREATE TABLE IF NOT EXISTS lesson_zones (
         lesson_id INTEGER NOT NULL,
         zone TEXT NOT NULL,
@@ -408,6 +420,8 @@ async function getDb() {
     db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`,
       ['domain', 'https://qigong-landing.com']);
 
+    seedSiteContent(db);
+
     saveDb();
     return db;
   })();
@@ -505,4 +519,58 @@ async function transaction(fn) {
   }
 }
 
-module.exports = { getDb, saveDb, resetDb, getSetting, revokeToken, isTokenRevoked, cleanupBlocklist, transaction };
+const STATIC_PAGES = [
+  'about-trainer',
+  'terms',
+  'refund',
+  'privacy',
+  'contact',
+  'is-it-really-free',
+  'how-to-cancel',
+  '8-pieces-of-brocade',
+  'yijinjing',
+  'small-circulation',
+];
+
+function extractMainContent(html) {
+  const match = html.match(/<main\s+id="main-content">([\s\S]*?)<\/main>/);
+  return match ? match[1].trim() : '';
+}
+
+function extractTitle(html) {
+  const match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+  if (!match) return '';
+  return match[1].replace(/<[^>]+>/g, '').trim();
+}
+
+function extractMetaTitle(html) {
+  const match = html.match(/<title>([\s\S]*?)<\/title>/);
+  return match ? match[1].trim() : '';
+}
+
+function extractMetaDescription(html) {
+  const match = html.match(/<meta\s+name="description"\s+content="([^"]*)"/i);
+  return match ? match[1].trim() : '';
+}
+
+function seedSiteContent(db) {
+  if (!db) return;
+  const srcDir = path.join(__dirname, '..', 'src', 'pages');
+  const distDir = path.join(__dirname, '..', 'dist');
+  for (const slug of STATIC_PAGES) {
+    const candidates = [path.join(srcDir, `${slug}.html`), path.join(distDir, `${slug}.html`)];
+    let html = null;
+    for (const filePath of candidates) {
+      if (fs.existsSync(filePath)) { html = fs.readFileSync(filePath, 'utf8'); break; }
+    }
+    if (!html) continue;
+    try {
+      const content = extractMainContent(html);
+      if (!content) continue;
+      db.run(`INSERT OR IGNORE INTO site_content (slug, title, meta_title, meta_description, content) VALUES (?, ?, ?, ?, ?)`,
+        [slug, extractTitle(html), extractMetaTitle(html), extractMetaDescription(html), content]);
+    } catch {}
+  }
+}
+
+module.exports = { getDb, saveDb, resetDb, getSetting, revokeToken, isTokenRevoked, cleanupBlocklist, transaction, seedSiteContent };

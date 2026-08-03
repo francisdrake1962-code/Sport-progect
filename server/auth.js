@@ -61,4 +61,55 @@ function generateToken(user) {
   return jwt.sign(payload, getJwtSecret(), { algorithm: 'HS256', expiresIn: '24h' });
 }
 
-module.exports = { authMiddleware, generateToken, get JWT_SECRET() { return getJwtSecret(); }, hashToken };
+const ADMIN_COOKIE_NAME = 'qigong_admin_token';
+
+// Reads the admin JWT from either the Authorization header or the httpOnly
+// cookie, so admin pages work both for the SPA (header) and for plain browser
+// navigation to /admin/* (cookie).
+function getAdminTokenFromRequest(req) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) return authHeader.slice(7);
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${ADMIN_COOKIE_NAME}=([^;]+)`));
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
+function setAdminCookie(res, token) {
+  res.cookie(ADMIN_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000,
+    path: '/',
+  });
+}
+
+function clearAdminCookie(res) {
+  res.clearCookie(ADMIN_COOKIE_NAME, { path: '/' });
+}
+
+function isAdminTokenValid(token) {
+  if (!token) return false;
+  try {
+    const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
+    if (decoded.role !== 'admin' && decoded.role !== 'super_admin') return false;
+    if (isTokenRevoked(hashToken(token))) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+module.exports = {
+  authMiddleware,
+  generateToken,
+  get JWT_SECRET() { return getJwtSecret(); },
+  hashToken,
+  getAdminTokenFromRequest,
+  setAdminCookie,
+  clearAdminCookie,
+  isAdminTokenValid,
+};

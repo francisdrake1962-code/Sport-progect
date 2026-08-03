@@ -18,6 +18,7 @@
     <meta name="twitter:description" content="Часто задаваемые вопросы о приложении для занятий цигун и суставной разминкой.">
 </head>
 <body>
+    <noscript><div style="padding:2rem;text-align:center;font-family:sans-serif;background:#faf7f2;color:#2b2721;min-height:100vh;"><h1>Сайт требует JavaScript</h1><p>Включите JavaScript, чтобы пользоваться сайтом.</p></div></noscript>
     <a href="#main-content" class="skip-link">Перейти к содержимому</a>
     <header class="header">
         <div class="container">
@@ -54,7 +55,7 @@
                 <h1>Часто задаваемые вопросы</h1>
                 
                 <div class="faq__list" id="faq-list">
-                    <p style="color:#9fc5a8;text-align:center;padding:2rem 0;">Загрузка...</p>
+                    <p style="color:#6f675c;text-align:center;padding:2rem 0;">Загрузка...</p>
                 </div>
                 
                 <div class="cta-block">
@@ -122,7 +123,7 @@
                 var items = (resp && Array.isArray(resp.data)) ? resp.data : (resp || []);
                 var list = document.getElementById('faq-list');
                 if (!items || items.length === 0) {
-                    list.innerHTML = '<p style="color:#9fc5a8;text-align:center;padding:2rem 0;">Вопросов пока нет</p>';
+                    list.innerHTML = '<p style="color:#6f675c;text-align:center;padding:2rem 0;">Вопросов пока нет</p>';
                     return;
                 }
                 list.innerHTML = items.map(function(i) {
@@ -130,7 +131,7 @@
                 }).join('');
             })
             .catch(function() {
-                document.getElementById('faq-list').innerHTML = '<p style="color:#9fc5a8;text-align:center;padding:2rem 0;">Не удалось загрузить FAQ</p>';
+                document.getElementById('faq-list').innerHTML = '<p style="color:#6f675c;text-align:center;padding:2rem 0;">Не удалось загрузить FAQ</p>';
             });
     })();
     </script>

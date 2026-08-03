@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560">
+  <rect width="400" height="560" rx="18" fill="#f5efe4"/>
+  <text x="30" y="40" font-family="Arial, sans-serif" font-size="17" font-weight="600" fill="#4a3b2e">Сзади</text>
+  <text x="30" y="70" font-family="Arial, sans-serif" font-size="12" fill="#8a6f52">Нажмите на зону</text>
+  <circle cx="180" cy="74" r="36" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <rect x="168" y="106" width="24" height="26" rx="8" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <path d="M118 136 C118 114 242 114 242 136 L242 156 L118 156 Z" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <path d="M150 156 L210 156 C214 206 212 254 180 254 C148 254 146 206 150 156 Z" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <path d="M150 254 L210 254 C212 292 210 302 180 302 C150 302 148 292 150 254 Z" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <rect x="152" y="302" width="27" height="136" rx="13" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <rect x="181" y="302" width="27" height="136" rx="13" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <rect x="148" y="436" width="36" height="20" rx="9" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <rect x="176" y="436" width="36" height="20" rx="9" fill="#dcc7a4" stroke="#7a5c3e" stroke-width="3"/>
+  <path d="M168 52 q12 -10 24 0" stroke="#7a5c3e" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <ellipse cx="180" cy="118" rx="21" ry="16" fill="#c9a87e" opacity="0.55"/>
+  <path d="M138 140 C138 126 222 126 222 140 L222 154 L138 154 Z" fill="#c9a87e" opacity="0.45"/>
+  <ellipse cx="180" cy="185" rx="30" ry="26" fill="#c9a87e" opacity="0.45"/>
+  <ellipse cx="180" cy="234" rx="28" ry="20" fill="#c9a87e" opacity="0.55"/>
+  <ellipse cx="180" cy="276" rx="26" ry="20" fill="#c9a87e" opacity="0.4"/>
+  <path d="M180 292 L180 306" stroke="#c9a87e" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="165" cy="388" r="15" fill="#c9a87e" opacity="0.5"/>
+  <circle cx="195" cy="388" r="15" fill="#c9a87e" opacity="0.5"/>
+  <rect x="282" y="100" width="86" height="22" rx="11" fill="#f1e3c8" stroke="#c9a87e" stroke-width="1.5"/>
+  <text x="290" y="116" font-family="Arial, sans-serif" font-size="12" fill="#5c4a38">Шея и плечи</text>
+  <rect x="282" y="132" width="86" height="22" rx="11" fill="#f1e3c8" stroke="#c9a87e" stroke-width="1.5"/>
+  <text x="290" y="148" font-family="Arial, sans-serif" font-size="12" fill="#5c4a38">Лопатки</text>
+  <rect x="282" y="164" width="86" height="22" rx="11" fill="#f1e3c8" stroke="#c9a87e" stroke-width="1.5"/>
+  <text x="290" y="180" font-family="Arial, sans-serif" font-size="12" fill="#5c4a38">Спина</text>
+  <rect x="282" y="196" width="86" height="22" rx="11" fill="#f1e3c8" stroke="#c9a87e" stroke-width="1.5"/>
+  <text x="290" y="212" font-family="Arial, sans-serif" font-size="12" fill="#5c4a38">Поясница</text>
+  <rect x="282" y="228" width="86" height="22" rx="11" fill="#f1e3c8" stroke="#c9a87e" stroke-width="1.5"/>
+  <text x="290" y="244" font-family="Arial, sans-serif" font-size="12" fill="#5c4a38">Крестец</text>
+  <rect x="282" y="260" width="86" height="22" rx="11" fill="#f1e3c8" stroke="#c9a87e" stroke-width="1.5"/>
+  <text x="290" y="276" font-family="Arial, sans-serif" font-size="12" fill="#5c4a38">Ноги и пятки</text>
+</svg>

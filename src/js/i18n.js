@@ -109,10 +109,10 @@
     if (!bannerText) return;
     var banner = document.createElement('div');
     banner.id = 'lang-banner';
-    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a2a1e;border-top:1px solid #2a3a2e;padding:0.75rem 1rem;display:flex;align-items:center;justify-content:center;gap:1rem;z-index:9999;font-size:0.85rem;color:#e0e0e0;font-family:sans-serif;';
+    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#f1ece2;border-top:1px solid #e3d8c3;padding:0.75rem 1rem;display:flex;align-items:center;justify-content:center;gap:1rem;z-index:9999;font-size:0.85rem;color:#2b2721;font-family:sans-serif;';
     banner.innerHTML = esc(bannerText) +
-      ' <button id="lang-banner-change" style="background:none;border:1px solid #4a6a50;padding:0.3rem 0.8rem;border-radius:4px;color:#7acc8a;cursor:pointer;font-size:0.8rem;">' + esc(bannerChange) + '</button>' +
-      ' <button id="lang-banner-dismiss" style="background:none;border:none;color:#9fc5a8;cursor:pointer;font-size:1.1rem;padding:0 0.3rem;">&times;</button>';
+      ' <button id="lang-banner-change" style="background:none;border:1px solid #d8cbb2;padding:0.3rem 0.8rem;border-radius:4px;color:#8a6f52;cursor:pointer;font-size:0.8rem;">' + esc(bannerChange) + '</button>' +
+      ' <button id="lang-banner-dismiss" style="background:none;border:none;color:#8a6f52;cursor:pointer;font-size:1.1rem;padding:0 0.3rem;">&times;</button>';
     document.body.appendChild(banner);
     document.getElementById('lang-banner-change').addEventListener('click', function () {
       var newLang = currentLang === 'ru' ? 'en' : 'ru';

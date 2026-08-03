@@ -6,71 +6,71 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <title>Главная — Цигун и суставная разминка</title>
-    <link rel="stylesheet" href="styles/main.css">
+    
     <style>
-        .dash{min-height:100vh;background:#0a0f0c;color:#e0e0e0}
-        .dash-header{background:#111a14;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #2a3a2e;position:sticky;top:0;z-index:10}
-        .dash-header__logo{color:#7acc8a;font-weight:700;font-size:1.05rem;text-decoration:none;white-space:nowrap}
+        .dash{min-height:100vh;background:#faf7f2;color:#2b2721}
+        .dash-header{background:#ffffff;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #e3d8c3;position:sticky;top:0;z-index:10}
+        .dash-header__logo{color:#8a6f52;font-weight:700;font-size:1.05rem;text-decoration:none;white-space:nowrap}
         .dash-header__nav{display:flex;gap:1rem;margin-left:auto;align-items:center}
-        .dash-header__nav a{color:#7a9a80;text-decoration:none;font-size:.85rem;white-space:nowrap}
-        .dash-header__nav a:hover,.dash-header__nav a.active{color:#fff}
+        .dash-header__nav a{color:#8f8578;text-decoration:none;font-size:.85rem;white-space:nowrap}
+        .dash-header__nav a:hover,.dash-header__nav a.active{color:#2b2721}
         .dash-greeting{padding:2rem 1.5rem 1.5rem;max-width:960px;margin:0 auto}
-        .dash-greeting__hi{font-size:1.6rem;font-weight:700;color:#fff;margin-bottom:.25rem}
-        .dash-greeting__sub{color:#7acc8a;font-size:.95rem}
+        .dash-greeting__hi{font-size:1.6rem;font-weight:700;color:#2b2721;margin-bottom:.25rem}
+        .dash-greeting__sub{color:#8a6f52;font-size:.95rem}
         .dash-stats{display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap}
-        .dash-stat{background:#111a14;border:1px solid #1e2e22;border-radius:10px;padding:.7rem 1rem;min-width:100px;text-align:center}
-        .dash-stat__num{font-size:1.3rem;font-weight:700;color:#7acc8a}
-        .dash-stat__label{font-size:.7rem;color:#5a7a60;text-transform:uppercase;letter-spacing:.03em;margin-top:.15rem}
+        .dash-stat{background:#ffffff;border:1px solid #e8dcc4;border-radius:10px;padding:.7rem 1rem;min-width:100px;text-align:center}
+        .dash-stat__num{font-size:1.3rem;font-weight:700;color:#8a6f52}
+        .dash-stat__label{font-size:.7rem;color:#7c6f5d;text-transform:uppercase;letter-spacing:.03em;margin-top:.15rem}
         .dash-section{max-width:960px;margin:0 auto;padding:0 1rem 1.5rem}
-        .dash-section__title{color:#7acc8a;font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.75rem;padding-left:.25rem}
-        .dash-continue{display:flex;align-items:center;gap:1rem;background:linear-gradient(135deg,#1a3a20 0%,#111a14 100%);border:1px solid #2a5a30;border-radius:12px;padding:1rem 1.25rem;cursor:pointer;transition:transform .15s,box-shadow .15s;text-decoration:none;color:#e0e0e0}
-        .dash-continue:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(26,94,42,.2)}
-        .dash-continue__icon{width:50px;height:50px;background:#1a5e2a;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-        .dash-continue__icon svg{fill:#fff;width:20px;height:20px;margin-left:2px}
+        .dash-section__title{color:#8a6f52;font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.75rem;padding-left:.25rem}
+        .dash-continue{display:flex;align-items:center;gap:1rem;background:linear-gradient(135deg,#f1ece2 0%,#ffffff 100%);border:1px solid #d8cbb2;border-radius:12px;padding:1rem 1.25rem;cursor:pointer;transition:transform .15s,box-shadow .15s;text-decoration:none;color:#2b2721}
+        .dash-continue:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(138,111,82,.2)}
+        .dash-continue__icon{width:50px;height:50px;background:#8a6f52;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .dash-continue__icon svg{fill:#f5efe4;width:20px;height:20px;margin-left:2px}
         .dash-continue__info{flex:1;min-width:0}
-        .dash-continue__label{color:#5a9a60;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
-        .dash-continue__name{color:#fff;font-weight:600;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .dash-continue__meta{color:#7a9a80;font-size:.8rem}
-        .dash-continue__progress{height:3px;background:#1e2e22;border-radius:2px;margin-top:.4rem;overflow:hidden}
-        .dash-continue__progress-fill{height:100%;background:#1a5e2a;border-radius:2px}
-        .dash-today{background:#111a14;border:1px solid #1e2e22;border-radius:12px;padding:1.25rem}
-        .dash-today__label{color:#5a9a60;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:.5rem}
-        .dash-today__name{color:#fff;font-size:1.1rem;font-weight:600;margin-bottom:.3rem}
-        .dash-today__meta{color:#7a9a80;font-size:.85rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
-        .dash-today__btn{display:inline-flex;align-items:center;gap:.4rem;background:#1a5e2a;color:#fff;border:none;padding:.5rem 1rem;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .15s;margin-top:.75rem;text-decoration:none}
-        .dash-today__btn:hover{background:#228b33}
-        .dash-today__btn svg{fill:#fff;width:14px;height:14px}
+        .dash-continue__label{color:#93a077;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+        .dash-continue__name{color:#2b2721;font-weight:600;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .dash-continue__meta{color:#8f8578;font-size:.8rem}
+        .dash-continue__progress{height:3px;background:#e8dcc4;border-radius:2px;margin-top:.4rem;overflow:hidden}
+        .dash-continue__progress-fill{height:100%;background:#8a6f52;border-radius:2px}
+        .dash-today{background:#ffffff;border:1px solid #e8dcc4;border-radius:12px;padding:1.25rem}
+        .dash-today__label{color:#93a077;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:.5rem}
+        .dash-today__name{color:#2b2721;font-size:1.1rem;font-weight:600;margin-bottom:.3rem}
+        .dash-today__meta{color:#8f8578;font-size:.85rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+        .dash-today__btn{display:inline-flex;align-items:center;gap:.4rem;background:#8a6f52;color:#f5efe4;border:none;padding:.5rem 1rem;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .15s;margin-top:.75rem;text-decoration:none}
+        .dash-today__btn:hover{background:#a07f58}
+        .dash-today__btn svg{fill:#f5efe4;width:14px;height:14px}
         .dash-zones{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem}
-        .dash-zone{background:#111a14;border:1px solid #1e2e22;border-radius:10px;padding:1rem .75rem;text-align:center;cursor:pointer;transition:all .15s;text-decoration:none;color:#e0e0e0}
-        .dash-zone:hover{border-color:#2a5a30;background:#1a2a1e}
+        .dash-zone{background:#ffffff;border:1px solid #e8dcc4;border-radius:10px;padding:1rem .75rem;text-align:center;cursor:pointer;transition:all .15s;text-decoration:none;color:#2b2721}
+        .dash-zone:hover{border-color:#d8cbb2;background:#f1ece2}
         .dash-zone__icon{font-size:1.5rem;margin-bottom:.3rem}
-        .dash-zone__name{color:#fff;font-size:.85rem;font-weight:600}
-        .dash-zone__count{color:#5a7a60;font-size:.7rem;margin-top:.15rem}
+        .dash-zone__name{color:#2b2721;font-size:.85rem;font-weight:600}
+        .dash-zone__count{color:#7c6f5d;font-size:.7rem;margin-top:.15rem}
         .dash-schedule{display:flex;gap:.5rem;overflow-x:auto;padding-bottom:.5rem;scroll-snap-type:x mandatory}
         .dash-schedule::-webkit-scrollbar{height:4px}
-        .dash-schedule::-webkit-scrollbar-thumb{background:#2a3a2e;border-radius:2px}
-        .dash-day{min-width:110px;flex-shrink:0;background:#111a14;border:1px solid #1e2e22;border-radius:10px;padding:.75rem;text-align:center;scroll-snap-align:start;text-decoration:none;color:#e0e0e0;transition:all .15s}
-        .dash-day:hover{border-color:#2a5a30}
-        .dash-day.today{border-color:#1a5e2a;background:#1a2a1e}
-        .dash-day__date{color:#7a9a80;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-        .dash-day__day{color:#fff;font-size:.9rem;font-weight:600;margin:.2rem 0}
-        .dash-day__lesson{color:#7acc8a;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .dash-day__empty{color:#3a4a3e;font-size:.7rem}
+        .dash-schedule::-webkit-scrollbar-thumb{background:#e3d8c3;border-radius:2px}
+        .dash-day{min-width:110px;flex-shrink:0;background:#ffffff;border:1px solid #e8dcc4;border-radius:10px;padding:.75rem;text-align:center;scroll-snap-align:start;text-decoration:none;color:#2b2721;transition:all .15s}
+        .dash-day:hover{border-color:#d8cbb2}
+        .dash-day.today{border-color:#8a6f52;background:#f1ece2}
+        .dash-day__date{color:#8f8578;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+        .dash-day__day{color:#2b2721;font-size:.9rem;font-weight:600;margin:.2rem 0}
+        .dash-day__lesson{color:#8a6f52;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .dash-day__empty{color:#8f8578;font-size:.7rem}
         .dash-bottom{max-width:960px;margin:0 auto;padding:0 1rem 3rem;display:flex;gap:.75rem;flex-wrap:wrap}
-        .dash-link{flex:1;min-width:140px;background:#111a14;border:1px solid #1e2e22;border-radius:10px;padding:1rem;text-align:center;text-decoration:none;color:#e0e0e0;transition:all .15s}
-        .dash-link:hover{border-color:#2a5a30;background:#1a2a1e}
+        .dash-link{flex:1;min-width:140px;background:#ffffff;border:1px solid #e8dcc4;border-radius:10px;padding:1rem;text-align:center;text-decoration:none;color:#2b2721;transition:all .15s}
+        .dash-link:hover{border-color:#d8cbb2;background:#f1ece2}
         .dash-link__icon{font-size:1.3rem;margin-bottom:.3rem}
-        .dash-link__text{color:#fff;font-size:.85rem;font-weight:600}
-        .dash-empty{text-align:center;padding:3rem 1rem;color:#5a7a60}
+        .dash-link__text{color:#2b2721;font-size:.85rem;font-weight:600}
+        .dash-empty{text-align:center;padding:3rem 1rem;color:#7c6f5d}
         .dash-empty__icon{font-size:2rem;margin-bottom:.5rem}
         .dash-programs{display:flex;gap:.6rem;overflow-x:auto;padding-bottom:.5rem;scroll-snap-type:x mandatory}
         .dash-programs::-webkit-scrollbar{height:4px}
-        .dash-programs::-webkit-scrollbar-thumb{background:#2a3a2e;border-radius:2px}
-        .dash-program{min-width:140px;flex-shrink:0;background:#111a14;border:1px solid #1e2e22;border-radius:10px;padding:1rem;text-align:center;cursor:pointer;transition:all .15s;text-decoration:none;color:#e0e0e0;scroll-snap-align:start}
-        .dash-program:hover{border-color:#2a5a30;background:#1a2a1e}
+        .dash-programs::-webkit-scrollbar-thumb{background:#e3d8c3;border-radius:2px}
+        .dash-program{min-width:140px;flex-shrink:0;background:#ffffff;border:1px solid #e8dcc4;border-radius:10px;padding:1rem;text-align:center;cursor:pointer;transition:all .15s;text-decoration:none;color:#2b2721;scroll-snap-align:start}
+        .dash-program:hover{border-color:#d8cbb2;background:#f1ece2}
         .dash-program__icon{font-size:1.5rem;margin-bottom:.3rem}
-        .dash-program__name{color:#fff;font-size:.85rem;font-weight:600;margin-bottom:.15rem}
-        .dash-program__count{color:#5a7a60;font-size:.7rem}
+        .dash-program__name{color:#2b2721;font-size:.85rem;font-weight:600;margin-bottom:.15rem}
+        .dash-program__count{color:#7c6f5d;font-size:.7rem}
         @media(max-width:600px){
             .dash-greeting{padding:1.5rem 1rem 1rem}
             .dash-greeting__hi{font-size:1.3rem}
@@ -81,7 +81,7 @@
 </head>
 <body>
     <a href="#main-content" class="skip-link">Перейти к содержимому</a>
-    <noscript><div style="padding:2rem;text-align:center;color:#e0e0e0;background:#0a0f0c;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы приложения необходим JavaScript.</p><a href="/" style="color:#7acc8a;">На главную</a></div></noscript>
+    <noscript><div style="padding:2rem;text-align:center;color:#2b2721;background:#faf7f2;min-height:100vh;font-family:sans-serif;"><h1>Цигун</h1><p>Для работы приложения необходим JavaScript.</p><a href="/" style="color:#8a6f52;">На главную</a></div></noscript>
     <div id="main-content"></div>
     <script>
     (function(){
@@ -97,7 +97,7 @@
         var zoneIcons={шея:'💆',плечи_руки:'💪',грудной_отдел:'🫁',поясница:'🧘',спина_осанка:'🧍',колени:'🦵',ноги_таз:'🚶',баланс_общее:'⚖️'};
 
         if(!localStorage.getItem('user_token')){
-            root.innerHTML='<div class="dash-empty"><div class="dash-empty__icon">🧘</div><p>Войдите, чтобы начать</p><a href="login.html" style="color:#7acc8a;margin-top:.5rem;display:inline-block">Войти</a></div>';
+            root.innerHTML='<div class="dash-empty"><div class="dash-empty__icon">🧘</div><p>Войдите, чтобы начать</p><a href="login.html" style="color:#8a6f52;margin-top:.5rem;display:inline-block">Войти</a></div>';
             return;
         }
 
@@ -107,7 +107,7 @@
             api('/api/user/dashboard').then(function(d){
                 render(d);
             }).catch(function(e){
-                root.innerHTML='<div class="dash-empty"><div class="dash-empty__icon">⚠️</div><p>Ошибка загрузки: '+esc(e.message)+'</p><a href="/" style="color:#7acc8a;">На главную</a></div>';
+                root.innerHTML='<div class="dash-empty"><div class="dash-empty__icon">⚠️</div><p>Ошибка загрузки: '+esc(e.message)+'</p><a href="/" style="color:#8a6f52;">На главную</a></div>';
             });
         }
 
@@ -220,9 +220,9 @@
             try{
                 var ud=JSON.parse(localStorage.getItem('user_data'));
                 var uname=ud&&ud.name?ud.name.split(' ')[0]:'Профиль';
-                profileLink='<a href="profile.html" style="color:#7acc8a;text-decoration:none;display:flex;align-items:center;gap:.35rem"><span style="font-size:1.5rem;line-height:1">👤</span><span style="font-size:.8rem;font-weight:600">'+esc(uname)+'</span></a>';
+                profileLink='<a href="profile.html" style="color:#8a6f52;text-decoration:none;display:flex;align-items:center;gap:.35rem"><span style="font-size:1.5rem;line-height:1">👤</span><span style="font-size:.8rem;font-weight:600">'+esc(uname)+'</span></a>';
             }catch(e){
-                profileLink='<a href="profile.html" style="color:#7acc8a;text-decoration:none;font-size:1.2rem">👤</a>';
+                profileLink='<a href="profile.html" style="color:#8a6f52;text-decoration:none;font-size:1.2rem">👤</a>';
             }
             return '<div class="dash-header"><a href="/" class="dash-header__logo">🧘 Цигун</a><div class="dash-header__nav"><a href="lessons.html">Занятия</a><a href="calendar.html">Календарь</a><a href="picker.html">Подобрать</a>'+profileLink+'</div></div>';
         }
@@ -231,7 +231,7 @@
             var container=document.getElementById('dash-zones');
             if(!container)return;
             api('/api/user/categories').then(function(d){
-                if(!d.zones||!d.zones.length){container.innerHTML='<p style="color:#5a7a60">Зоны пока не добавлены</p>';return;}
+                if(!d.zones||!d.zones.length){container.innerHTML='<p style="color:#7c6f5d">Зоны пока не добавлены</p>';return;}
                 var html='';
                 d.zones.forEach(function(z){
                     html+='<a href="picker.html?zone='+encodeURIComponent(z.zone)+'" class="dash-zone">';
@@ -242,7 +242,7 @@
                 });
                 container.innerHTML=html;
             }).catch(function(){
-                container.innerHTML='<p style="color:#5a7a60">Не удалось загрузить</p>';
+                container.innerHTML='<p style="color:#7c6f5d">Не удалось загрузить</p>';
             });
         }
     })();

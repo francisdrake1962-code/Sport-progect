@@ -54,13 +54,23 @@ beforeAll(async () => {
     throw new Error(`Fixture video ${placeholder} missing or too small`);
   }
   const adminDist = path.join(__dirname, '..', 'dist', 'admin');
-  const adminIndex = path.join(adminDist, 'index.html');
+  const adminFixtures = {
+    'index.html': '<!DOCTYPE html><html><head><title>Admin</title></head><body></body></html>',
+    'login.html': '<!DOCTYPE html><html><head><title>Admin login</title></head><body></body></html>',
+    'lessons.html': '<!DOCTYPE html><html><head><title>Admin lessons</title></head><body></body></html>',
+    'css/admin.css': 'body { color: #000; }',
+  };
   try {
     fs.mkdirSync(adminDist, { recursive: true });
-    fs.writeFileSync(adminIndex, '<!DOCTYPE html><html><head><title>Admin</title></head><body></body></html>');
+    for (const [relativePath, contents] of Object.entries(adminFixtures)) {
+      const fixturePath = path.join(adminDist, relativePath);
+      fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
+      fs.writeFileSync(fixturePath, contents);
+    }
   } catch (err) {
-    throw new Error(`Cannot create fixture ${adminIndex}: ${err.message}`);
+    throw new Error(`Cannot create admin fixtures in ${adminDist}: ${err.message}`);
   }
+  const adminIndex = path.join(adminDist, 'index.html');
   if (!fs.existsSync(adminIndex) || fs.statSync(adminIndex).size === 0) {
     throw new Error(`Fixture ${adminIndex} missing or empty`);
   }

@@ -1267,7 +1267,9 @@ app.get('/videos/{*splat}', async (req, res) => {
 });
 
 app.get('/admin/{*splat}', (req, res) => {
-  const urlPath = req.params.splat || '';
+  // Express 5 + path-to-regexp 8 exposes wildcard params as arrays, so coerce
+  // to a string before calling String.prototype methods on the path segment.
+  const urlPath = String(req.params.splat || '');
   if (urlPath.endsWith('.html') || urlPath.endsWith('.js') || urlPath.endsWith('.css') || urlPath.endsWith('.svg') || urlPath.endsWith('.png') || urlPath.endsWith('.json')) {
     const filePath = path.join(__dirname, '..', 'dist', 'admin', urlPath);
     if (fs.existsSync(filePath)) return res.sendFile(filePath);

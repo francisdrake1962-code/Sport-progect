@@ -98,7 +98,7 @@ Plan: `C:\Ded\спорт\Разное\План корректировки пос
 - **watch-progress**: free_sessions_used increment + analytics tracking intermixed with progress save; no service exists for this
 - **progress** (GET /progress): service not paginated, route has pagination — would need refactor
 - **can-watch** (GET /can-watch/:lessonId): simple access check, no service method
-- **stream-token** (GET /stream-token/:lessonId): Cloudflare Stream integration, external service dependency, multi-language lesson_media lookup — too specific for generic service
+- **stream-token** (GET /stream-token/:lessonId): Mux signed-URL integration, external service dependency, multi-language lesson_media lookup — too specific for generic service
 - **calendar** (GET /calendar): complex SQL JOIN + schedule rotation logic; service (schedule.service.js) was dead code and has been **removed** in v5.10.0
 - **lessons-filter** (GET /lessons-filter): complex multi-parameter filtering in JS; need significant refactor to extract
 - **onboarding** (GET+POST /onboarding): simple CRUD for user_preferences, already clean
@@ -443,7 +443,7 @@ server/
 │   ├── recommendation.service.js — Lesson recommendations (NEW v5.5.0, FIXED v5.5.1)
 │   ├── content-version.service.js — Content versioning (NEW v5.5.0, FIXED v5.5.1)
 │   ├── mailer.js         — Email sending
-│   └── stream.js         — Cloudflare Stream
+│   └── stream.js         — Mux: Direct Upload + подпись playback
 ├── repositories/
 │   ├── base.repository.js — Generic CRUD repository
 │   ├── subscriber.repository.js

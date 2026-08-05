@@ -125,24 +125,24 @@ describe('Backend — mailer module', () => {
 describe('Backend — stream module', () => {
   const stream = require('../server/services/stream');
 
-  test('should export isStreamConfigured function', () => {
-    expect(typeof stream.isStreamConfigured).toBe('function');
+  test('should export isMuxConfigured function', () => {
+    expect(typeof stream.isMuxConfigured).toBe('function');
   });
 
-  test('should export generateSignedToken function', () => {
-    expect(typeof stream.generateSignedToken).toBe('function');
+  test('should export isMuxUploadConfigured function', () => {
+    expect(typeof stream.isMuxUploadConfigured).toBe('function');
   });
 
-  test('should export getStreamUrl function', () => {
-    expect(typeof stream.getStreamUrl).toBe('function');
+  test('should export signMuxPlaybackId function', () => {
+    expect(typeof stream.signMuxPlaybackId).toBe('function');
   });
 
-  test('isStreamConfigured should return false without env vars', async () => {
-    expect(await stream.isStreamConfigured()).toBe(false);
+  test('isMuxConfigured should return false without env vars', async () => {
+    expect(await stream.isMuxConfigured()).toBe(false);
   });
 
-  test('generateSignedToken should return null when not configured', async () => {
-    expect(await stream.generateSignedToken('test-uid')).toBeNull();
+  test('signMuxPlaybackId should return null when not configured', async () => {
+    expect(await stream.signMuxPlaybackId('test-playback-id')).toBeNull();
   });
 });
 
@@ -172,10 +172,10 @@ describe('Backend — Database tables', () => {
     expect(result[0].values[0][0]).toBeGreaterThanOrEqual(1);
   });
 
-  test('lessons table should have cf_video_uid column', () => {
+  test('lessons table should have video_id column', () => {
     const result = db.exec(`PRAGMA table_info(lessons)`);
     const cols = result[0].values.map(r => r[1]);
-    expect(cols).toContain('cf_video_uid');
+    expect(cols).toContain('video_id');
   });
 });
 
@@ -748,12 +748,20 @@ describe('API Integration — Stream Token', () => {
     paidToken = login.body.token;
   });
 
-  test('GET /api/user/stream-token should return 503 when not configured', async () => {
+  test('GET /api/user/stream-token should return 503 for mux lesson when Mux not configured', async () => {
+    const { getDb, saveDb } = require('../server/db');
+    const db = await getDb();
+    db.run(`UPDATE lessons SET video_provider = 'mux', video_id = 'pb-test-1' WHERE id = 1`);
+    saveDb();
+
     const res = await apiRequest('GET', '/api/user/stream-token/1', null, paidToken);
     expect(res.status).toBe(503);
     expect(res.body.success).toBe(false);
     expect(res.body.error.code).toBe('STREAMING_NOT_CONFIGURED');
     expect(res.body.error.message).toBe('Streaming not configured');
+
+    db.run(`UPDATE lessons SET video_provider = 'local', video_id = NULL WHERE id = 1`);
+    saveDb();
   });
 
   test('GET /api/user/stream-token should reject invalid lesson ID', async () => {

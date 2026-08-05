@@ -61,7 +61,10 @@ async function runMigrations() {
   }
   for (const file of pending) {
     const filePath = path.join(MIGRATIONS_DIR, file);
-    const sql = fs.readFileSync(filePath, 'utf8');
+    const sql = fs.readFileSync(filePath, 'utf8')
+      // Strip -- line comments so semicolons inside comments never break the
+      // statement split below.
+      .split('\n').map(line => line.replace(/--.*$/, '')).join('\n');
     db.run('PRAGMA foreign_keys = OFF');
     try {
       db.run('BEGIN');
@@ -70,8 +73,16 @@ async function runMigrations() {
         try {
           db.run(stmt);
         } catch (stmtErr) {
-          if (stmt.toUpperCase().startsWith('ALTER TABLE') && stmtErr.message && stmtErr.message.includes('duplicate column')) {
-            continue;
+          if (stmt.toUpperCase().startsWith('ALTER TABLE')) {
+            if (stmtErr.message && stmtErr.message.includes('duplicate column')) {
+              continue;
+            }
+            // RENAME COLUMN throws "no such column: <old>" when the schema was
+            // already created with the new column name (e.g. a fresh DB whose
+            // base schema in db.js already uses the new name). Treat as applied.
+            if (stmt.toUpperCase().includes('RENAME COLUMN') && stmtErr.message && stmtErr.message.includes('no such column')) {
+              continue;
+            }
           }
           throw stmtErr;
         }

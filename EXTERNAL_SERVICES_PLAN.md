@@ -40,12 +40,12 @@
 
 ---
 
-## 2. ВИДЕО — Cloudflare Stream
+## 2. ВИДЕО — Mux (единственный стриминг-провайдер)
 
 ### Текущее состояние
-- Код написан: `stream.js` генерирует подписанные токены, плеер использует HLS.js
-- **Нет аккаунта Cloudflare / ключей подписи**
-- Fallback: self-hosted MP4 через Express (работает, но без CDN и адаптивного битрейта)
+- Cloudflare Stream полностью удалён из кода и БД (2026-08-05): `video_provider` только `mux`/`local`, playback ID в колонке `video_id`.
+- Mux: Direct Upload + подписанный HLS (`signMuxPlaybackId`, HS256). Настроен через `.env` или `settings`.
+- Fallback: self-hosted MP4 через Express (работает, но без CDN и адаптивного битрейта).
 
 ### Проблемы self-hosted видео
 1. Видео 200-500MB каждое — загрузка через Node.js процесс

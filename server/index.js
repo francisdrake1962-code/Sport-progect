@@ -15,7 +15,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const { FREE_LIMIT } = userRoutes;
 const { resetMailConfig, sendConfirmationEmail } = require('./services/mailer');
-const { resetStreamConfig, isStreamConfigured: checkStreamConfigured, isMuxConfigured, isMuxUploadConfigured, createMuxDirectUpload, getMuxAssetDetails, getMuxUploadStatus } = require('./services/stream');
+const { resetStreamConfig, isMuxConfigured, isMuxUploadConfigured, createMuxDirectUpload, getMuxAssetDetails, getMuxUploadStatus } = require('./services/stream');
 const { parsePagination } = require('./helpers/pagination');
 const { requestIdMiddleware } = require('./middleware/requestId');
 const { requestLogger, createLogger } = require('./helpers/logger');
@@ -159,6 +159,8 @@ const imageFilter = (req, file, cb) => {
 
 const uploadImage = multer({ storage: imageStorage, fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
+const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
 app.use('/uploads', express.static(uploadsDir));
 
 app.get('/api/health', async (req, res) => {
@@ -216,7 +218,7 @@ app.get('/api/lessons', async (req, res) => {
     const countResult = db.exec(`SELECT COUNT(*) FROM lessons WHERE status = 'active'`);
     const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
     const result = db.exec(
-      `SELECT id, title, duration, status, description, video_url, cf_video_uid, image_url, is_free, free_order, date, tags, direction, effect_description, video_provider FROM lessons WHERE status = 'active' ORDER BY date DESC LIMIT ? OFFSET ?`,
+      `SELECT id, title, theme, duration, status, description, video_url, video_id, image_url, is_free, free_order, sort_order, catalog_no, date, tags, direction, goals, effect_description, effect_is_draft, video_provider, intensity FROM lessons WHERE status = 'active' ORDER BY COALESCE(sort_order, 999999) ASC, date DESC LIMIT ? OFFSET ?`,
       [limit, offset]
     );
     res.json({
@@ -254,9 +256,9 @@ app.get('/api/lessons/featured', async (req, res) => {
     const db = await getDb();
     const limit = parseInt(req.query.limit) || 10;
     const result = db.exec(
-      `SELECT id, title, duration, image_url, effect_description, direction
+      `SELECT id, title, theme, duration, image_url, goals, effect_description, direction, intensity
        FROM lessons WHERE status = 'active' AND image_url IS NOT NULL
-       ORDER BY date DESC LIMIT ?`, [limit]
+       ORDER BY COALESCE(sort_order, 999999) ASC, date DESC LIMIT ?`, [limit]
     );
     res.json(queryToObjects(result));
   } catch (err) {
@@ -435,7 +437,7 @@ const api = express.Router();
 api.use(authMiddleware);
 api.use(requireAdmin);
 
-api.use('/lessons', createCrudRoutes('lessons', ['title', 'duration', 'status', 'description', 'video_url', 'cf_video_uid', 'image_url', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft', 'video_provider']));
+  api.use('/lessons', createCrudRoutes('lessons', ['title', 'theme', 'duration', 'status', 'description', 'video_url', 'video_id', 'image_url', 'is_free', 'free_order', 'sort_order', 'catalog_no', 'date', 'tags', 'direction', 'direction_source', 'goals', 'effect_description', 'effect_is_draft', 'video_provider', 'intensity']));
 api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'image_url', 'status']));
 
 // complex_lessons — custom routes (composite PK)
@@ -517,11 +519,11 @@ api.get('/lesson-media', async (req, res, next) => {
 
 api.post('/lesson-media', async (req, res, next) => {
   try {
-    const { lesson_id, language, cf_video_uid, video_url, video_provider, status } = req.body;
+    const { lesson_id, language, video_id, video_url, video_provider, status } = req.body;
     if (!lesson_id || !language) return res.status(400).json({ error: 'lesson_id and language required' });
     const db = await getDb();
-    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, cf_video_uid, video_url, video_provider, status) VALUES (?, ?, ?, ?, ?, ?)`,
-      [lesson_id, language, cf_video_uid || null, video_url || null, video_provider || 'cloudflare', status || 'pending']);
+    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, video_id, video_url, video_provider, status) VALUES (?, ?, ?, ?, ?, ?)`,
+      [lesson_id, language, video_id || null, video_url || null, video_provider || 'mux', status || 'pending']);
     saveDb();
     auditService.logAction('create', 'lesson_media', null, req.user?.id, req.user?.role, { lesson_id, language }, req.ip);
     res.status(201).json({ success: true });
@@ -531,11 +533,11 @@ api.post('/lesson-media', async (req, res, next) => {
 api.put('/lesson-media/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { cf_video_uid, video_url, video_provider, status } = req.body;
+    const { video_id, video_url, video_provider, status } = req.body;
     const db = await getDb();
     const check = db.exec(`SELECT id FROM lesson_media WHERE id = ?`, [id]);
     if (!check.length || !check[0].values.length) return res.status(404).json({ error: 'Not found' });
-    if (cf_video_uid !== undefined) db.run(`UPDATE lesson_media SET cf_video_uid = ? WHERE id = ?`, [cf_video_uid, id]);
+    if (video_id !== undefined) db.run(`UPDATE lesson_media SET video_id = ? WHERE id = ?`, [video_id, id]);
     if (video_url !== undefined) db.run(`UPDATE lesson_media SET video_url = ? WHERE id = ?`, [video_url, id]);
     if (video_provider !== undefined) db.run(`UPDATE lesson_media SET video_provider = ? WHERE id = ?`, [video_provider, id]);
     if (status !== undefined) db.run(`UPDATE lesson_media SET status = ? WHERE id = ?`, [status, id]);
@@ -556,13 +558,78 @@ api.delete('/lesson-media/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/* ── Admin: import lessons from catalog file (.txt / .xlsx / .docx) ── */
+api.post('/admin/lessons/import', importUpload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Файл обязателен' });
+    const action = (req.body && req.body.action) || 'preview';
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const { parseText, parseXlsx, parseDocx } = require('./services/lesson-import');
+
+    let rows;
+    if (ext === '.txt' || ext === '.csv') {
+      rows = parseText(req.file.buffer.toString('utf8'));
+    } else if (ext === '.xlsx' || ext === '.xls') {
+      rows = parseXlsx(req.file.buffer);
+    } else if (ext === '.docx') {
+      rows = await parseDocx(req.file.buffer);
+    } else {
+      return res.status(400).json({ error: 'Неподдерживаемый формат. Используйте .txt, .xlsx или .docx' });
+    }
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Не удалось распознать строки. Проверьте структуру файла (№ | Название | Цель | Эффект)' });
+    }
+
+    const db = await getDb();
+    const nums = rows.map((r) => r.catalogNo);
+    const placeholders = nums.map(() => '?').join(', ');
+    const existingResult = db.exec(`SELECT id, catalog_no FROM lessons WHERE catalog_no IN (${placeholders})`, nums);
+    const existing = {};
+    queryToObjects(existingResult).forEach((r) => { existing[r.catalog_no] = r.id; });
+
+    const preview = rows.map((r) => ({
+      catalogNo: r.catalogNo,
+      title: r.title,
+      theme: r.theme,
+      goals: r.goals,
+      effect: r.effect,
+      action: existing[r.catalogNo] ? 'update' : 'new',
+      lessonId: existing[r.catalogNo] || null,
+    }));
+
+    if (action === 'apply') {
+      let created = 0;
+      let updated = 0;
+      for (const r of rows) {
+        const id = existing[r.catalogNo];
+        if (id) {
+          db.run(`UPDATE lessons SET title = ?, theme = ?, goals = ?, effect_description = ?, sort_order = ? WHERE id = ?`,
+            [r.title, r.theme, r.goals, r.effect, r.catalogNo, id]);
+          updated++;
+        } else {
+          db.run(`INSERT INTO lessons (catalog_no, title, theme, goals, effect_description, sort_order, status) VALUES (?, ?, ?, ?, ?, ?, 'draft')`,
+            [r.catalogNo, r.title, r.theme, r.goals, r.effect, r.catalogNo]);
+          created++;
+        }
+      }
+      saveDb();
+      auditService.logAction('import', 'lessons', null, req.user?.id, req.user?.role,
+        { created, updated, source: req.file.originalname }, req.ip);
+      return res.json({ success: true, created, updated, total: rows.length });
+    }
+
+    res.json({ success: true, preview, total: preview.length, filename: req.file.originalname });
+  } catch (err) { next(err); }
+});
+
 /* ── Public: get lesson media for a specific lesson ── */
 app.get('/api/lessons/:id/media', async (req, res) => {
   try {
     const lessonId = Number(req.params.id);
     if (!Number.isInteger(lessonId) || lessonId <= 0) return res.status(400).json({ error: 'Invalid lesson ID' });
     const db = await getDb();
-    const result = db.exec(`SELECT id, lesson_id, language, cf_video_uid, video_url, status FROM lesson_media WHERE lesson_id = ?`, [lessonId]);
+    const result = db.exec(`SELECT id, lesson_id, language, video_id, video_url, status FROM lesson_media WHERE lesson_id = ?`, [lessonId]);
     const rows = queryToObjects(result);
     res.json({ data: rows });
   } catch {
@@ -686,7 +753,6 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'trainer_photo_mode', 'trainer_photo_url', 'trainer_photos', 'trainer_photo_interval',
   'promo_discount', 'promo_code', 'promo_expiry_hours',
   'mail_provider', 'gmail_user', 'gmail_app_password', 'email_from',
-  'cf_stream_signing_key_id', 'cf_stream_signing_key', 'cf_stream_customer_code',
   'mux_signing_key_id', 'mux_signing_key', 'mux_access_token_id', 'mux_access_token_secret',
   'stripe_monthly_price_id', 'stripe_annual_price_id',
 ]);
@@ -745,17 +811,6 @@ api.post('/settings/test-email', async (req, res) => {
     resetMailConfig();
     await sendConfirmationEmail(email, 'test-token-' + Date.now());
     res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-api.post('/settings/test-stream', async (req, res) => {
-  try {
-    resetStreamConfig();
-    const configured = await checkStreamConfigured();
-    res.json({ configured });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -1019,14 +1074,14 @@ api.get('/admin/video-uploads/:id/status', async (req, res, next) => {
     const uploadId = Number(req.params.id);
     if (!Number.isInteger(uploadId) || uploadId <= 0) return res.status(400).json({ error: 'Invalid upload ID' });
     const db = await getDb();
-    const result = db.exec(`SELECT id, status, provider, cf_video_uid, mux_upload_id, mux_asset_id, mux_playback_id, error_message FROM video_uploads WHERE id = ?`, [uploadId]);
+    const result = db.exec(`SELECT id, status, provider, video_id, mux_upload_id, mux_asset_id, mux_playback_id, error_message FROM video_uploads WHERE id = ?`, [uploadId]);
     if (!result.length || !result[0].values.length) return res.status(404).json({ error: 'Upload not found' });
     const row = result[0].values[0];
     const payload = {
       id: row[0],
       status: row[1],
-      provider: row[2] || 'cloudflare',
-      cf_video_uid: row[3] || null,
+      provider: row[2] || 'mux',
+      video_id: row[3] || null,
       mux_upload_id: row[4] || null,
       mux_asset_id: row[5] || null,
       mux_playback_id: row[6] || null,
@@ -1068,9 +1123,9 @@ api.delete('/admin/lessons/:id/video', async (req, res, next) => {
     const db = await getDb();
     const check = db.exec(`SELECT id, video_provider FROM lessons WHERE id = ?`, [lessonId]);
     if (!check.length || !check[0].values.length) return res.status(404).json({ error: 'Lesson not found' });
-    const provider = check[0].values[0][1] || 'cloudflare';
-    db.run(`UPDATE lessons SET cf_video_uid = NULL, video_url = NULL, video_provider = ? WHERE id = ?`, [provider, lessonId]);
-    db.run(`UPDATE lesson_media SET cf_video_uid = NULL, video_url = NULL, status = 'pending' WHERE lesson_id = ?`, [lessonId]);
+    const provider = check[0].values[0][1] || 'mux';
+    db.run(`UPDATE lessons SET video_id = NULL, video_url = NULL, video_provider = ? WHERE id = ?`, [provider, lessonId]);
+    db.run(`UPDATE lesson_media SET video_id = NULL, video_url = NULL, status = 'pending' WHERE lesson_id = ?`, [lessonId]);
     saveDb();
     auditService.logAction('delete', 'lesson_video', lessonId, req.user?.id, req.user?.role, null, req.ip);
     res.json({ success: true });
@@ -1411,7 +1466,7 @@ function seedData(db) {
     ['Крепкий корпус', 33, 'active', '2026-07-12', '/videos/13 ИЮЛЯ 2026. ЗАНЯТИЕ В ПОТОКЕ++-cut-merged-1784297859174.mp4', 0, null, '["поясница","осанка","энергия"]', 'суставная_разминка', 'нет_данных', null],
   ];
   lessons.forEach(([title, dur, status, date, video, isFree, freeOrder, tags, direction, dirSource, effectDesc]) => {
-    db.run(`INSERT OR IGNORE INTO lessons (title, duration, status, date, video_url, is_free, free_order, tags, direction, direction_source, effect_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    db.run(`INSERT OR IGNORE INTO lessons (title, duration, status, date, video_url, is_free, free_order, tags, direction, direction_source, effect_description, video_provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local')`,
       [title, dur, status, date, video, isFree, freeOrder, tags || '[]', direction, dirSource, effectDesc]);
   });
 

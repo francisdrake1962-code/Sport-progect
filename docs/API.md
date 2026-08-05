@@ -287,7 +287,8 @@ Readiness-check. Возвращает 503 до момента полной ин�
       "status": "active",
       "description": "...",
       "video_url": "/videos/filename.mp4",
-      "cf_video_uid": "...",
+      "video_id": "mux playback id (подписанные ссылки)",
+      "video_provider": "mux",
       "image_url": "...",
       "is_free": 1,
       "free_order": 1,
@@ -418,7 +419,7 @@ FAQ. Отсортировано по `sort_order`. Возвращает: `id`, `
 | GET | `/api/user/progress` | JWT | subscriber | Список просмотренных уроков |
 | GET | `/api/user/progress/:lessonId` | JWT | subscriber | Прогресс конкретного урока |
 | GET | `/api/user/can-watch/:lessonId` | JWT | subscriber | Проверка доступа к уроку |
-| GET | `/api/user/stream-token/:lessonId` | JWT | subscriber | Токен Cloudflare Stream |
+| GET | `/api/user/stream-token/:lessonId` | JWT | subscriber | Подписанный Mux stream URL |
 | GET | `/api/user/calendar` | JWT | subscriber | Персональный календарь |
 | GET | `/api/user/lessons-filter` | JWT | subscriber | Фильтрация уроков |
 | GET | `/api/user/onboarding` | JWT | subscriber | Получение предпочтений |
@@ -662,7 +663,7 @@ CRUD-эндпоинты генерируются автоматически дл
 
 | Ресурс | Путь | Поля (create/update) |
 |--------|------|----------------------|
-| Уроки | `/api/lessons` | title, duration, status, description, video_url, cf_video_uid, image_url, is_free, free_order, date, tags, direction, direction_source, effect_description, effect_is_draft |
+| Уроки | `/api/lessons` | title, duration, status, description, video_url, video_id, video_provider, image_url, is_free, free_order, sort_order, catalog_no, date, tags, direction, direction_source, goals, effect_description, effect_is_draft, intensity |
 | Комплексы | `/api/complexes` | name, description, image_url, status |
 | Подписчики | `/api/subscribers` | name, email, plan, status, email_confirmed, free_sessions_used, subscription_started_at, next_billing_date |
 | Отзывы | `/api/reviews` | author, text, rating, status, date |
@@ -750,10 +751,10 @@ CRUD-эндпоинты генерируются автоматически дл
 | PUT | `/api/settings` | Массовое обновление настроек |
 | POST | `/api/settings` | Обновление одной/нескольких |
 | POST | `/api/settings/test-email` | Тест отправки email |
-| POST | `/api/settings/test-stream` | Тест Cloudflare Stream |
+| POST | `/api/settings/test-mux` | Тест конфигурации Mux (стриминг + загрузка) |
 
 Допустимые ключи настроек:
-`app_name`, `domain`, `logo_url`, `theme_color`, `contact_email`, `support_email`, `phone`, `address`, `social_vk`, `social_telegram`, `trial_days`, `annual_price`, `monthly_price`, `trainer_photo_mode`, `trainer_photo_url`, `trainer_photos`, `trainer_photo_interval`, `promo_discount`, `promo_code`, `promo_expiry_hours`, `mail_provider`, `gmail_user`, `gmail_app_password`, `email_from`, `cf_stream_signing_key_id`, `cf_stream_signing_key`, `cf_stream_customer_code`.
+`app_name`, `domain`, `logo_url`, `theme_color`, `contact_email`, `support_email`, `phone`, `address`, `social_vk`, `social_telegram`, `trial_days`, `annual_price`, `monthly_price`, `trainer_photo_mode`, `trainer_photo_url`, `trainer_photos`, `trainer_photo_interval`, `promo_discount`, `promo_code`, `promo_expiry_hours`, `mail_provider`, `gmail_user`, `gmail_app_password`, `email_from`, `mux_signing_key_id`, `mux_signing_key`, `mux_access_token_id`, `mux_access_token_secret`.
 
 **Body (PUT) — массовое:**
 ```json
@@ -1324,7 +1325,7 @@ Authorization: Bearer <admin-token>
 | 32 | GET | `/api/user/progress` | JWT | subscriber | История просмотров |
 | 33 | GET | `/api/user/progress/:lessonId` | JWT | subscriber | Прогресс урока |
 | 34 | GET | `/api/user/can-watch/:lessonId` | JWT | subscriber | Проверка доступа |
-| 35 | GET | `/api/user/stream-token/:lessonId` | JWT | subscriber | Токен Cloudflare Stream |
+| 35 | GET | `/api/user/stream-token/:lessonId` | JWT | subscriber | Подписанный Mux stream URL |
 | 36 | GET | `/api/user/calendar` | JWT | subscriber | Календарь занятий |
 | 37 | GET | `/api/user/lessons-filter` | JWT | subscriber | Фильтрация уроков |
 | 38 | GET | `/api/user/onboarding` | JWT | subscriber | Получение предпочтений |
@@ -1387,9 +1388,10 @@ Authorization: Bearer <admin-token>
 | `GMAIL_USER` | — | Gmail адрес |
 | `GMAIL_APP_PASSWORD` | — | Gmail App Password |
 | `EMAIL_FROM` | — | Email отправителя |
-| `CF_STREAM_CUSTOMER_CODE` | — | Cloudflare Stream customer code |
-| `CF_STREAM_SIGNING_KEY_ID` | — | Cloudflare Stream signing key ID |
-| `CF_STREAM_SIGNING_KEY` | — | Cloudflare Stream signing key |
+| `MUX_SIGNING_KEY_ID` | — | Mux signing key ID (подпись playback) |
+| `MUX_SIGNING_KEY` | — | Mux signing key (подпись playback) |
+| `MUX_ACCESS_TOKEN_ID` | — | Mux access token ID (загрузка видео) |
+| `MUX_ACCESS_TOKEN_SECRET` | — | Mux access token secret (загрузка видео) |
 | `STRIPE_SECRET_KEY` | — | Stripe secret API key |
 | `STRIPE_WEBHOOK_SECRET` | — | Stripe webhook signing secret |
 | `STRIPE_MONTHLY_PRICE_ID` | — | Stripe Price ID для ежемесячного плана |

@@ -56,6 +56,7 @@ const adminPages = [
   'login',
   'index',
   'lessons',
+  'import',
   'complexes',
   'schedule',
   'users',

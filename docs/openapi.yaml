@@ -58,8 +58,11 @@ components:
           type: string
         video_url:
           type: string
-        cf_video_uid:
+        video_id:
           type: string
+        video_provider:
+          type: string
+          enum: [mux, local]
         image_url:
           type: string
         is_free:
@@ -67,6 +70,13 @@ components:
           enum: [0, 1]
         free_order:
           type: integer
+        sort_order:
+          type: integer
+        catalog_no:
+          type: integer
+        intensity:
+          type: string
+          enum: [low, medium, high]
         date:
           type: string
         tags:
@@ -124,12 +134,15 @@ components:
           type: integer
         language:
           type: string
-        cf_video_uid:
+        video_id:
           type: string
           nullable: true
         video_url:
           type: string
           nullable: true
+        video_provider:
+          type: string
+          enum: [mux, local]
         status:
           type: string
           enum: [pending, processing, ready]
@@ -887,7 +900,7 @@ paths:
   /user/stream-token/{id}:
     get:
       tags: [User]
-      summary: Get video stream token
+      summary: Get signed video stream URL (Mux)
       parameters:
         - name: id
           in: path
@@ -1213,8 +1226,11 @@ paths:
                   type: string
                 video_url:
                   type: string
-                cf_video_uid:
+                video_id:
                   type: string
+                video_provider:
+                  type: string
+                  enum: [mux, local]
                 image_url:
                   type: string
                 is_free:
@@ -2087,10 +2103,13 @@ paths:
                   type: integer
                 language:
                   type: string
-                cf_video_uid:
+                video_id:
                   type: string
                 video_url:
                   type: string
+                video_provider:
+                  type: string
+                  enum: [mux, local]
                 status:
                   type: string
                   enum: [pending, processing, ready]
@@ -2118,10 +2137,13 @@ paths:
             schema:
               type: object
               properties:
-                cf_video_uid:
+                video_id:
                   type: string
                 video_url:
                   type: string
+                video_provider:
+                  type: string
+                  enum: [mux, local]
                 status:
                   type: string
       responses:

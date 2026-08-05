@@ -34,8 +34,6 @@ beforeAll(async () => {
   delete process.env.MUX_SIGNING_KEY;
   delete process.env.MUX_ACCESS_TOKEN_ID;
   delete process.env.MUX_ACCESS_TOKEN_SECRET;
-  delete process.env.CLOUDFLARE_STREAM_SIGNING_KEY_ID;
-  delete process.env.CLOUDFLARE_STREAM_SIGNING_KEY;
 
   const { resetDb } = require('../server/db');
   resetDb();
@@ -74,11 +72,11 @@ describe('Video providers — DB schema', () => {
     expect(cols).toContain('video_provider');
   });
 
-  test('existing lessons default to cloudflare provider', async () => {
+  test('seeded lessons use local provider', async () => {
     const { getDb } = require('../server/db');
     const db = await getDb();
     const result = db.exec(`SELECT video_provider FROM lessons WHERE id = 1`);
-    expect(result[0].values[0][0]).toBe('cloudflare');
+    expect(result[0].values[0][0]).toBe('local');
   });
 });
 
@@ -136,10 +134,18 @@ describe('Video providers — Mux module', () => {
 });
 
 describe('Video providers — stream-token dispatch', () => {
-  test('stream-token returns 503 when neither provider is configured', async () => {
+  test('stream-token returns 503 for mux lesson when Mux not configured', async () => {
+    const { getDb, saveDb } = require('../server/db');
+    const db = await getDb();
+    db.run(`UPDATE lessons SET video_provider = 'mux', video_id = 'pb-test-1' WHERE id = 1`);
+    saveDb();
+
     const token = await loginSubscriber();
     const res = await apiRequest('GET', '/api/user/stream-token/1', null, token);
     expect(res.status).toBe(503);
+
+    db.run(`UPDATE lessons SET video_provider = 'local', video_id = NULL WHERE id = 1`);
+    saveDb();
   });
 
   test('mux lesson returns signed Mux stream URL when Mux configured', async () => {
@@ -150,7 +156,7 @@ describe('Video providers — stream-token dispatch', () => {
 
     const { getDb, saveDb } = require('../server/db');
     const db = await getDb();
-    db.run(`UPDATE lessons SET video_provider = 'mux', cf_video_uid = 'pb-test-1' WHERE id = 1`);
+    db.run(`UPDATE lessons SET video_provider = 'mux', video_id = 'pb-test-1' WHERE id = 1`);
     saveDb();
 
     const token = await loginSubscriber();
@@ -159,19 +165,19 @@ describe('Video providers — stream-token dispatch', () => {
     expect(res.body.streamUrl).toMatch(/^https:\/\/stream\.mux\.com\/pb-test-1\.m3u8\?token=/);
     expect(res.body.videoAccessToken).toBeDefined();
 
-    db.run(`UPDATE lessons SET video_provider = 'cloudflare', cf_video_uid = NULL WHERE id = 1`);
+    db.run(`UPDATE lessons SET video_provider = 'local', video_id = NULL WHERE id = 1`);
     saveDb();
     delete process.env.MUX_SIGNING_KEY_ID;
     delete process.env.MUX_SIGNING_KEY;
     resetStreamConfig();
   });
 
-  test('cloudflare lesson with only Mux configured returns null streamUrl (not 503)', async () => {
+  test('local lesson returns null streamUrl (player uses video_url fallback)', async () => {
     process.env.MUX_SIGNING_KEY_ID = 'signing-kid-test';
     process.env.MUX_SIGNING_KEY = 'signing-secret-test-0123456789';
     const { getDb, saveDb } = require('../server/db');
     const db = await getDb();
-    db.run(`UPDATE lessons SET video_provider = 'cloudflare', cf_video_uid = 'cf-test-1' WHERE id = 1`);
+    db.run(`UPDATE lessons SET video_provider = 'local', video_id = NULL, video_url = '/videos/test.mp4' WHERE id = 1`);
     saveDb();
 
     const { resetStreamConfig } = require('../server/services/stream');
@@ -183,7 +189,7 @@ describe('Video providers — stream-token dispatch', () => {
     expect(res.body.streamUrl).toBeNull();
     expect(res.body.videoAccessToken).toBeDefined();
 
-    db.run(`UPDATE lessons SET video_provider = 'cloudflare', cf_video_uid = NULL WHERE id = 1`);
+    db.run(`UPDATE lessons SET video_provider = 'local', video_id = NULL, video_url = '/videos/11 ИЮНЯ. 2025 СУСТАВНАЯ РАЗМИНКА-1784275001698.mp4' WHERE id = 1`);
     saveDb();
     delete process.env.MUX_SIGNING_KEY_ID;
     delete process.env.MUX_SIGNING_KEY;

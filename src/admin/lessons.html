@@ -19,65 +19,81 @@
             </div>
             <div class="modal__body">
                 <input type="hidden" id="edit-id">
-                <div class="form-group"><label for="f-title">Название</label><input type="text" class="form-control" id="f-title"></div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                    <div class="form-group"><label for="f-duration">Длительность (мин)</label><input type="number" class="form-control" id="f-duration" value="27"></div>
-                    <div class="form-group"><label for="f-status">Статус</label><select class="form-control" id="f-status"><option value="active">Активен</option><option value="draft">Черновик</option></select></div>
+                <div class="form-tabs">
+                    <button type="button" class="form-tab is-active" data-tab="tab-desc">Описание</button>
+                    <button type="button" class="form-tab" data-tab="tab-video">Видео</button>
+                    <button type="button" class="form-tab" data-tab="tab-pub">Публикация</button>
                 </div>
-                <div class="form-group">
-                    <label>Направление</label>
-                    <div style="display:flex;gap:1rem;margin-top:0.25rem;">
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="radio" name="f-direction" value="суставная_разминка"> Суставная разминка</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="radio" name="f-direction" value="занятие_в_потоке"> Занятие в потоке</label>
+                <div class="form-tab-panel" id="tab-desc">
+                    <div class="form-group"><label for="f-title">Название</label><input type="text" class="form-control" id="f-title"></div>
+                    <div class="form-group"><label for="f-theme">Тема занятия</label><input type="text" class="form-control" id="f-theme" placeholder="Например: мягкое движение, дыхание и баланс"></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+                        <div class="form-group"><label for="f-duration">Длительность (мин)</label><input type="number" class="form-control" id="f-duration" value="27"></div>
+                        <div class="form-group"><label for="f-status">Статус</label><select class="form-control" id="f-status"><option value="active">Активен</option><option value="draft">Черновик</option></select></div>
+                        <div class="form-group"><label for="f-intensity">Нагрузка</label><select class="form-control" id="f-intensity"><option value="">Не указана</option><option value="low">Щадящая (низкая)</option><option value="medium">Средняя</option><option value="high">Интенсивная (высокая)</option></select></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Направление</label>
+                        <div style="display:flex;gap:1rem;margin-top:0.25rem;">
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="radio" name="f-direction" value="суставная_разминка"> Суставная разминка</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="radio" name="f-direction" value="занятие_в_потоке"> Занятие в потоке</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Зоны тела</label>
+                        <div id="f-zones" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-top:0.25rem;font-size:0.85rem;">
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="шея"> Шея</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="плечи_руки"> Плечи/руки</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="грудной_отдел"> Грудной отдел</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="поясница"> Поясница</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="спина_осанка"> Спина/осанка</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="колени"> Колени</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="ноги_таз"> Ноги/таз</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="баланс_общее"> Баланс</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="f-goals">Цели занятия</label>
+                        <textarea class="form-control" id="f-goals" rows="2" placeholder="Что развивается/восстанавливается на занятии"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="f-effect">Описание эффекта</label>
+                        <div id="f-draft-badge" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:0.3rem 0.6rem;margin-bottom:0.4rem;font-size:0.8rem;color:#856404;">Черновик — проверьте формулировку</div>
+                        <textarea class="form-control" id="f-effect" rows="3" placeholder="Описание пользы/воздействия занятия"></textarea>
+                        <input type="hidden" id="f-effect-is-draft">
+                    </div>
+                    <div class="form-group"><label for="f-description">Описание</label><textarea class="form-control" id="f-description"></textarea></div>
+                </div>
+                <div class="form-tab-panel" id="tab-video" style="display:none">
+                    <div class="form-group"><label for="f-video-url">URL видео</label><input type="text" class="form-control" id="f-video-url" placeholder="/videos/filename.mp4"></div>
+                    <div class="form-group"><label for="f-video-id">Видео ID (плеер)</label><input type="text" class="form-control" id="f-video-id" placeholder="Mux playback id (опционально)"></div>
+                    <div id="stream-upload-container"></div>
+                    <div class="form-group">
+                        <label style="font-weight:600;">Языковые версии (lesson_media)</label>
+                        <div id="f-media-list" style="margin-top:0.4rem;font-size:0.85rem;">
+                            <div style="color:var(--admin-text-muted);">Загрузка...</div>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:end;">
+                            <div class="form-group" style="margin:0;flex:1;"><label for="f-media-lang" style="font-size:0.8rem;">Язык</label><select class="form-control" id="f-media-lang"><option value="en">en</option><option value="ru">ru</option></select></div>
+                            <div class="form-group" style="margin:0;flex:2;"><label for="f-media-cf" style="font-size:0.8rem;">Video ID</label><input type="text" class="form-control" id="f-media-cf" placeholder="video id"></div>
+                            <button class="btn btn--primary btn--sm" onclick="addLessonMedia()" style="white-space:nowrap;">+ Добавить</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Картинка</label>
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
+                            <input type="file" id="f-image" accept=".jpg,.jpeg,.png,.webp" style="font-size:0.85rem;">
+                            <img id="f-image-preview" src="" alt="" style="display:none;max-height:60px;border-radius:4px;">
+                        </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Зоны тела</label>
-                    <div id="f-zones" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-top:0.25rem;font-size:0.85rem;">
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="шея"> Шея</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="плечи_руки"> Плечи/руки</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="грудной_отдел"> Грудной отдел</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="поясница"> Поясница</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="спина_осанка"> Спина/осанка</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="колени"> Колени</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="ноги_таз"> Ноги/таз</label>
-                        <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="баланс_общее"> Баланс</label>
+                <div class="form-tab-panel" id="tab-pub" style="display:none">
+                    <div class="form-group"><label for="f-catalog-no">№ в каталоге</label><input type="number" class="form-control" id="f-catalog-no" placeholder="Связывает описание и видео (из файла импорта)"></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+                        <div class="form-group"><label for="f-is-free">Бесплатный</label><select class="form-control" id="f-is-free"><option value="0">Нет</option><option value="1">Да (Module 0)</option></select></div>
+                        <div class="form-group"><label for="f-free-order">Порядок бесплатного</label><input type="number" class="form-control" id="f-free-order" placeholder="1-7" min="1" max="7"></div>
+                        <div class="form-group"><label for="f-sort-order">Порядок в каталоге</label><input type="number" class="form-control" id="f-sort-order" placeholder="Номер в списке"></div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label for="f-effect">Описание эффекта</label>
-                    <div id="f-draft-badge" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:0.3rem 0.6rem;margin-bottom:0.4rem;font-size:0.8rem;color:#856404;">Черновик — проверьте формулировку</div>
-                    <textarea class="form-control" id="f-effect" rows="3" placeholder="Описание пользы/воздействия занятия"></textarea>
-                    <input type="hidden" id="f-effect-is-draft">
-                </div>
-                <div class="form-group"><label for="f-description">Описание</label><textarea class="form-control" id="f-description"></textarea></div>
-                <div class="form-group"><label for="f-video-url">URL видео</label><input type="text" class="form-control" id="f-video-url" placeholder="/videos/filename.mp4"></div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                    <div class="form-group"><label for="f-cf-uid">Видео ID (плеер)</label><input type="text" class="form-control" id="f-cf-uid" placeholder="playback id (опционально)"></div>
-                    <div class="form-group"><label for="f-video-provider">Хостинг</label><select class="form-control" id="f-video-provider"><option value="cloudflare">Cloudflare</option><option value="mux">Mux</option></select></div>
-                </div>
-                <div id="stream-upload-container"></div>
-                <div class="form-group">
-                    <label style="font-weight:600;">Языковые версии (lesson_media)</label>
-                    <div id="f-media-list" style="margin-top:0.4rem;font-size:0.85rem;">
-                        <div style="color:var(--admin-text-muted);">Загрузка...</div>
-                    </div>
-                    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:end;">
-                        <div class="form-group" style="margin:0;flex:1;"><label for="f-media-lang" style="font-size:0.8rem;">Язык</label><select class="form-control" id="f-media-lang"><option value="en">en</option><option value="ru">ru</option></select></div>
-                        <div class="form-group" style="margin:0;flex:2;"><label for="f-media-cf" style="font-size:0.8rem;">Video ID</label><input type="text" class="form-control" id="f-media-cf" placeholder="video id"></div>
-                        <button class="btn btn--primary btn--sm" onclick="addLessonMedia()" style="white-space:nowrap;">+ Добавить</button>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Картинка</label>
-                    <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
-                        <input type="file" id="f-image" accept=".jpg,.jpeg,.png,.webp" style="font-size:0.85rem;">
-                        <img id="f-image-preview" src="" alt="" style="display:none;max-height:60px;border-radius:4px;">
-                    </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                    <div class="form-group"><label for="f-is-free">Бесплатный</label><select class="form-control" id="f-is-free"><option value="0">Нет</option><option value="1">Да (Module 0)</option></select></div>
-                    <div class="form-group"><label for="f-free-order">Порядок бесплатного</label><input type="number" class="form-control" id="f-free-order" placeholder="1-7" min="1" max="7"></div>
                 </div>
             </div>
             <div class="modal__footer">
@@ -91,6 +107,20 @@
     <script src="js/admin.js?v=<%= assetVersion %>"></script>
     <script src="js/stream-upload.js?v=<%= assetVersion %>"></script>
     <script>
+    function intensityBadge(v) {
+        if (!v) return '<span style="color:var(--admin-text-muted);">—</span>';
+        const map = { low: ['success', 'Щадящая'], medium: ['warning', 'Средняя'], high: ['danger', 'Интенсивная'] };
+        const m = map[v] || ['secondary', v];
+        return '<span class="badge badge--' + m[0] + '">' + m[1] + '</span>';
+    }
+
+    function showTab(id) {
+        document.querySelectorAll('.form-tab').forEach(b => b.classList.toggle('is-active', b.dataset.tab === id));
+        document.querySelectorAll('.form-tab-panel').forEach(p => p.style.display = p.id === id ? 'block' : 'none');
+    }
+
+    document.querySelectorAll('.form-tab').forEach(b => b.addEventListener('click', function() { showTab(this.dataset.tab); }));
+
     async function loadLessons() {
         if (!localStorage.getItem('admin_token')) { window.location.href = 'login.html'; return; }
         document.getElementById('app').innerHTML = getSidebar('lessons.html') + `
@@ -98,7 +128,7 @@
                 ${getTopbar('Уроки (справочник)')}
                 <div class="page-content"><div class="card">
                     <div class="card__header"><h2 class="card__title">Все занятия</h2><button class="btn btn--primary" data-modal-open="modal-lesson" onclick="openCreate()">+ Новый урок</button></div>
-                    <div class="table-wrapper"><table><caption>Справочник занятий</caption><thead><tr><th>ID</th><th>Название</th><th>Направление</th><th>Длительность</th><th>Зоны</th><th>Статус</th><th>Дата</th><th>Действия</th></tr></thead>
+                    <div class="table-wrapper"><table><caption>Справочник занятий</caption><thead><tr><th>ID</th><th>№</th><th>Название</th><th>Направление</th><th>Нагрузка</th><th>Длительность</th><th>Зоны</th><th>Статус</th><th>Дата</th><th>Действия</th></tr></thead>
                     <tbody id="lessons-tbody"></tbody></table></div>
                 </div></div>
             </div>`;
@@ -112,9 +142,10 @@
             tbody.innerHTML = lessons.map(l => {
                 const dirLabel = l.direction === 'суставная_разминка' ? 'Разминка' : l.direction === 'занятие_в_потоке' ? 'Поток' : '—';
                 const dirBadge = l.direction === 'суставная_разминка' ? 'info' : l.direction === 'занятие_в_потоке' ? 'warning' : 'secondary';
+                const intBadge = intensityBadge(l.intensity);
                 return `<tr>
-                    <td>${esc(l.id)}</td><td>${esc(l.title)}</td><td><span class="badge badge--${dirBadge}">${dirLabel}</span></td>
-                    <td>${esc(l.duration)} мин</td><td>—</td><td>${statusBadge(l.status)}</td><td>${formatDate(l.date)}</td>
+                    <td>${esc(l.id)}</td><td>${l.catalog_no ? esc(l.catalog_no) : '—'}</td><td>${esc(l.title)}</td><td><span class="badge badge--${dirBadge}">${dirLabel}</span></td>
+                    <td>${intBadge}</td><td>${esc(l.duration)} мин</td><td>—</td><td>${statusBadge(l.status)}</td><td>${formatDate(l.date)}</td>
                     <td>
                         <button class="btn btn--secondary btn--sm" data-edit='${esc(JSON.stringify(l))}' onclick="openEdit(this)" aria-label="Редактировать ${esc(l.title)}">Редактировать</button>
                         <button class="btn btn--danger btn--sm" onclick="deleteLesson(${parseInt(l.id)})" aria-label="Удалить ${esc(l.title)}">Удалить</button>
@@ -130,15 +161,19 @@
         document.getElementById('modal-title').textContent = 'Новый урок';
         document.getElementById('edit-id').value = '';
         document.getElementById('f-title').value = '';
+        document.getElementById('f-theme').value = '';
         document.getElementById('f-duration').value = 27;
         document.getElementById('f-status').value = 'active';
         document.getElementById('f-description').value = '';
         document.getElementById('f-video-url').value = '';
-        document.getElementById('f-cf-uid').value = '';
-        document.getElementById('f-video-provider').value = 'cloudflare';
+        document.getElementById('f-video-id').value = '';
         document.getElementById('f-is-free').value = '0';
         document.getElementById('f-free-order').value = '';
+        document.getElementById('f-sort-order').value = '';
+        document.getElementById('f-catalog-no').value = '';
+        document.getElementById('f-intensity').value = '';
         document.getElementById('f-effect').value = '';
+        document.getElementById('f-goals').value = '';
         document.getElementById('f-effect-is-draft').value = '0';
         document.getElementById('f-draft-badge').style.display = 'none';
         document.getElementById('f-image').value = '';
@@ -147,6 +182,7 @@
         document.querySelectorAll('#f-zones input[type="checkbox"]').forEach(c => c.checked = false);
         var mediaList = document.getElementById('f-media-list');
         if (mediaList) mediaList.innerHTML = '<div style="color:var(--admin-text-muted);">Сначала сохраните урок</div>';
+        showTab('tab-desc');
         document.getElementById('modal-lesson').classList.add('is-open');
     }
 
@@ -155,15 +191,19 @@
         document.getElementById('modal-title').textContent = 'Редактировать урок';
         document.getElementById('edit-id').value = lesson.id;
         document.getElementById('f-title').value = lesson.title;
+        document.getElementById('f-theme').value = lesson.theme || '';
         document.getElementById('f-duration').value = lesson.duration;
         document.getElementById('f-status').value = lesson.status;
         document.getElementById('f-description').value = lesson.description || '';
         document.getElementById('f-video-url').value = lesson.video_url || '';
-        document.getElementById('f-cf-uid').value = lesson.cf_video_uid || '';
-        document.getElementById('f-video-provider').value = lesson.video_provider || 'cloudflare';
+        document.getElementById('f-video-id').value = lesson.video_id || '';
         document.getElementById('f-is-free').value = String(lesson.is_free || 0);
         document.getElementById('f-free-order').value = lesson.free_order || '';
+        document.getElementById('f-sort-order').value = lesson.sort_order || '';
+        document.getElementById('f-catalog-no').value = lesson.catalog_no || '';
+        document.getElementById('f-intensity').value = lesson.intensity || '';
         document.getElementById('f-effect').value = lesson.effect_description || '';
+        document.getElementById('f-goals').value = lesson.goals || '';
         document.getElementById('f-effect-is-draft').value = String(lesson.effect_is_draft || 0);
         document.getElementById('f-draft-badge').style.display = lesson.effect_is_draft ? 'block' : 'none';
 
@@ -191,23 +231,31 @@
         if (typeof initStreamUpload === 'function') {
             initStreamUpload(lesson.id, 'ru');
         }
+        showTab('tab-desc');
     }
 
     document.getElementById('btn-save').addEventListener('click', async () => {
         const id = document.getElementById('edit-id').value;
         const directionEl = document.querySelector('input[name="f-direction"]:checked');
+        const videoUrlVal = document.getElementById('f-video-url').value || null;
+        const videoIdVal = document.getElementById('f-video-id').value || null;
         const data = {
             title: document.getElementById('f-title').value,
+            theme: document.getElementById('f-theme').value || null,
             duration: parseInt(document.getElementById('f-duration').value),
             status: document.getElementById('f-status').value,
             description: document.getElementById('f-description').value,
-            video_url: document.getElementById('f-video-url').value || null,
-            cf_video_uid: document.getElementById('f-cf-uid').value || null,
-            video_provider: document.getElementById('f-video-provider').value || 'cloudflare',
+            video_url: videoUrlVal,
+            video_id: videoIdVal,
+            video_provider: videoIdVal ? 'mux' : (videoUrlVal ? 'local' : null),
             is_free: parseInt(document.getElementById('f-is-free').value) || 0,
             free_order: parseInt(document.getElementById('f-free-order').value) || null,
+            sort_order: parseInt(document.getElementById('f-sort-order').value) || null,
+            catalog_no: parseInt(document.getElementById('f-catalog-no').value) || null,
+            intensity: document.getElementById('f-intensity').value || null,
             direction: directionEl ? directionEl.value : null,
             direction_source: 'заголовок',
+            goals: document.getElementById('f-goals').value || null,
             effect_description: document.getElementById('f-effect').value || null,
             effect_is_draft: parseInt(document.getElementById('f-effect-is-draft').value) || 0,
         };
@@ -267,7 +315,7 @@
             if (!items.length) { list.innerHTML = '<div style="color:var(--admin-text-muted);">Нет языковых версий</div>'; return; }
             const statusLabels = { pending: '⏳ Ожидает', processing: '⚙️ Обработка', ready: '✅ Готово' };
             list.innerHTML = items.map(m => '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--admin-border);">' +
-                '<span><strong>' + esc(m.language.toUpperCase()) + '</strong> — ' + esc(m.cf_video_uid || '—') + ' <span style="opacity:0.6;">' + (statusLabels[m.status] || m.status) + '</span></span>' +
+                '<span><strong>' + esc(m.language.toUpperCase()) + '</strong> — ' + esc(m.video_id || '—') + ' <span style="opacity:0.6;">' + (statusLabels[m.status] || m.status) + '</span></span>' +
                 '<div style="display:flex;gap:0.3rem;">' +
                 '<select onchange="updateMediaStatus(' + m.id + ', this.value)" style="padding:0.15rem 0.3rem;font-size:0.75rem;background:var(--admin-bg);color:var(--admin-text);border:1px solid var(--admin-border);border-radius:3px;">' +
                 '<option value="pending"' + (m.status === 'pending' ? ' selected' : '') + '>Ожидает</option>' +
@@ -283,10 +331,10 @@
         const lessonId = document.getElementById('edit-id').value;
         if (!lessonId) { alert('Сначала сохраните урок'); return; }
         const lang = document.getElementById('f-media-lang').value;
-        const cfUid = document.getElementById('f-media-cf').value.trim();
-        if (!cfUid) { alert('Укажите CF Video UID'); return; }
+        const videoId = document.getElementById('f-media-cf').value.trim();
+        if (!videoId) { alert('Укажите Video ID'); return; }
         try {
-            await window.api.post('/api/lesson-media', { lesson_id: parseInt(lessonId), language: lang, cf_video_uid: cfUid, video_provider: document.getElementById('f-video-provider').value || 'cloudflare', status: 'ready' });
+            await window.api.post('/api/lesson-media', { lesson_id: parseInt(lessonId), language: lang, video_id: videoId, video_provider: 'mux', status: 'ready' });
             document.getElementById('f-media-cf').value = '';
             loadLessonMedia(lessonId);
         } catch (err) { alert('Ошибка: ' + err.message); }

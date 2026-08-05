@@ -30,8 +30,6 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'test-admin-video-secret';
   process.env.ALLOWED_ORIGIN = 'http://localhost:' + TEST_PORT;
 
-  delete process.env.CLOUDFLARE_STREAM_API_TOKEN;
-  delete process.env.CLOUDFLARE_STREAM_ACCOUNT_ID;
   delete process.env.MUX_ACCESS_TOKEN_ID;
   delete process.env.MUX_ACCESS_TOKEN_SECRET;
 
@@ -46,8 +44,6 @@ afterAll(async () => {
   global.fetch = originalFetch;
   const { resetStreamConfig } = require('../server/services/stream');
   resetStreamConfig();
-  delete process.env.CLOUDFLARE_STREAM_API_TOKEN;
-  delete process.env.CLOUDFLARE_STREAM_ACCOUNT_ID;
   delete process.env.MUX_ACCESS_TOKEN_ID;
   delete process.env.MUX_ACCESS_TOKEN_SECRET;
   if (testServer) {
@@ -194,12 +190,12 @@ describe('Admin video endpoints — status', () => {
     expect(res.status).toBe(404);
   });
 
-  test('returns legacy cloudflare upload record shape', async () => {
+  test('returns mux upload record shape', async () => {
     const { getDb, saveDb } = require('../server/db');
     const db = await getDb();
-    db.run(`INSERT INTO video_uploads (lesson_id, language, cf_video_uid, original_filename, file_size, status) VALUES (1, 'ru', 'cf-test-uid', 'lesson.mp4', 100, 'ready')`);
+    db.run(`INSERT INTO video_uploads (lesson_id, language, video_id, original_filename, file_size, status) VALUES (1, 'ru', 'mux-test-uid', 'lesson.mp4', 100, 'ready')`);
     saveDb();
-    const idResult = db.exec(`SELECT id FROM video_uploads WHERE cf_video_uid = 'cf-test-uid'`);
+    const idResult = db.exec(`SELECT id FROM video_uploads WHERE video_id = 'mux-test-uid'`);
     const uploadId = idResult[0].values[0][0];
 
     const adminToken = await loginAdmin();
@@ -207,8 +203,8 @@ describe('Admin video endpoints — status', () => {
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(uploadId);
     expect(res.body.status).toBe('ready');
-    expect(res.body.provider).toBe('cloudflare');
-    expect(res.body.cf_video_uid).toBe('cf-test-uid');
+    expect(res.body.provider).toBe('mux');
+    expect(res.body.video_id).toBe('mux-test-uid');
     expect(res.body.mux_asset_id).toBeNull();
     expect(res.body.mux_playback_id).toBeNull();
     expect(res.body.error_message).toBeNull();
@@ -251,8 +247,8 @@ describe('Admin video endpoints — delete/unlink', () => {
   test('clears video fields on lesson and lesson_media, preserves provider', async () => {
     const { getDb, saveDb } = require('../server/db');
     const db = await getDb();
-    db.run(`UPDATE lessons SET cf_video_uid = 'cf-uid-to-clear', video_url = '/videos/test.mp4' WHERE id = 1`);
-    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, cf_video_uid, video_url, status) VALUES (1, 'ru', 'cf-uid-to-clear', '/videos/test.mp4', 'ready')`);
+    db.run(`UPDATE lessons SET video_id = 'uid-to-clear', video_url = '/videos/test.mp4' WHERE id = 1`);
+    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, video_id, video_url, status) VALUES (1, 'ru', 'uid-to-clear', '/videos/test.mp4', 'ready')`);
     saveDb();
 
     const adminToken = await loginAdmin();
@@ -260,12 +256,12 @@ describe('Admin video endpoints — delete/unlink', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    const lesson = db.exec(`SELECT cf_video_uid, video_url, video_provider FROM lessons WHERE id = 1`);
+    const lesson = db.exec(`SELECT video_id, video_url, video_provider FROM lessons WHERE id = 1`);
     expect(lesson[0].values[0][0]).toBeNull();
     expect(lesson[0].values[0][1]).toBeNull();
-    expect(lesson[0].values[0][2]).toBe('cloudflare');
+    expect(lesson[0].values[0][2]).toBe('local');
 
-    const media = db.exec(`SELECT cf_video_uid, video_url, status FROM lesson_media WHERE lesson_id = 1 AND language = 'ru'`);
+    const media = db.exec(`SELECT video_id, video_url, status FROM lesson_media WHERE lesson_id = 1 AND language = 'ru'`);
     expect(media[0].values[0][0]).toBeNull();
     expect(media[0].values[0][1]).toBeNull();
     expect(media[0].values[0][2]).toBe('pending');
@@ -275,31 +271,5 @@ describe('Admin video endpoints — delete/unlink', () => {
     const adminToken = await loginAdmin();
     const res = await apiRequest('DELETE', '/api/admin/lessons/99999/video', null, adminToken);
     expect(res.status).toBe(404);
-  });
-});
-
-describe('processReadyVideo — provider bookkeeping', () => {
-  test('sets video_provider to cloudflare on lesson and lesson_media', async () => {
-    const { getDb, saveDb } = require('../server/db');
-    const db = await getDb();
-    db.run(`INSERT INTO video_uploads (lesson_id, language, cf_video_uid, status) VALUES (1, 'ru', 'cf-ready-uid', 'processing')`);
-    const idResult = db.exec(`SELECT id FROM video_uploads WHERE cf_video_uid = 'cf-ready-uid'`);
-    const uploadId = idResult[0].values[0][0];
-    saveDb();
-
-    const { processReadyVideo } = require('../server/services/stream');
-    await processReadyVideo('cf-ready-uid', uploadId);
-
-    const upload = db.exec(`SELECT status FROM video_uploads WHERE id = ?`, [uploadId]);
-    expect(upload[0].values[0][0]).toBe('ready');
-
-    const lesson = db.exec(`SELECT cf_video_uid, video_provider FROM lessons WHERE id = 1`);
-    expect(lesson[0].values[0][0]).toBe('cf-ready-uid');
-    expect(lesson[0].values[0][1]).toBe('cloudflare');
-
-    const media = db.exec(`SELECT cf_video_uid, status, video_provider FROM lesson_media WHERE lesson_id = 1 AND language = 'ru'`);
-    expect(media[0].values[0][0]).toBe('cf-ready-uid');
-    expect(media[0].values[0][1]).toBe('ready');
-    expect(media[0].values[0][2]).toBe('cloudflare');
   });
 });

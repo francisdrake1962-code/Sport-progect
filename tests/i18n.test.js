@@ -138,7 +138,7 @@ describe('i18n — DB: lesson_media table', () => {
     const cols = result[0].values.map(r => r[1]);
     expect(cols).toContain('lesson_id');
     expect(cols).toContain('language');
-    expect(cols).toContain('cf_video_uid');
+    expect(cols).toContain('video_id');
     expect(cols).toContain('video_url');
     expect(cols).toContain('status');
   });
@@ -198,7 +198,7 @@ describe('i18n — API: lesson_media CRUD (admin)', () => {
     const res = await apiRequest('POST', '/api/lesson-media', {
       lesson_id: testLessonId,
       language: 'en',
-      cf_video_uid: 'test-en-video-uid',
+      video_id: 'test-en-video-id',
       status: 'ready'
     }, adminToken);
     expect(res.status).toBe(201);
@@ -226,7 +226,7 @@ describe('i18n — API: lesson_media CRUD (admin)', () => {
     const res = await apiRequest('POST', '/api/lesson-media', {
       lesson_id: testLessonId || 1,
       language: 'es',
-      cf_video_uid: 'test-es-uid'
+      video_id: 'test-es-id'
     }, userToken);
     expect(res.status).toBe(403);
   });
@@ -244,7 +244,7 @@ describe('i18n — Lesson media fallback in stream-token', () => {
     const lessonsRes = await apiRequest('GET', '/api/lessons');
     const lessons = Array.isArray(lessonsRes.body) ? lessonsRes.body : (lessonsRes.body.data || []);
     const freeLesson = lessons.find(l => l.is_free);
-    if (!freeLesson || !freeLesson.cf_video_uid) return;
+    if (!freeLesson || !freeLesson.video_id) return;
 
     const res = await apiRequest('GET', '/api/user/stream-token/' + freeLesson.id, null, subscriberToken);
     if (res.status === 200) {

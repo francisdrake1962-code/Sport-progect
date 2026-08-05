@@ -102,7 +102,7 @@
 | Список прогресса | `GET /api/user/progress` | `routes/user.js` | — | — | `watched_lessons`, `lessons` |
 | Прогресс по уроку | `GET /api/user/progress/:lessonId` | `routes/user.js` | — | — | `watched_lessons`, `lessons` |
 | Проверка доступа | `GET /api/user/can-watch/:lessonId` | `routes/user.js` | — | — | `subscribers`, `lessons`, `free_lesson_selections` |
-| Cloudflare Stream токен | `GET /api/user/stream-token/:lessonId` | `routes/user.js` | `stream.generateSignedToken` | — | `subscribers`, `lessons` |
+| Mux stream URL | `GET /api/user/stream-token/:lessonId` | `routes/user.js` | `stream.signMuxPlaybackId`, `stream.getMuxStreamUrl` | — | `subscribers`, `lessons`, `lesson_media` |
 | **Расписание** | | | | | |
 | Календарь | `GET /api/user/calendar` | `routes/user.js` | — | — | `schedule`, `lessons`, `watched_lessons`, `subscribers` |
 | Публичное расписание | `GET /api/schedule` | `index.js` (inline) | — | — | `schedule` |
@@ -150,7 +150,7 @@
 | Обновить настройки | `PUT /api/settings` | `index.js` (api) | — | `settingsRepo` | `settings` |
 | Создать/обновить | `POST /api/settings` | `index.js` (api) | — | `settingsRepo` | `settings` |
 | Тест email | `POST /api/settings/test-email` | `index.js` (api) | `mailer.sendConfirmationEmail` | — | — |
-| Тест Stream | `POST /api/settings/test-stream` | `index.js` (api) | `stream.isStreamConfigured` | — | — |
+| Тест Mux | `POST /api/settings/test-mux` | `index.js` (api) | `stream.isMuxConfigured`, `stream.isMuxUploadConfigured` | — | — |
 | **Дашборд (Admin)** | | | | | |
 | Статистика | `GET /api/dashboard` | `index.js` (api) | `dashboardService.getStats` | — | `subscribers`, `lessons`, `reviews`, `transactions`, `tickets` |
 | **Аудит (Admin)** | | | | | |
@@ -262,9 +262,10 @@
        │                      │ duration             │
        │                      │ status               │
        │                      │ description          │
-       │                      │ video_url            │
-       │                      │ cf_video_uid         │
-       │                      │ image_url            │
+        │                      │ video_url            │
+        │                      │ video_id (Mux)       │
+        │                      │ video_provider       │
+        │                      │ image_url            │
        │                      │ is_free              │
        │                      │ free_order           │
        │                      │ date                 │
@@ -568,21 +569,15 @@ Middleware `validateBody` проверяет:
 - **Машина состояний (PAY-001):** Stripe-статусы маппятся в `subscribers.status` (`active→active`, `trialing→trial`, `past_due→past_due`, `unpaid→past_due`, `canceled→cancelled`; неизвестные — no-op). `invoice.payment_failed` переводит `active` в `past_due` (доступ блокируется гейтом `can-watch`).
 - **Источник истины периода (PAY-003):** `subscription_expires_at` синхронизируется из Stripe `current_period_end`; оплаченное время никогда не уменьшается. Локальная оценка в `checkout.session.completed` — временный fallback.
 
-### Mux (видео — платные уроки)
+### Mux (видео — основной провайдер)
 
-- **Назначение:** Direct Upload и playback подписанных видеоуроков (провайдер `mux`)
+- **Назначение:** Direct Upload и playback подписанных видеоуроков (провайдер `mux`). Cloudflare Stream удалён (экономика не проходит); Bunny Stream — будущая альтернатива, но не подключена.
 - **Конфигурация:** `MUX_ACCESS_TOKEN_ID` + `MUX_ACCESS_TOKEN_SECRET` (upload/API), `MUX_SIGNING_KEY_ID` + `MUX_SIGNING_KEY` (подпись playback-токенов). Ключи **все-или-ничего**: частичный набор — ошибка конфигурации в production.
 - **Поток:** `POST /api/admin/lessons/:id/video/mux-upload` создаёт direct-upload URL (Mux), браузер PUT-ит файл, `GET /api/admin/video-uploads/:id/status` опрашивает Mux до `asset_created` и сохраняет `mux_asset_id`/`mux_playback_id`.
-- **Провайдеры:** урок задаёт `video_provider` (`cloudflare` | `mux`); по умолчанию `cloudflare`.
-
-### Cloudflare Stream
-
-- **Назначение:** Хранение и потоковая передача видеоуроков
-- **Конфигурация:** Signing Key ID, Signing Key, Customer Code (хранятся в `settings` или env)
-- **Подписанные токены:** JWT (ES256) с `accessRules` для конкретного видео
-- **Срок жизни токена:** 6 часов (21600 сек)
-- **Формат URL:** `https://{customer-code}.cloudflarestream.com/{signed-token}/manifest/video.m3u8`
-- **Fallback:** Если CF Stream не настроен, видео раздаются локально через `GET /videos/:filename` с JWT-проверкой
+- **Провайдеры:** урок задаёт `video_provider` (`mux` — поток через Mux, `local` — локальный файл `video_url`); playback ID хранится в `video_id`.
+- **Подписанные токены:** JWT (HS256) с `sub = playback_id` и сроком жизни 6 часов (21600 сек).
+- **Формат URL:** `https://stream.mux.com/{playback-id}.m3u8?token={signed}`
+- **Fallback:** если Mux не настроен или у урока нет `video_id`, `stream-token` отдаёт `streamUrl: null`, и плеер раздаёт видео локально через `video_url` (JWT-проверка на `GET /videos/:filename`).
 
 ### Email (Mailer)
 
@@ -638,9 +633,6 @@ Middleware `validateBody` проверяет:
 | `RESEND_API_KEY` | API ключ Resend | Нет |
 | `EMAIL_FROM` | Email отправителя | Нет |
 | `APP_BASE_URL` | Базовый URL приложения | Нет |
-| `CF_STREAM_SIGNING_KEY_ID` | Cloudflare Stream Key ID | Нет |
-| `CF_STREAM_SIGNING_KEY` | Cloudflare Stream Signing Key | Нет |
-| `CF_STREAM_CUSTOMER_CODE` | Cloudflare Stream Customer Code | Нет |
 | `STRIPE_SECRET_KEY` | Stripe Secret Key | **Да** |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature secret | **Да** |
 | `STRIPE_MONTHLY_PRICE_ID` | Stripe Price ID месячного плана | **Да** |
@@ -719,7 +711,7 @@ server/
 │   ├── recommendation.service.js # Рекомендательная система
 │   ├── schedule.service.js     # Расписание, персональный таймлайн
 │   ├── payment.service.js      # Stripe: Checkout, webhook, подписки
-│   └── stream.js               # Cloudflare Stream интеграция
+│   └── stream.js               # Mux: Direct Upload, playback-подпись
 ├── repositories/
 │   ├── base.repository.js      # Generic Repository (CRUD + query)
 │   ├── index.js                # Конкретные репозитории

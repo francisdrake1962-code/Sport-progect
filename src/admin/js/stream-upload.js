@@ -4,11 +4,9 @@ function initStreamUpload(lessonId, lang) {
   if (!container) return;
   lang = lang || 'ru';
 
-  var cfInput = document.getElementById('f-cf-uid');
+  var cfInput = document.getElementById('f-video-id');
   var urlInput = document.getElementById('f-video-url');
-  var providerSel = document.getElementById('f-video-provider');
   var existingUid = cfInput ? cfInput.value.trim() : '';
-  var provider = providerSel ? providerSel.value : 'cloudflare';
   var hasLocalVideo = urlInput && urlInput.value.trim().length > 0 && urlInput.value.trim().match(/\.(mp4|mov|webm|avi|mkv)$/i);
 
   var html = '' +
@@ -16,7 +14,7 @@ function initStreamUpload(lessonId, lang) {
       '<div style="font-weight:600;font-size:0.85rem;margin-bottom:0.5rem;">Видео (Mux)</div>';
 
   if (existingUid) {
-    html += '<div id="stream-existing" style="font-size:0.8rem;margin-bottom:0.5rem;color:var(--admin-success);">✅ Текущий ID: <code>' + esc(existingUid) + '</code> <span style="opacity:0.6;">(' + esc(provider === 'mux' ? 'Mux' : 'Cloudflare') + ')</span></div>';
+    html += '<div id="stream-existing" style="font-size:0.8rem;margin-bottom:0.5rem;color:var(--admin-success);">✅ Текущий ID: <code>' + esc(existingUid) + '</code> <span style="opacity:0.6;">(Mux)</span></div>';
   } else if (hasLocalVideo) {
     html += '<div style="font-size:0.8rem;margin-bottom:0.5rem;color:var(--admin-text-muted);">📁 Локальное видео: <code>' + esc(urlInput.value.trim()) + '</code></div>';
   }
@@ -120,7 +118,7 @@ function initStreamUpload(lessonId, lang) {
         if (xhr.status >= 200 && xhr.status < 400) {
           progressBar.style.width = '92%';
           statusDiv.textContent = 'Передано в Mux, обработка...';
-          startPolling(createData.id, resultDiv, statusDiv, progressBar, cfInput, urlInput, providerSel);
+          startPolling(createData.id, resultDiv, statusDiv, progressBar, cfInput, urlInput);
         } else {
           showError(resultDiv, statusDiv, 'Mux rejected upload (HTTP ' + xhr.status + ')');
         }
@@ -137,7 +135,7 @@ function initStreamUpload(lessonId, lang) {
   });
 }
 
-function startPolling(uploadId, resultDiv, statusDiv, progressBar, cfInput, urlInput, providerSel) {
+function startPolling(uploadId, resultDiv, statusDiv, progressBar, cfInput, urlInput) {
   var attempts = 0;
   var maxAttempts = 120;
   var statusLabels = {
@@ -168,9 +166,6 @@ function startPolling(uploadId, resultDiv, statusDiv, progressBar, cfInput, urlI
           cfInput.value = data.mux_playback_id;
           cfInput.dispatchEvent(new Event('input', { bubbles: true }));
           cfInput.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        if (providerSel) {
-          providerSel.value = 'mux';
         }
         if (urlInput && urlInput.value.trim()) {
           urlInput.value = '';

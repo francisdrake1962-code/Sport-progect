@@ -9,7 +9,7 @@ const { requireRole } = require('../middleware/rbac');
 const { validateBody } = require('../middleware/validation');
 const { requireDangerousActionConfirmation } = require('../middleware/confirmation');
 const { sendConfirmationEmail } = require('../services/mailer');
-const { isStreamConfigured, generateSignedToken, getStreamUrl, isMuxConfigured, signMuxPlaybackId, getMuxStreamUrl } = require('../services/stream');
+const { isMuxConfigured, signMuxPlaybackId, getMuxStreamUrl } = require('../services/stream');
 const { parsePagination } = require('../helpers/pagination');
 const { queryToObjects } = require('../helpers/db-utils');
 const { revokeToken, transaction } = require('../db');
@@ -528,21 +528,15 @@ router.get('/can-watch/:lessonId', demoUserForAdmin, async (req, res) => {
   }
 });
 
-async function issueStreamToken(req, res, lessonId, cfUid, provider, userLang, isOriginal) {
-  if (!(await isStreamConfigured()) && !(await isMuxConfigured())) {
-    return sendError(res, 503, 'STREAMING_NOT_CONFIGURED', 'Streaming not configured', req.requestId);
-  }
-
+async function issueStreamToken(req, res, lessonId, playbackId, provider, userLang, isOriginal) {
   let streamUrl = null;
-  if (cfUid && provider === 'mux' && (await isMuxConfigured())) {
-    const muxToken = await signMuxPlaybackId(cfUid);
-    if (muxToken) {
-      streamUrl = await getMuxStreamUrl(cfUid, muxToken);
+  if (playbackId && provider === 'mux') {
+    if (!(await isMuxConfigured())) {
+      return sendError(res, 503, 'STREAMING_NOT_CONFIGURED', 'Streaming not configured', req.requestId);
     }
-  } else if (cfUid && (await isStreamConfigured())) {
-    const signedToken = await generateSignedToken(cfUid);
-    if (signedToken) {
-      streamUrl = await getStreamUrl(cfUid, signedToken);
+    const muxToken = await signMuxPlaybackId(playbackId);
+    if (muxToken) {
+      streamUrl = await getMuxStreamUrl(playbackId, muxToken);
     }
   }
 
@@ -563,16 +557,16 @@ router.get('/stream-token/:lessonId', demoUserForAdmin, async (req, res) => {
     }
     const db = await getDb();
 
-    const lessonResult = db.exec(`SELECT is_free, cf_video_uid, video_url, video_provider FROM lessons WHERE id = ?`, [lessonId]);
+    const lessonResult = db.exec(`SELECT is_free, video_id, video_url, video_provider FROM lessons WHERE id = ?`, [lessonId]);
     if (!lessonResult.length || !lessonResult[0].values.length) {
       return sendError(res, 404, 'LESSON_NOT_FOUND', 'Lesson not found', req.requestId);
     }
     const lrow = lessonResult[0].values[0];
-    const originalCfUid = lrow[1], lessonProvider = lrow[3] || 'cloudflare';
+    const originalPlaybackId = lrow[1], lessonProvider = lrow[3] || 'mux';
 
     if (req.isDemoAdmin) {
       // Demo view: grant the original-language stream, no per-subscriber data.
-      return issueStreamToken(req, res, lessonId, originalCfUid, lessonProvider, 'ru', true);
+      return issueStreamToken(req, res, lessonId, originalPlaybackId, lessonProvider, 'ru', true);
     }
 
     const userResult = db.exec(`SELECT plan, status, free_sessions_used, email_confirmed, subscription_expires_at, preferred_language FROM subscribers WHERE id = ?`, [req.user.id]);
@@ -608,21 +602,21 @@ router.get('/stream-token/:lessonId', demoUserForAdmin, async (req, res) => {
     }
 
     let provider = lessonProvider;
-    let cfUid = originalCfUid;
+    let playbackId = originalPlaybackId;
     let videoLanguage = 'ru';
     let isOriginal = true;
 
-    if (userLang !== 'ru' && originalCfUid) {
-      const mediaResult = db.exec(`SELECT cf_video_uid, video_provider FROM lesson_media WHERE lesson_id = ? AND language = ? AND status = 'ready'`, [lessonId, userLang]);
+    if (userLang !== 'ru' && originalPlaybackId) {
+      const mediaResult = db.exec(`SELECT video_id, video_provider FROM lesson_media WHERE lesson_id = ? AND language = ? AND status = 'ready'`, [lessonId, userLang]);
       if (mediaResult.length && mediaResult[0].values.length && mediaResult[0].values[0][0]) {
-        cfUid = mediaResult[0].values[0][0];
+        playbackId = mediaResult[0].values[0][0];
         provider = mediaResult[0].values[0][1] || provider;
         videoLanguage = userLang;
         isOriginal = false;
       } else {
-        const defaultResult = db.exec(`SELECT cf_video_uid, video_provider FROM lesson_media WHERE lesson_id = ? AND language = 'en' AND status = 'ready'`, [lessonId]);
+        const defaultResult = db.exec(`SELECT video_id, video_provider FROM lesson_media WHERE lesson_id = ? AND language = 'en' AND status = 'ready'`, [lessonId]);
         if (defaultResult.length && defaultResult[0].values.length && defaultResult[0].values[0][0]) {
-          cfUid = defaultResult[0].values[0][0];
+          playbackId = defaultResult[0].values[0][0];
           provider = defaultResult[0].values[0][1] || provider;
           videoLanguage = 'en';
           isOriginal = false;
@@ -630,7 +624,7 @@ router.get('/stream-token/:lessonId', demoUserForAdmin, async (req, res) => {
       }
     }
 
-    return issueStreamToken(req, res, lessonId, cfUid, provider, videoLanguage, isOriginal);
+    return issueStreamToken(req, res, lessonId, playbackId, provider, videoLanguage, isOriginal);
   } catch (err) {
     req.log && req.log.error('stream-token error', err.message);
     sendError(res, 500, 'STREAM_TOKEN_FAILED', 'Stream token generation failed', req.requestId);
@@ -640,7 +634,7 @@ router.get('/stream-token/:lessonId', demoUserForAdmin, async (req, res) => {
 router.get('/calendar', demoUserForAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const scheduleResult = db.exec(`SELECT s.date, s.theme, s.lesson_id, l.title, l.duration, l.is_free
+    const scheduleResult = db.exec(`SELECT s.date, s.theme, s.lesson_id, l.title, l.duration, l.is_free, l.intensity
       FROM schedule s LEFT JOIN lessons l ON s.lesson_id = l.id ORDER BY s.date`);
     const progressResult = db.exec(`SELECT lesson_id, completed, position_seconds, watched_at FROM watched_lessons WHERE subscriber_id = ?`, [req.user.id]);
     const userResult = db.exec(`SELECT subscription_started_at, free_sessions_used, plan, status FROM subscribers WHERE id = ?`, [req.user.id]);
@@ -653,7 +647,7 @@ router.get('/calendar', demoUserForAdmin, async (req, res) => {
     }
 
     const schedule = scheduleResult.length ? scheduleResult[0].values.map(r => ({
-      date: r[0], theme: r[1], lesson_id: r[2], title: r[3], duration: r[4], is_free: r[5],
+      date: r[0], theme: r[1], lesson_id: r[2], title: r[3], duration: r[4], is_free: r[5], intensity: r[6],
     })) : [];
 
     const user = userResult.length && userResult[0].values.length ? {
@@ -694,6 +688,7 @@ router.get('/calendar', demoUserForAdmin, async (req, res) => {
           title: sched.title,
           duration: sched.duration,
           is_free: sched.is_free,
+          intensity: sched.intensity,
           watched: watched,
           is_past: i < daysSinceStart,
           is_today: i === daysSinceStart,
@@ -722,13 +717,13 @@ router.get('/lessons-filter', demoUserForAdmin, async (req, res) => {
     const { page, limit } = parsePagination(req.query);
     const db = await getDb();
     const { zone, mood, duration } = req.query;
-    let query = `SELECT l.id, l.title, l.duration, l.description, l.video_url, l.cf_video_uid, l.is_free, l.tags, l.direction, l.effect_description FROM lessons l WHERE l.status = 'active'`;
+    let query = `SELECT l.id, l.title, l.duration, l.description, l.video_url, l.video_id, l.is_free, l.tags, l.direction, l.effect_description FROM lessons l WHERE l.status = 'active'`;
     const params = [];
     const result = db.exec(query, params);
     if (!result.length) return res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
     let lessons = result[0].values.map(row => ({
       id: row[0], title: row[1], duration: row[2], description: row[3],
-      video_url: row[4], cf_video_uid: row[5], is_free: row[6],
+      video_url: row[4], video_id: row[5], is_free: row[6],
       tags: (() => { try { return JSON.parse(row[7] || '[]'); } catch { return []; } })(),
       direction: row[8], effect_description: row[9],
     }));
@@ -992,12 +987,12 @@ router.get('/dashboard', demoUserForAdmin, async (req, res) => {
     const today = new Date();
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     const scheduleResult = db.exec(
-      `SELECT s.date, s.theme, s.lesson_id, l.title, l.duration, l.is_free
+      `SELECT s.date, s.theme, s.lesson_id, l.title, l.duration, l.is_free, l.intensity
        FROM schedule s LEFT JOIN lessons l ON s.lesson_id = l.id
        WHERE s.date >= ? ORDER BY s.date LIMIT 7`, [todayStr]
     );
     const schedule = scheduleResult.length ? scheduleResult[0].values.map(r => ({
-      date: r[0], theme: r[1], lesson_id: r[2], title: r[3], duration: r[4], is_free: r[5],
+      date: r[0], theme: r[1], lesson_id: r[2], title: r[3], duration: r[4], is_free: r[5], intensity: r[6],
     })) : [];
     const todaySchedule = schedule.find(s => s.date === todayStr) || null;
 

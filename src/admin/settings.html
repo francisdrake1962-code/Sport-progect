@@ -79,22 +79,7 @@
                 '</div>' +
             '</div>' +
             '<div class="card" style="max-width:720px;margin-top:1rem;">' +
-                '<div class="card__header"><h2 class="card__title">Cloudflare Stream (видео)</h2></div>' +
-                '<div style="padding:1rem;">' +
-                    '<div class="form-group"><label for="s-cf-key-id">Signing Key ID</label><input type="text" class="form-control" id="s-cf-key-id" value="' + esc(s.cf_stream_signing_key_id || '') + '" placeholder="abc123..."></div>' +
-                    '<div class="form-group"><label for="s-cf-key">Signing Key (приватный)</label><textarea class="form-control" id="s-cf-key" rows="3" placeholder="-----BEGIN EC PRIVATE KEY-----...">' + esc(s.cf_stream_signing_key || '') + '</textarea><small style="color:#888;">Cloudflare Dashboard → Stream → Signing Keys</small></div>' +
-                    '<div class="form-group"><label for="s-cf-code">Customer Code</label><input type="text" class="form-control" id="s-cf-code" value="' + esc(s.cf_stream_customer_code || '') + '" placeholder="abc123"><small style="color:#888;">Из URL: https://<code>abc123</code>.cloudflarestream.com</small></div>' +
-                    '<hr style="border:none;border-top:1px solid var(--admin-border);margin:1rem 0;">' +
-                    '<h3 style="font-size:0.9rem;color:var(--admin-text);margin-bottom:0.5rem;">Загрузка видео</h3>' +
-                    '<div class="form-group"><label for="s-cf-api-token">API Token</label><input type="text" class="form-control" id="s-cf-api-token" value="' + esc(s.cf_stream_api_token || '') + '" placeholder="cf-api-token"><small style="color:#888;">Cloudflare Dashboard → My Profile → API Tokens (Stream:Edit)</small></div>' +
-                    '<div class="form-group"><label for="s-cf-account-id">Account ID</label><input type="text" class="form-control" id="s-cf-account-id" value="' + esc(s.cf_stream_account_id || '') + '" placeholder="account-id"><small style="color:#888;">Cloudflare Dashboard → Stream → Account ID</small></div>' +
-                    '<button class="btn btn--primary" id="btn-save-cf" style="margin-top:1rem;">Сохранить Cloudflare</button>' +
-                    '<button class="btn btn--secondary" id="btn-test-cf" style="margin-top:1rem;margin-left:0.5rem;">Проверить</button>' +
-                    '<div id="cf-msg" style="margin-top:0.5rem;color:var(--admin-success);display:none;"></div>' +
-                '</div>' +
-            '</div>' +
-            '<div class="card" style="max-width:720px;margin-top:1rem;">' +
-                '<div class="card__header"><h2 class="card__title">Mux (видео — платные уроки)</h2></div>' +
+                '<div class="card__header"><h2 class="card__title">Mux (видео)</h2></div>' +
                 '<div style="padding:1rem;">' +
                     '<h3 style="font-size:0.9rem;color:var(--admin-text);margin-bottom:0.5rem;">Подпись playback (стриминг)</h3>' +
                     '<div class="form-group"><label for="s-mux-key-id">Signing Key ID</label><input type="text" class="form-control" id="s-mux-key-id" value="' + esc(s.mux_signing_key_id || '') + '" placeholder="mux-signing-key-id"><small style="color:#888;">dashboard.mux.com → Settings → Signing Keys</small></div>' +
@@ -184,30 +169,6 @@
                 showMsg('email-msg', 'Тестовое письмо отправлено на ' + email);
             } catch (e) {
                 showMsg('email-msg', 'Ошибка: ' + e.message, true);
-            }
-        });
-
-        document.getElementById('btn-save-cf').addEventListener('click', async function() {
-            try {
-                await window.api.put('/api/settings', {
-                    cf_stream_signing_key_id: document.getElementById('s-cf-key-id').value,
-                    cf_stream_signing_key: document.getElementById('s-cf-key').value,
-                    cf_stream_customer_code: document.getElementById('s-cf-code').value,
-                    cf_stream_api_token: document.getElementById('s-cf-api-token').value,
-                    cf_stream_account_id: document.getElementById('s-cf-account-id').value,
-                });
-                showMsg('cf-msg', 'Настройки Cloudflare сохранены. Перезапустите сервер.');
-            } catch (e) {
-                showMsg('cf-msg', 'Ошибка: ' + e.message, true);
-            }
-        });
-
-        document.getElementById('btn-test-cf').addEventListener('click', async function() {
-            try {
-                var res = await window.api.post('/api/settings/test-stream', {});
-                showMsg('cf-msg', res.configured ? 'Cloudflare Stream настроен' : 'Cloudflare Stream НЕ настроен — проверьте ключи');
-            } catch (e) {
-                showMsg('cf-msg', 'Ошибка: ' + e.message, true);
             }
         });
 

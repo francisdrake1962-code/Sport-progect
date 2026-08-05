@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Импорт каталога — Админ-панель</title>
+    <link rel="stylesheet" href="css/admin.css?v=<%= assetVersion %>">
+    <link rel="icon" href="../images/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+    <noscript><div style="padding:2rem;text-align:center;font-family:sans-serif;background:#111;color:#eee;min-height:100vh;"><h1>Админ-панель требует JavaScript</h1><p>Включите JavaScript, чтобы пользоваться панелью.</p></div></noscript>
+    <div class="admin-layout" id="app"></div>
+    <script src="js/sidebar.js?v=<%= assetVersion %>"></script>
+    <script src="js/api.js?v=<%= assetVersion %>"></script>
+    <script src="js/admin.js?v=<%= assetVersion %>"></script>
+    <script>
+    let lastPreview = null;
+
+    async function load() {
+        if (!localStorage.getItem('admin_token')) { window.location.href = 'login.html'; return; }
+        document.getElementById('app').innerHTML = getSidebar('import.html') + `
+            <div class="main-content">
+                ${getTopbar('Импорт каталога')}
+                <div class="page-content">
+                    <div class="card">
+                        <div class="card__header"><h2 class="card__title">Загрузка файла</h2></div>
+                        <div class="card__body">
+                            <p style="color:var(--admin-text-muted);margin-bottom:1rem;">
+                                Формат: <strong>№ | Название-тема | Цель | Эффект</strong>.
+                                Поддерживаются .txt/.csv (табуляция или «;»), .xlsx, .docx (таблица).
+                                Новые занятия создаются как <span class="badge badge--warning">черновики</span>,
+                                существующие (по №) — обновляются, статус не меняется.
+                            </p>
+                            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+                                <input type="file" id="import-file" accept=".txt,.csv,.xlsx,.xls,.docx">
+                                <button class="btn btn--primary" onclick="previewImport()">Предпросмотр</button>
+                                <button class="btn btn--primary" id="btn-apply" style="display:none;" onclick="applyImport()">Импортировать</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="import-result"></div>
+                </div>
+            </div>`;
+    }
+
+    async function upload(action) {
+        const fileInput = document.getElementById('import-file');
+        const file = fileInput.files[0];
+        if (!file) { alert('Выберите файл'); return null; }
+        const token = localStorage.getItem('admin_token');
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('action', action);
+        const res = await fetch('/api/admin/lessons/import', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
+        if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            throw new Error(errBody.error || 'Ошибка загрузки файла');
+        }
+        return res.json();
+    }
+
+    async function previewImport() {
+        const resultEl = document.getElementById('import-result');
+        resultEl.innerHTML = '<p style="color:var(--admin-text-muted);">Распознаю файл...</p>';
+        try {
+            const data = await upload('preview');
+            lastPreview = data;
+            if (!data.preview || !data.preview.length) {
+                resultEl.innerHTML = '<p style="color:var(--admin-danger);">Пустой файл или не распознаны строки.</p>';
+                return;
+            }
+            const newCount = data.preview.filter(r => r.action === 'new').length;
+            const updCount = data.preview.filter(r => r.action === 'update').length;
+            resultEl.innerHTML = `
+                <div class="card" style="margin-top:1rem;">
+                    <div class="card__header">
+                        <h2 class="card__title">Предпросмотр — ${data.filename || ''}</h2>
+                    </div>
+                    <div style="padding:0 1.25rem 0.5rem;">
+                        Всего: <strong>${data.total}</strong> ·
+                        новых: <span class="badge badge--success">${newCount}</span> ·
+                        обновить: <span class="badge badge--warning">${updCount}</span>
+                    </div>
+                    <div class="table-wrapper">
+                        <table><thead><tr>
+                            <th>№</th><th>Название</th><th>Тема</th><th>Цель</th><th>Эффект</th><th>Действие</th>
+                        </tr></thead><tbody>
+                        ${data.preview.map(r => `
+                            <tr>
+                                <td>${esc(r.catalogNo)}</td>
+                                <td>${esc(r.title)}</td>
+                                <td>${esc(r.theme || '')}</td>
+                                <td>${esc(r.goals || '')}</td>
+                                <td>${esc(r.effect || '')}</td>
+                                <td>${r.action === 'new'
+                                    ? '<span class="badge badge--success">новый</span>'
+                                    : '<span class="badge badge--warning">обновить</span>'}</td>
+                            </tr>`).join('')}
+                        </tbody></table>
+                    </div>
+                </div>`;
+            document.getElementById('btn-apply').style.display = 'inline-flex';
+        } catch (err) {
+            resultEl.innerHTML = '<p style="color:var(--admin-danger);">Ошибка: ' + esc(err.message) + '</p>';
+            document.getElementById('btn-apply').style.display = 'none';
+        }
+    }
+
+    async function applyImport() {
+        if (!confirm('Импортировать ' + (lastPreview ? lastPreview.total : 0) + ' занятий в каталог?')) return;
+        const resultEl = document.getElementById('import-result');
+        const btn = document.getElementById('btn-apply');
+        btn.disabled = true;
+        try {
+            const data = await upload('apply');
+            resultEl.innerHTML = `
+                <div class="card" style="margin-top:1rem;">
+                    <div class="card__header"><h2 class="card__title">Результат импорта</h2></div>
+                    <div style="padding:0 1.25rem 1.25rem;">
+                        Создано: <span class="badge badge--success">${data.created}</span> ·
+                        Обновлено: <span class="badge badge--warning">${data.updated}</span> ·
+                        Всего: <strong>${data.total}</strong>
+                    </div>
+                </div>`;
+            lastPreview = null;
+            btn.style.display = 'none';
+        } catch (err) {
+            resultEl.innerHTML = '<p style="color:var(--admin-danger);">Ошибка: ' + esc(err.message) + '</p>';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    load();
+    </script>
+</body>
+</html>

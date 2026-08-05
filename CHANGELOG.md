@@ -4,6 +4,24 @@
 
 ---
 
+## [5.21.0] - 2026-08-05
+
+### Changed — Cloudflare Stream removed; Mux-only video provider
+
+Cloudflare Stream вычеркнут из экономики (хранение $0.005/мин + доставка $0.001/мин ≈ $310/мес на 50 роликов при 10k просмотров). Mux — единственный стриминг-провайдер; Bunny Stream остаётся запасным вариантом (не подключён).
+
+- Migration `014_video_id.sql`: `cf_video_uid` → `video_id` во всех таблицах (`lessons`, `lesson_media`, `video_uploads`, `lesson_versions`); индекс `idx_video_uploads_cf_uid` → `idx_video_uploads_video_id`.
+- `server/services/stream.js`: Cloudflare-модуль удалён полностью (`getConfig`/CF-функции/`processReadyVideo`/`startStatusPolling`/ES256-подпись). Осталось только Mux: `createMuxDirectUpload`, `getMuxAssetDetails`, `getMuxUploadStatus`, `deleteMuxAsset`, `signMuxPlaybackId` (HS256), `getMuxStreamUrl`.
+- `server/index.js`: `ALLOWED_SETTINGS_KEYS` без `cf_stream_*`; удалён `POST /api/settings/test-stream`; `video_id` в публичном списке уроков, CRUD, `lesson-media`, статусе аплоадов; дефолты провайдера — `mux`.
+- `server/routes/user.js`: `stream-token` строго Mux (`signMuxPlaybackId` + `getMuxStreamUrl`); `cf_video_uid` → `video_id` в запросах; `lessons-filter` отдаёт `video_id`.
+- `server/services/content-version.service.js`: `cf_video_uid` → `video_id` (версии и restore).
+- Админка: `settings.html` — блок Cloudflare Stream удалён (остался только Mux); `lessons.html` — селект «Хостинг» удалён, поле `f-cf-uid` → `f-video-id`; `stream-upload.js` — только Mux.
+- Сид-данные: seed-уроки с локальными mp4 получают `video_provider = 'local'`.
+- Тесты: `backend.test.js`, `stream-mux.test.js`, `admin-video-uploads.test.js`, `i18n.test.js` обновлены под `video_id`/Mux-only (легаси CF-кейсы убраны).
+- Документация: `docs/API.md`, `docs/openapi.yaml`, `docs/ARCHITECTURE.md`, `VERIFICATION.md` актуализированы.
+
+---
+
 ## [5.20.0] - 2026-08-01
 
 ### Fixed — stream-token per-code frontend (API-003 residual)

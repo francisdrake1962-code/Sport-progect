@@ -44,7 +44,7 @@
 
 | Файл | Строка | Что |
 |------|--------|-----|
-| `server/index.js:156` | CRUD route | Поля: `['title', 'complex_id', 'duration', 'status', 'description', 'video_url', 'cf_video_uid', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft']` |
+| `server/index.js:156` | CRUD route | Поля: `['title', 'complex_id', 'duration', 'status', 'description', 'video_url', 'video_id', 'is_free', 'free_order', 'date', 'tags', 'direction', 'direction_source', 'effect_description', 'effect_is_draft']` |
 
 ---
 

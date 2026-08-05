@@ -433,6 +433,34 @@ select.form-control {
     padding: 1.5rem;
 }
 
+.form-tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--admin-border);
+    margin-bottom: 1.25rem;
+}
+
+.form-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    color: var(--admin-text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.15s;
+}
+
+.form-tab:hover {
+    color: var(--admin-text);
+}
+
+.form-tab.is-active {
+    color: var(--admin-primary);
+    border-bottom-color: var(--admin-primary);
+}
+
 .modal__footer {
     display: flex;
     justify-content: flex-end;

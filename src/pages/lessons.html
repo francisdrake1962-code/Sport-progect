@@ -44,9 +44,13 @@
         .complex-lesson:last-child { border-bottom:none; }
         .complex-lesson:hover { background:#f1ece2; }
         .complex-lesson__num { color:#7c6f5d; font-weight:600; font-size:0.85rem; min-width:1.5rem; }
-        .complex-lesson__title { flex:1; font-size:0.9rem; }
         .complex-lesson__duration { color:#7c6f5d; font-size:0.8rem; }
         .complex-lesson__play { color:#8a6f52; font-size:1.1rem; }
+        .lesson-cols { flex:1; display:grid; grid-template-columns:1.3fr 1.2fr 1.5fr; gap:1rem; min-width:0; }
+        .lesson-col { min-width:0; font-size:0.85rem; color:#6f675c; line-height:1.35; }
+        .lesson-col__title { color:#2b2721; font-weight:600; font-size:0.95rem; }
+        .lesson-col__theme { color:#8a6f52; font-size:0.78rem; margin-top:0.15rem; }
+        .lesson-col__label { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em; color:#b09a7d; margin-bottom:0.2rem; }
         .all-lessons { max-width:800px; margin:1.5rem auto; padding:0 1rem 3rem; }
         .all-lessons__title { color:#8a6f52; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:1rem; padding-left:0.25rem; }
         .lesson-row { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; background:#ffffff; border:1px solid #e8dcc4; border-radius:8px; margin-bottom:0.5rem; text-decoration:none; color:#6f675c; transition:all .1s; }
@@ -72,6 +76,7 @@
         @media (max-width:768px) {
             .lessons-hero { padding:1.5rem 1rem; }
             .lessons-hero__title { font-size:1.2rem; }
+            .lesson-cols { grid-template-columns:1fr; gap:0.35rem; }
         }
     </style>
 </head>
@@ -96,6 +101,22 @@
         }
 
         const complexIcons = { 'Основной комплекс': '🧘', 'Утренняя разминка': '🌅', 'Здоровая шея': '💆', 'Крепкая спина': '🦴', 'Суставы и гибкость': '🤸' };
+        function intensityPill(l) {
+            const map = { low: ['#e6f4ea', '#2e7d32'], medium: ['#fff4d6', '#b26a00'], high: ['#fdecea', '#c62828'] };
+            const m = map[l.intensity];
+            if (!m) return '';
+            return '<span style="display:inline-block;margin-top:0.25rem;padding:0.05rem 0.5rem;border-radius:10px;font-size:0.72rem;color:' + m[1] + ';background:' + m[0] + ';">' + ({ low: 'Щадящая', medium: 'Средняя', high: 'Интенсивная' }[l.intensity]) + '</span>';
+        }
+        function lessonCols(l) {
+            const effect = (l.effect_description && !l.effect_is_draft) ? '<div class="lesson-col__label">Эффект</div><div>' + esc(l.effect_description) + '</div>' : '';
+            return '<div class="lesson-cols">' +
+                '<div class="lesson-col"><div class="lesson-col__title">' + esc(l.title) + '</div>' +
+                (l.theme ? '<div class="lesson-col__theme">' + esc(l.theme) + '</div>' : '') +
+                intensityPill(l) + '</div>' +
+                '<div class="lesson-col">' + (l.goals ? '<div class="lesson-col__label">Цель</div><div>' + esc(l.goals) + '</div>' : '<div class="lesson-col__label" style="opacity:0.45;">Цель —</div>') + '</div>' +
+                '<div class="lesson-col">' + (effect || '<div class="lesson-col__label" style="opacity:0.45;">Эффект —</div>') + '</div>' +
+                '</div>';
+        }
         let isTrialUser = false;
         let selectedIds = new Set();
         const FREE_LIMIT = 7;
@@ -213,8 +234,12 @@
                 '<div class="lessons-today__card">' +
                 '<div class="lessons-today__label">Сегодня — ' + esc(dayName) + '</div>' +
                 '<div class="lessons-today__name">' + esc(lesson.title) + '</div>' +
+                (lesson.theme ? '<div class="lesson-col__theme" style="margin:0.2rem 0;">' + esc(lesson.theme) + '</div>' : '') +
+                (lesson.goals ? '<div style="color:#6f675c;font-size:0.85rem;margin-top:0.4rem;">🎯 ' + esc(lesson.goals) + '</div>' : '') +
+                (lesson.effect_description && !lesson.effect_is_draft ? '<div style="color:#6f675c;font-size:0.85rem;margin-top:0.4rem;">✨ ' + esc(lesson.effect_description) + '</div>' : '') +
                 '<div class="lessons-today__meta">' +
-                (lesson.duration ? '<span>⏱ ' + esc(lesson.duration) + '</span>' : '') +
+                (lesson.duration ? '<span>⏱ ' + esc(lesson.duration) + ' мин</span>' : '') +
+                (lesson.intensity ? '<span>' + ({ low: 'Щадящая', medium: 'Средняя', high: 'Интенсивная' }[lesson.intensity]) + '</span>' : '') +
                 '<span>📅 По расписанию</span>' +
                 '</div>' +
                 '<button class="lessons-today__play" onclick="window.location.href=\'player.html?id=' + lesson.id + '\'"><svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg> Начать занятие</button>' +
@@ -241,8 +266,8 @@
                     html += '<a href="player.html?id=' + l.id + '" class="complex-lesson" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#8a6f52;background:#f1ece2"' : '') + '>' +
                         '<span class="complex-lesson__num">' + (i+1) + '</span>' +
                         checkHtml +
-                        '<span class="complex-lesson__title">' + esc(l.title) + '</span>' +
-                        (l.duration ? '<span class="complex-lesson__duration">' + esc(l.duration) + '</span>' : '') +
+                        lessonCols(l) +
+                        (l.duration ? '<span class="complex-lesson__duration">' + esc(l.duration) + ' мин</span>' : '') +
                         '<span class="complex-lesson__play">▶</span>' +
                         '</a>';
                 });
@@ -258,8 +283,8 @@
             orphans.forEach((l, i) => {
                 html += '<a href="player.html?id=' + l.id + '" class="lesson-row">' +
                     '<span class="lesson-row__num">' + (i+1) + '</span>' +
-                    '<div class="lesson-row__info"><div class="lesson-row__name">' + esc(l.title) + '</div>' +
-                    '<div class="lesson-row__meta">' + (l.duration ? esc(l.duration) : '') + '</div></div>' +
+                    lessonCols(l) +
+                    (l.duration ? '<span class="lesson-row__meta">' + esc(l.duration) + ' мин</span>' : '') +
                     '<span class="lesson-row__play">▶</span></a>';
             });
             html += '</div>';
@@ -274,8 +299,8 @@
                 html += '<a href="player.html?id=' + l.id + '" class="lesson-row" data-lesson-row="' + l.id + '"' + (checked ? ' style="border-color:#8a6f52;background:#f1ece2"' : '') + '>' +
                     '<span class="lesson-row__num">' + (i+1) + '</span>' +
                     checkHtml +
-                    '<div class="lesson-row__info"><div class="lesson-row__name">' + esc(l.title) + '</div>' +
-                    '<div class="lesson-row__meta">' + (l.duration ? esc(l.duration) : '') + '</div></div>' +
+                    lessonCols(l) +
+                    (l.duration ? '<span class="lesson-row__meta">' + esc(l.duration) + ' мин</span>' : '') +
                     '<span class="lesson-row__play">▶</span></a>';
             });
             html += '</div>';

@@ -34,7 +34,7 @@
 │   │   └── auth.js             # Auth routes
 │   └── services/
 │       ├── mailer.js           # Email (console/gmail/resend)
-│       └── stream.js           # Cloudflare Stream
+│       └── stream.js           # Mux: Direct Upload + подпись playback
 ├── tests/                      # 656 тестов (8 сьютов)
 ├── data/                       # SQLite БД (gitignored)
 ├── videos/                     # Видеофайлы (gitignored)

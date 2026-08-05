@@ -10,6 +10,7 @@ function getSidebar(activePage) {
         ]},
         { section: 'Контент', items: [
             { href: 'lessons.html', icon: '🎬', label: 'Уроки' },
+            { href: 'import.html', icon: '📥', label: 'Импорт каталога' },
             { href: 'complexes.html', icon: '📚', label: 'Комплексы' },
             { href: 'schedule.html', icon: '📅', label: 'Расписание' },
             { href: 'content.html', icon: '📄', label: 'Контент страниц' },

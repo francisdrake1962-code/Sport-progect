@@ -1,6 +1,39 @@
 # СЕССИОННЫЕ ЗАМЕТКИ — qigong-landing.com
 
-Последнее обновление: 2026-08-03
+Последнее обновление: 2026-08-05
+
+## Сессия 2026-08-05 — Cloudflare Stream удалён; Mux-only; каталог очищен
+
+## Objective
+Полностью вычеркнуть Cloudflare Stream из кода, БД, админки и документации. `cf_video_uid` → `video_id` во всех таблицах. Mux — единственный стриминг-провайдер. Каталог занятий очищен (миграция 015) для перезапуска.
+
+## Important Details
+- `video_provider`: `mux` (стриминг, playback id в `video_id`) | `local` (self-hosted `video_url`). Дефолт в коде/миграциях — `mux`, у seed-уроков — `local`. Значений `cloudflare` больше нет нигде в коде.
+- Миграции 014/015 **применены** к `data/qigong.db` (бэкапы: `data/backups/pre-migration-2026-08-05T16-49-57-423Z.db` и `16-50-26-745Z.db` — состояние до rename). Каталог пуст (0 уроков), комплексы/подписчики не тронуты.
+- `runMigrations` укреплён: вырезает `--` комментарии перед сплитом по `;` (в 014 был `;` в комментарии — парсер падал); `ALTER TABLE ... RENAME COLUMN` с «no such column» — no-op (иначе свежая БД с уже новой схемой в db.js падала).
+- Миграции 006/007: дефолт `video_provider`/`provider` изменён `cloudflare` → `mux` (актуально для свежих БД; на проде 007 уже применён — дефолт в схеме старый, но код всегда пишет провайдер явно).
+- ВАЖНО: параллельный `npm test` флейкает (общая `data/qigong.test.db` между воркерами) — полный прогон только `npm run test:ci` (`--runInBand --randomize --forceExit`): сегодня **998/998**, lint 0, build OK.
+- Продовый админ-пароль: `admin@qigong.com` / `admin123admin123` (из `.env` BOOTSTRAP_ADMIN_PASSWORD; дефолтный `admin123` автоудаляется). Подписчики: `maria@example.com`/`password123` и др.
+- Порт/логи/кракозябры в консоли — как раньше (см. ниже). Сервер на `:3001` перезапущен (единственный свежий процесс).
+
+## Work State
+### Completed
+- Миграции: `014_video_id.sql` (rename `cf_video_uid`→`video_id` на `lessons`/`lesson_media`/`video_uploads`/`lesson_versions` + индекс `idx_video_uploads_video_id`), `015_clear_catalog.sql` (очистка каталога + сброс `sqlite_sequence`).
+- `server/services/stream.js` — только Mux (без CF-модуля, `processReadyVideo`, ES256). `server/index.js` / `server/routes/user.js` / `content-version.service.js` — `video_id`, `test-mux` вместо `test-stream`, ключи настроек без `cf_stream_*`.
+- Админка: `settings.html` (только блок Mux), `lessons.html` (`f-video-id`, селект «Хостинг» удалён), `stream-upload.js` (Mux-only).
+- Тесты обновлены: `backend.test.js` (503-кейс stream-token для mux-урока), `stream-mux.test.js` (503 без конфига + подписанный URL + local → null), `admin-video-uploads.test.js`, `i18n.test.js`. **998/998** (`npm run test:ci`), lint 0, build OK.
+- Smoke: `GET /api/lessons` → `total:0`, без `cf_video_uid`; `stream-token/1` (mux, без конфига) → 503 `STREAMING_NOT_CONFIGURED`; `POST /api/settings/test-mux` → 200 `{configured:false,...}`. Тестовый урок с Mux `video_id` вставлен и удалён.
+- Документация: `CHANGELOG.md` (5.21.0), `VERIFICATION.md`, `TESTING_GUIDE.md`, `README.md`, `PROGRESS.md`, `EXTERNAL_SERVICES_PLAN.md`, `DB_RUNBOOK.md`, `docs/API.md`, `docs/openapi.yaml`, `docs/ARCHITECTURE.md`. Остатки Cloudflare остались только как история в CHANGELOG/AUDIT.
+
+### Pending / Next
+1. При настройке Mux: вписать `MUX_*` в `.env` (или settings-админку) и проверить `POST /api/settings/test-mux` → `configured:true`, затем залить реальное видео (Direct Upload) и проверить подписанный HLS в плеере.
+2. Залить каталог заново (админка / `import.html` / скрипт `server/scripts/import-catalog.js`).
+3. `video_uploads.provider` на проде имеет старый DEFAULT 'cloudflare' (007 применён до правки) — коду безразлично (провайдер пишется явно), но при желании пересобрать таблицу.
+4. Из прошлых сессий: картинки упражнений (комплекс на стуле) — ждёт решения пользователя.
+
+---
+
+## Прошлые сессии — 2026-08-03 (mindful redesign)
 
 ## Objective
 Стилизовать qigong-landing.com в «mindful»-эстетике по образцу melissawoodhealth.com: тёплая землистая палитра, премиальная типографика serif/sans. Главная (лендинг) переоформлена и **одобрена**. Кабинет переведён из тёмной зелёной гаммы в **светлую тёплую** (решение принято сегодня: тёмная тема отклонена пользователем — «очень мрачно», зелёная тоже была мрачновата).
@@ -23,6 +56,8 @@
 ## Work State
 ### Completed
 - Лендинг (src/index.html + main.css + fonts) — готов, одобрен.
+- Последний коммит: `e61f8aec2 feat(ui): mindful warm redesign — landing approved, cabinet light theme`. Рабочее дерево чистое (мои новые файлы пока не коммитились).
+- ВАЖНО (сегодня): `npm run test:ci` дал 44 failed (backend.test.js: Stripe not configured, 429 rate-limit). Проверено на чистом HEAD — падает и без изменений (102 failed) → флейк/среда, НЕ связано с витриной. Раньше было 999/999 — вероятно, изменился .env (STRIPE_SECRET_KEY=sk_test_placeholder) или состояние rate-limit.
 - Кабинет: зелёная тёмная гамма → тёплая тёмная → **светлая тёплая** (сегодня). Всё собрано: `npm run build` OK, `npm run lint` чисто, `npm run test:ci` 999/999 passed, сервер перезапущен, страницы отдают светлую тему.
 - Светлые подстраницы (faq, terms и др.) — плейсхолдеры/noscript в светлой гамме.
 - SVG-иллюстрации ex-*.svg (8 шт.) и body-map-*.svg (2 шт.) созданы в src/images/, в dist — но НЕ подключены к страницам и отклонены пользователем (см. выше).
@@ -33,6 +68,51 @@
 2. Если подключать картинки: добавить `image_url` в SELECT `/api/user/lessons-filter`, вывести миниатюры в `picker.html` и `lessons.html`, заполнить `image_url` в БД.
 3. Решить судьбу `src/images/ex-*.svg` и `body-map-*.svg` (удалить или перерисовать под стоячие позы / карту тела — карта тела актуальна независимо от стула).
 4. По желанию: переоформить админку под ту же палитру.
+
+## Витрина референсов — ВНЕ проекта: `C:\Users\admin\Documents\Competitors\`
+- **Полностью отделена** от qigong-landing (решение пользователя). Каждый конкурент — в своей папке со **своим сервером на своём порту** (чистый Node, без зависимостей):
+  - `yogago\` → порт **3002** (живой SPA, статика + SPA-fallback + встроенный прокси на реальный API listokcrm);
+  - `mwh\` → порт **3003** (статика: 256 экранов из XML + 8 скриншотов);
+  - `lazyfit\` → порт **3004** (статика: 634 экрана из XML).
+- **Запуск**: `start-all.bat` (все три) или `start-yogago.bat` / `start-mwh.bat` / `start-lazyfit.bat` (внутри папки). Каждый скрипт убивает старый слушатель порта перед стартом и открывает браузер. Автозапуск при входе в Windows — НЕ ставим (решение пользователя).
+- **Телефон по Wi-Fi**: `http://192.168.0.12:3002/` (YOGAGO), `:3003/` (MWH), `:3004/` (LazyFit). Фаервол-правила 3002/3003/3004 — `Competitors\setup-firewall.bat` (от администратора, один раз; в проекте удалён).
+- В проекте удалено: `ref-viewer/`, `server/routes/refViewer.js`, `start-refs.*`, `setup-firewall.bat`, `tools/ref-viewer/`. Из `server/index.js` убраны `require('./routes/refViewer')`, `app.use('/ref'...)`, `app.use('/ref-yogago-proxy'...)`. Порт 3001 и `/api/health` — в порядке (проверено после перезапуска).
+- Пересборка MWH/LazyFit: `Competitors\tools\build.js` (ждёт исходники в `Competitors\references\` — при необходимости скопировать из проекта). Хаб не генерится — навигация по README.md.
+
+## YOGAGO.MD — живое приложение (порт 3002)
+- Копия оригинального WebView-бандла (Quasar/Vue SPA «ListokMobile») из APK, baseURL пропатчен `https://an7216.listokcrm.ru/api/mobile/v1` → `/ref-yogago-proxy/api/mobile/v1`, прокси в `yogago\server.js` гоняет запросы на реальный API listokcrm (нужен интернет). Работает без логина (`demandLoginInLK=false`). Вход/кабинет: только по SMS-коду (демо-кодов нет), расписание/новости смотреть можно и без него.
+- **Причина пустых страниц (была исправлена)**: повреждение кодировки (UTF-8/CP1251 → кириллица-мусор, acorn fail). Чистый источник — APK (`references/yogago.apk`, `assets/www`), заменено целиком. Пропатчены 2 файла: `index-r-smMR7e.js` (`jm` default + интерцептор `Ee` с `Qe().domain`) и `index.da57d7bf.js` (`Lm` default + интерцептор `Ce` с `ze().domain`).
+- **Диалог «gap_init:3» (был исправлен)**: настоящий `cordova.js` звал `prompt('','gap_init:...')` (Android-мост) → пропатчен: `androidExec.init` без `bridgeSecret` (сразу `onNativeReady.fire()`), убран throw-гард, `var msgs = nativeApiProvider.get().exec(...)` → `null`. Мост не дёргается, плагины грузятся, `deviceready` срабатывает, `window.cordova` определён.
+- **Роутер**: `createWebHistory("")` → статику отдавать ТОЛЬКО из корня. `server.js` отдаёт SPA на `/` (SPA-fallback без `app.get('*')`), прокси на `/ref-yogago-proxy`.
+- **Проверено после переноса**: 3002/3003/3004 — 200, `assets/index-r-smMR7e.js` и `index.da57d7bf.js` — 200, прокси `/ref-yogago-proxy/api/mobile/v1/common/settings` — 200.
+- **Внешние ссылки бокового меню (исправлено сегодня)**: «Тренировки в подарок»/«Курс YOGA START»/«Цены»/«Правила студии» не открывались, т.к. `openUniversalUrl-BeVz2e5G.js` (и `openUniversalUrl.d861132d.js`) звали `cordova.InAppBrowser.open(...)` — плагина нет без моста → `undefined` → исключение в addEventListener. Пропатчены обе копии: убрана ветка InAppBrowser, используется `window.open(s, "_blank")` с `String(s).trim()` (у URL в настройках пробелы на конце: `/rules `, `/price `, `/yogastart `, `/promotion`). `node --check` OK.
+- **MWH**: `http://localhost:3003/` — 256 экранов (реконструкция из XML) + 8 скриншотов (`/screenshots.html`). Скриншоты — главный источник правды; XML-рендер даёт скелеты (контент в RecyclerView динамический).
+- **LazyFit**: `http://localhost:3004/` — 634 экрана из XML. Переходы извлечь нельзя: навигация динамическая (Class.forName + AB-тесты).
+- Рендерер layout→HTML: LinearLayout/flex, Frame/Constraint/Relative приближённо, TextView/Button/Image/EditText, цвета/строки/размеры из resources, включения `<include>`.
+- **Рендерер обновлён (сегодня)**: `0dp` по width → `100%`, по height → `100%` (контейнеры) / `auto` (иначе) — пустые экраны MWH/LazyFit (были «только рамка телефона») теперь показывают контент. Картинки рендерятся как `<img src="../img/<файл>">` через `findRaster(ctx, name)` (ищет файл в `drawable*` по имени ресурса, без имени_layout-префикса): MWH — 8 экранов с картинками (5 файлов в `img/`), LazyFit — 25 экранов (28 файлов).
+- **Переходы MWH извлечены** (`tools/lib/nav.js`, `extractNavTransitions`): парсит navigation-графы в `references\mwh-res\resources\res\navigation\` (23 XML: `home_graph`, `explore_graph`, `nutrition_graph`, `lifestyle_graph`, `profile_graph`, `auth_graph`…), `action/@app:destination` + табы BottomNavigation. Переходы с читаемыми label (`Subscription Options Screen`, `Explore Screen`…) у 6 экранов: `fragment_explore`, `fragment_home`, `fragment_life_style_detail`, `fragment_nutrition`, `fragment_personal_info`, `fragment_send_password_link`. `fragment_home` → subscription/explore/nutrition/lifestyle. LazyFit — переходов нет (динамическая навигация, `extractTransitions` = 0).
+- `activity_main` (MWH) остаётся каркасом `NavHostFragment`+`BottomNavigationView` — это осознанно, контент во фрагментах.
+- **ГЛАВНЫЙ БАГ РЕНДЕРЕРА (исправлен сегодня)**: `lib/xml.js` обрабатывал самозакрывающиеся теги (`<View/>`, `<include/>`) как контейнеры — `if (selfClosing) return` стоял ПОСЛЕ цикла парсинга детей, и весь контент после первого самозакрывающегося элемента проглатывался как его «дети». Т.к. `<include/>` всегда самозакрывающийся — почти все экраны MWH/LazyFit рендерились пустыми. Фикс: ранний return сразу после `/>`. После фикса `fragment_explore` (был 0 символов) рендерит шиммеры/заголовки, картинки в 11 MWH и 40 LazyFit экранах (MWH 7 файлов img, LazyFit 57 файлов).
+- Пустые экраны теперь показывают пояснение «контент грузится рантаймом» вместо пустой рамки: MWH 45/256, LazyFit 503/634 (последнее честно — ComposeView/FragmentContainerView/ViewStub). LazyFit — в основном «кодовое» приложение.
+- Index-страницы: акцентный заголовок (MWH #8a6f52, LazyFit #005f45), описание, галерея настоящих скриншотов, раздел «Экраны с изображениями из ресурсов», `hub.html` (JS подставляет IP телефона, ссылки на оба приложения).
+- **LazyFit = «LazyFit: Chair Yoga & Pilates»** (Next Vision Limited): стульная йога, пилатес (bed/mat/wall), тайцзи, ходьба — целевая аудитория пожилые/новички, ПРЯМО релевантно qigong-landing. Скачаны 6 настоящих скриншотов с APKPure в `references/lazyfit-screenshots/` (валидные JPEG, пакет подтверждён base64 в URL CDN). MWH-скриншоты на APKPure — те же 8, что уже были.
+- Источник скриншотов: APKPure (Play Store из этой сети недоступен — блокирует; websearch 403; Bing за капчей; Aptoide/uptodown/appbrain не имеют этих приложений). CDN APKPure: `image-eo.winudf.com` (через curl с UA+Referer apkpure.com).
+- Пересборка: `node tools/build.js` из `Competitors\` — MWH 256 + 8 скриншотов, LazyFit 634 + 6 скриншотов. Скрипты старта: `start-all.bat` / `start-mwh.bat` / `start-lazyfit.bat`.
+
+## Reference-материалы (в репозитории, для изучения решений конкурентов)
+- `references/yogago-decompiled` + `yogago-decompiled-real` — **YOGAGO.MD** (listok.yogago), нативное приложение (jadx, sources+resources; real — повторная декомпиляция, sources обфусцированы a00…). + `references/yogago.apk`. Важно: это WebView/Cordova-приложение — весь UI лежит в `assets/www` (тот же бандл, что в `ref/yogago`).
+- `references/lazyfit-decompiled` — **LazyFit** (com.mejordailytracker.app, движок Glority, код в com/glority), jadx sources+resources. + `references/lazyfit.apk`. (Это НЕ Chair Yoga for Seniors.)
+- `references/mwh-decompiled` (sources, обфусц.), `references/mwh-res` (resources, layouts здесь), `references/mwh-xapk` (base+config splits), `references/mwh-screenshots` (8 шт) — **MWH / Melissa Wood Health** (com.melissawoodhealth).
+- `ref/melissa` — APK Мелиссы (манифест бинарный, без декомпилятора не читается) + `ref/yogago` — Cordova-сборка.
+- `references/logpress-public` — **LogPress** (React Native 0.80, TS, «публичная» версия fitness-трекера с AI-счётчиком) — хороший образец RN-структуры/offline.
+- `references/jadx` — сам декомпилятор jadx (бинарник).
+- Вывод: в репо НЕТ кода именно «Chair Yoga for Seniors» (net.workoutinc.*) — похоже, пользователь имел в виду один из вышеперечисленных (вероятнее YOGAGO.MD или LazyFit). Уточнить при следующем разговоре про картинки.
+- `references/lazyfit-decompiled` — **LazyFit** (com.mejordailytracker.app), jadx sources+resources. + `references/lazyfit.apk`. (Это НЕ Chair Yoga for Seniors.)
+- `references/mwh-decompiled` (sources), `references/mwh-res` (resources), `references/mwh-xapk` (base+config splits), `references/mwh-screenshots` — **MWH / Melissa Wood Health** (com.melissawoodhealth).
+- `ref/melissa` — APK Мелиссы (манифест бинарный, без декомпилятора не читается) + `ref/yogago` — Cordova-сборка.
+- `references/logpress-public` — **LogPress** (React Native 0.80, TS, «публичная» версия fitness-трекера с AI-счётчиком) — хороший образец RN-структуры/offline.
+- `references/jadx` — сам декомпилятор jadx (бинарник).
+- Вывод: в репо НЕТ кода именно «Chair Yoga for Seniors» (net.workoutinc.*) — похоже, пользователь имел в виду один из вышеперечисленных (вероятнее YOGAGO.MD или LazyFit). Уточнить при следующем разговоре про картинки.
 
 ## Relevant Files
 - `src/styles/main.css` — дизайн-система лендинга (принята).

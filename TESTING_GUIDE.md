@@ -238,24 +238,24 @@ curl -I "http://localhost:3001/videos/../../etc/passwd" \
 
 ---
 
-## 8. Cloudflare Stream (требует настройки)
+## 8. Mux (видео, требует настройки)
 
 ### 8.1 Проверка конфигурации
 ```bash
 curl http://localhost:3001/api/user/stream-token/1 \
   -H "Authorization: Bearer TOKEN"
 ```
-- Если CF не настроен: `{"error":"Streaming not configured"}` (ожидаемо)
-- Если CF настроен: `{"streamUrl":"https://customer-xxx.cloudflarestream.com/..."}`
+- У урока без Mux `video_id` (например `video_provider=local`): `streamUrl: null`, плеер раздаёт локальный `video_url`
+- У Mux-урока без настроенной подписи: `{"error":"Streaming not configured"}` (503)
+- У Mux-урока с настроенной подписью: `{"streamUrl":"https://stream.mux.com/xxxx.m3u8?token=..."}`
 
 ### 8.2 Настройка
 Добавить в `.env`:
 ```
-CLOUDFLARE_ACCOUNT_ID=...
-CLOUDFLARE_STREAM_API_TOKEN=...
-CLOUDFLARE_STREAM_SIGNING_KEY_ID=...
-CLOUDFLARE_STREAM_SIGNING_KEY=...
-CLOUDFLARE_STREAM_CUSTOMER_CODE=...
+MUX_ACCESS_TOKEN_ID=...
+MUX_ACCESS_TOKEN_SECRET=...
+MUX_SIGNING_KEY_ID=...
+MUX_SIGNING_KEY=...
 ```
 
 ---
@@ -297,8 +297,8 @@ npx jest tests/integrity.test.js --forceExit
 - [ ] Пароль админа `admin123` заменён
 - [ ] `RESEND_API_KEY` или `GMAIL_*` настроены для отправки email
 - [ ] `APP_BASE_URL` установлен (для ссылок в письмах)
-- [ ] `VIDEOS_DIR` указан (или используется Cloudflare Stream)
-- [ ] `CLOUDFLARE_*` переменные настроены (если используется Stream)
+- [ ] `VIDEOS_DIR` указан (или используется Mux Stream)
+- [ ] `MUX_*` переменные настроены (если используется стриминг)
 - [ ] Домен добавлен в CORS allowlist
 - [ ] `data/qigong.db` не попадает в git (в .gitignore)
 

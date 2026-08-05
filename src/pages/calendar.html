@@ -224,8 +224,9 @@ if(item&&item.theme){
 html+='<div class="cal-week-card__theme">'+esc(item.theme)+'</div>';
 html+='<div class="cal-week-card__meta">';
 html+='<span style="color:#8a6f52;font-weight:600">День '+esc(item.day_number)+'</span>';
-if(item.duration)html+='<span>⏱ '+esc(item.duration)+' мин</span>';
-if(item.title)html+='<span>'+esc(item.title)+'</span>';
+            if(item.duration)html+='<span>⏱ '+esc(item.duration)+' мин</span>';
+            if(item.intensity)html+='<span>'+({low:'Щадящая',medium:'Средняя',high:'Интенсивная'}[item.intensity]||esc(item.intensity))+'</span>';
+            if(item.title)html+='<span>'+esc(item.title)+'</span>';
 html+='<span class="cal-week-card__status">';
 if(item.watched&&item.watched.completed)html+='<span style="color:#b99a74">✓ Пройдено</span>';
 else if(isToday)html+='<span style="color:#8a6f52">● Сегодня</span>';

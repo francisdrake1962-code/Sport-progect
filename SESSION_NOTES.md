@@ -2,7 +2,36 @@
 
 Последнее обновление: 2026-08-06
 
-## Сессия 2026-08-06 — Devil's Advocate Round 14 (тестовая изоляция, DB-002, ARCH-001)
+## Сессия 2026-08-06 — Round 15 (локальная загрузка видео, каталог без Mux/Stripe/email)
+
+## Objective
+По запросу клиента: отложить заполнение email/Mux/платёжных реквизитов и сделать работу с каталогом без внешних сервисов — чтобы можно было загружать видеофайлы, составлять занятия и календарь, заполнять формы. Клиент: «мы сначала начнём с каталога… далее уже будем отлаживать на одном файле видео… платёжные реквизиты пока отложим». Тестовая почта — пока `console`-лог. Версия: **5.23.0**.
+
+## Important Details
+- **Что уже работало без настройки**: каталог (CRUD занятий/комплексов, обложки через `POST /api/upload`), локальное видео (`provider='local'` + `video_url='/videos/…'`, защита stream-токеном), календарь (`lessons.date`), почта (дефолт `MAIL_PROVIDER=console` — письма в лог сервера).
+- **Пробел под задачу «загружать файл»**: видео нельзя было загрузить файлом из админки — только Mux (нужны ключи) или вручную (файл в `videos/` + URL вручную). Добавлен эндпоинт локальной загрузки.
+- **DA-59 / фича**: `POST /api/admin/lessons/:id/video/local-upload` (multipart `file` + `language`): multer disk-storage → `videos/` (переопределяемо через `VIDEOS_DIR` для тестов), строка `video_uploads` (`provider='local'`, `status='ready'`, `original_filename`, `file_size`), `lessons.video_url`/`video_provider='local'`/`video_id=NULL`, `lesson_media` upsert, аудит, чистка файла/строки при ошибках (отсутствующий урок не оставляет orphan-файл). `videosDir` вынесен наверх `server/index.js` и переиспользуется роутом отдачи `/videos/{*splat}`.
+- **Admin UI**: блок «Локальный файл (без Mux)» в `src/admin/js/stream-upload.js` — выбор файла, прогресс-бар, URL подставляется в «URL видео», сообщение «нажмите Сохранить». Mux-секция не тронута. `lessons.html` уже вычисляет `video_provider` из заполненного URL (правки не потребовались).
+- **TDD**: 8 новых тестов в `tests/admin-video-uploads.test.js` (auth 401, role 403, invalid id, unsupported ext, upload+link в БД и на диск, 404 lesson, no orphan file, replace previous fields). RED → реализация → GREEN.
+- Итог: **1010/1010 тестов, 20 suites** (randomized); lint 0; build OK.
+
+## Work State
+### Completed
+- Round 0 baseline: `npm run test:ci` 1010/1010 (после фичи; до фичи 1002/1002).
+- Фича локальной загрузки видео + 8 тестов + админ-блок.
+- Документация: `CHANGELOG.md` [5.23.0], `PROGRESS.md` (шапка + git log + NEXT ACTIONS + приоритет клиента), `SESSION_NOTES.md`, `package.json` 5.22.0→5.23.0.
+
+### Pending / Next
+1. **Заполнение каталога (ручная работа клиента)** — загрузка файлов (имя файла ↔ № в каталоге), занятия, комплексы, календарь, формы.
+2. **Отладка на одном видеофайле** — плеер, гейты доступа (trial/free/paid), прогресс.
+3. **Тестовая почта** — пока `console`-лог; позже Gmail App Password / Mailpit (нужна generic SMTP в mailer.js) / Resend.
+4. **Mux** — клиент зарегистрируется; заполнить ключи (all-or-none + signing pair), перевести уроки на `provider='mux'`.
+5. **Оплата** — отложена до полной готовности (Stripe Price IDs, webhook).
+6. **Аудит (когда вернёмся)**: OBS-001 (payment в `audit_log`), admin `{error}` legacy, ARC-001 NOT WIRED, CSP `unsafe-inline`, `hero-poster.jpg` 2.55 MiB.
+
+---
+
+## Прошлые сессии — 2026-08-06 (Devil's Advocate Round 14)
 
 ## Objective
 Продолжить цепочку аудита по `docs/IMPROVEMENT_TZ.md` (P0/P1 закрыты в Rounds 4–13). Начать с baseline `npm run test:ci` → оказалось **51 падение**. Докопаться до корневой причины, исправить по TDD, обновить документацию, закоммитить и запушить. Версия: **5.22.0**.

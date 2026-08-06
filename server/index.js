@@ -137,6 +137,29 @@ app.use(express.static(path.join(__dirname, '..', 'dist'), {
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
+const videosDir = process.env.VIDEOS_DIR || path.join(__dirname, '..', 'videos');
+if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
+
+const videoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, videosDir),
+  filename: (req, file, cb) => {
+    const original = path.basename(file.originalname || 'video.mp4');
+    const ext = path.extname(original).toLowerCase() || '.mp4';
+    const base = path.basename(original, path.extname(original));
+    const safeBase = String(base).replace(/[\\/:*?"<>|]/g, '_').trim();
+    const name = (safeBase || 'video') + ext;
+    cb(null, name);
+  },
+});
+
+const videoFilter = (req, file, cb) => {
+  const allowed = ['.mp4', '.mov', '.webm', '.avi', '.mkv'];
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  cb(null, allowed.includes(ext));
+};
+
+const uploadLocalVideo = multer({ storage: videoStorage, fileFilter: videoFilter, limits: { fileSize: 2 * 1024 * 1024 * 1024 } });
+
 const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const sub = (req.query.type || 'general').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -1069,6 +1092,55 @@ api.post('/admin/lessons/:id/video/mux-upload', async (req, res, next) => {
   }
 });
 
+/* Admin: lesson video upload (local file, no Mux) */
+api.post('/admin/lessons/:id/video/local-upload', uploadLocalVideo.single('file'), async (req, res, next) => {
+  let savedUploadId = null;
+  try {
+    const lessonId = Number(req.params.id);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Invalid lesson ID' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded or unsupported format' });
+
+    const language = (req.body && req.body.language) || 'ru';
+    const filename = path.basename(req.file.filename);
+
+    const db = await getDb();
+    const lesson = db.exec(`SELECT id, video_provider FROM lessons WHERE id = ?`, [lessonId]);
+    if (!lesson.length || !lesson[0].values.length) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+
+    db.run(`INSERT INTO video_uploads (lesson_id, language, original_filename, file_size, status, provider) VALUES (?, ?, ?, ?, 'ready', 'local')`,
+      [lessonId, language, filename, req.file.size]);
+    const idResult = db.exec(`SELECT last_insert_rowid() as id`);
+    savedUploadId = idResult[0].values[0][0];
+
+    const url = '/videos/' + filename;
+    db.run(`UPDATE lessons SET video_url = ?, video_provider = 'local', video_id = NULL WHERE id = ?`, [url, lessonId]);
+    db.run(`INSERT OR REPLACE INTO lesson_media (lesson_id, language, video_url, video_provider, status) VALUES (?, ?, ?, 'local', 'ready')`,
+      [lessonId, language, url]);
+    saveDb();
+    auditService.logAction('create', 'video_uploads', savedUploadId, req.user?.id, req.user?.role, { lesson_id: lessonId, language, provider: 'local', filename }, req.ip);
+
+    res.status(201).json({ id: savedUploadId, url, provider: 'local' });
+  } catch (err) {
+    if (savedUploadId) {
+      try {
+        const db = await getDb();
+        db.run(`DELETE FROM video_uploads WHERE id = ?`, [savedUploadId]);
+        saveDb();
+      } catch { /* best effort rollback */ }
+    }
+    if (req.file) {
+      try { fs.unlinkSync(req.file.path); } catch { /* best effort */ }
+    }
+    next(err);
+  }
+});
+
 api.get('/admin/video-uploads/:id/status', async (req, res, next) => {
   try {
     const uploadId = Number(req.params.id);
@@ -1218,7 +1290,6 @@ api.post('/admin/feedback/:id/reply', async (req, res, next) => {
 
 app.use('/api', api);
 
-const videosDir = process.env.VIDEOS_DIR || path.join(__dirname, '..', 'videos');
 app.get('/videos/{*splat}', async (req, res) => {
   let filename;
   try {

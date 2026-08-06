@@ -36,6 +36,21 @@ function initStreamUpload(lessonId, lang) {
     '</div>' +
     '<div id="stream-result" style="display:none;margin-top:0.5rem;font-size:0.85rem;"></div>' +
     '<div style="font-size:0.75rem;margin-top:0.5rem;color:var(--admin-text-muted);">После загрузки ID попадёт в поле «Видео ID» — сохраните урок.</div>' +
+  '</div>' +
+  '<div style="margin-top:0.5rem;border:1px solid var(--admin-border);border-radius:6px;padding:0.75rem;">' +
+    '<div style="font-weight:600;font-size:0.85rem;margin-bottom:0.5rem;">Локальный файл (без Mux)</div>' +
+    '<div style="font-size:0.8rem;margin-bottom:0.5rem;color:var(--admin-text-muted);">Файл сохранится в папку videos/ и попадёт в поле «URL видео» — сохраните урок.</div>' +
+    '<div><input type="file" id="local-file-input" accept=".mp4,.mov,.webm,.avi,.mkv" style="font-size:0.85rem;"></div>' +
+    '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+      '<button class="btn btn--secondary btn--sm" id="btn-local-upload" disabled>Загрузить локально</button>' +
+    '</div>' +
+    '<div id="local-progress" style="display:none;margin-top:0.5rem;">' +
+      '<div style="background:var(--admin-border);border-radius:4px;height:8px;overflow:hidden;">' +
+        '<div id="local-progress-bar" style="width:0%;height:100%;background:var(--admin-success);border-radius:4px;transition:width .3s;"></div>' +
+      '</div>' +
+      '<div id="local-status" style="font-size:0.8rem;margin-top:0.3rem;"></div>' +
+    '</div>' +
+    '<div id="local-result" style="display:none;margin-top:0.5rem;font-size:0.85rem;"></div>' +
   '</div>';
 
   container.innerHTML = html;
@@ -43,9 +58,72 @@ function initStreamUpload(lessonId, lang) {
   var fileInput = document.getElementById('stream-file-input');
   var uploadBtn = document.getElementById('btn-stream-upload');
   var deleteBtn = document.getElementById('btn-stream-delete');
+  var localInput = document.getElementById('local-file-input');
+  var localUploadBtn = document.getElementById('btn-local-upload');
 
   fileInput.addEventListener('change', function () {
     uploadBtn.disabled = !fileInput.files.length;
+  });
+
+  localInput.addEventListener('change', function () {
+    localUploadBtn.disabled = !localInput.files.length;
+  });
+
+  localUploadBtn.addEventListener('click', async function () {
+    var file = localInput.files[0];
+    if (!file) return;
+    localUploadBtn.disabled = true;
+    localInput.disabled = true;
+
+    var progressDiv = document.getElementById('local-progress');
+    var progressBar = document.getElementById('local-progress-bar');
+    var statusDiv = document.getElementById('local-status');
+    var resultDiv = document.getElementById('local-result');
+    progressDiv.style.display = 'block';
+    resultDiv.style.display = 'none';
+    progressBar.style.width = '15%';
+    statusDiv.textContent = 'Загрузка файла... (' + formatBytes(file.size) + ')';
+
+    var token = localStorage.getItem('admin_token');
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('language', lang);
+
+    try {
+      var res = await fetch('/api/admin/lessons/' + lessonId + '/video/local-upload', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: fd
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Не удалось загрузить файл');
+
+      progressBar.style.width = '100%';
+      statusDiv.textContent = 'Готово';
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<span style="color:var(--admin-success);font-weight:600;">✅ Файл загружен</span>' +
+        '<div style="margin-top:0.3rem;font-size:0.8rem;">URL: <code>' + esc(data.url || '') + '</code></div>' +
+        '<div style="margin-top:0.3rem;font-size:0.8rem;color:var(--admin-text-muted);">URL подставлен в форму — нажмите «Сохранить».</div>';
+      if (urlInput && data.url) {
+        urlInput.value = data.url;
+        urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+        urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (cfInput && cfInput.value) {
+        cfInput.value = '';
+        cfInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      localInput.disabled = false;
+    } catch (err) {
+      progressBar.style.width = '100%';
+      progressBar.style.background = 'var(--admin-danger)';
+      statusDiv.textContent = '❌ ' + err.message;
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<span style="color:var(--admin-danger);font-weight:600;">❌ ' + esc(err.message) + '</span>' +
+        '<button class="btn btn--secondary btn--sm" style="margin-top:0.5rem;display:block;" onclick="location.reload()">Повторить</button>';
+      localUploadBtn.disabled = false;
+      localInput.disabled = false;
+    }
   });
 
   if (deleteBtn) {

@@ -1,7 +1,7 @@
 # Feature Registry — Qigong Landing + Admin Panel
 
 > Canonical source of truth. Every feature with user story, implementation, tests, and status.
-> Last updated: v5.21.1
+> Last updated: v5.23.0
 
 ---
 
@@ -135,6 +135,7 @@
 | F98 | Calendar Link on Lessons | As subscriber I can navigate to calendar from lessons page | `src/pages/lessons.html:128` | `integrity.test.js` | OK |
 | F99 | Path Traversal Protection | As server I reject `../` sequences in video URLs | `server/index.js:243-255` | `backend.test.js` | OK |
 | F100 | Video Auth Error Handling | As server I log JWT errors instead of silently bypassing | `server/index.js:274-276` | `backend.test.js` | OK |
+| F101 | Local Video Upload (no Mux) | As admin I upload a video file to `videos/` without Mux keys; lesson becomes `provider='local'` + `video_url='/videos/<file>'` | `server/index.js` (`POST /admin/lessons/:id/video/local-upload`), `src/admin/js/stream-upload.js` («Локальный файл» block) | `tests/admin-video-uploads.test.js` | OK (v5.23.0) |
 | F101 | XSS Protection (login) | As user, registration email is HTML-escaped in success message | `src/pages/login.html:72` | — | NOT TESTED |
 | F102 | Dev Link Guard | As production user I don't see dev confirmation links | `src/pages/login.html:155` | — | NOT TESTED |
 | F103 | FREE_LIMIT Constant | As developer I use a single source of truth for free limit (7) | `server/routes/user.js:12` | `backend.test.js` | OK |

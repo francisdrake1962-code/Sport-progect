@@ -41,3 +41,65 @@ the product but the test harness itself hitting a stale dev server.
 3. **DB-002 residual**: `payments.provider_checkout_session_id` has no UNIQUE constraint (uniqueness currently relies on Stripe session IDs); webhook idempotency is enforced by `payment_events.event_id UNIQUE`.
 4. CSP retains `unsafe-inline`; `hero-poster.jpg` 2.55 MiB over budget (documented P3 debts).
 5. **Manual production steps**: Stripe Price IDs + Mux keys (all-or-none) must be set before a production deploy; re-fill the empty lesson catalog (migration 015 cleared it for relaunch).
+
+---
+
+# Devil's Advocate Audit — Round 15 (local video upload, catalog without external services)
+
+Date: 2026-08-06 | Version: 5.23.0 | Type: feature work per client request
+
+## Outcome
+
+The client asked to defer email/Mux/payment setup and make the **catalog work
+first** — upload video files, compose lessons and a calendar, fill in forms —
+with debugging on a single video file to follow. Email stays on the `console`
+provider; payments are deferred until the program is complete.
+
+Audit of the current state found the catalog CRUD, image upload, local
+playback (`video_provider='local'` + `video_url='/videos/…'`, stream-token
+protected), calendar (`lessons.date`) and console email all already work with
+**zero configuration**. The gap was the client's actual request — *«загружать
+файл»*: video could only be attached either via Mux (requires keys) or by
+manually dropping a file into `videos/` and typing the URL. There was no way to
+upload a video file from the admin panel without Mux.
+
+| ID | Type | Finding | Resolution | Verification |
+| --- | --- | --- | --- | --- |
+| DA-59 | Feature (client request) | No local video file upload existed: the admin UI only offered Mux direct upload (`mux-upload` returns 400 without `MUX_*` keys) or a manual URL field. | Added `POST /api/admin/lessons/:id/video/local-upload` (multipart `file` + `language`): multer disk-storage → `videos/` (overridable via `VIDEOS_DIR`, used by tests), `video_uploads` row (`provider='local'`, `status='ready'`, `original_filename`, `file_size`), `lessons.video_url`/`video_provider='local'`/`video_id=NULL`, `lesson_media` upsert (`status='ready'`), audit row, and cleanup (DB row + file) on any error — a missing lesson leaves no orphan file. `videosDir` was hoisted to the top of `server/index.js` and is shared with the `/videos/{*splat}` serving route. | `tests/admin-video-uploads.test.js` — 8 new tests: auth 401, role 403, invalid id, unsupported extension, upload+DB link+file-on-disk, 404 missing lesson, no orphan file, replace previous fields. RED (404 before the route) → GREEN (21/21 in the file). |
+| DA-60 | UI (client request) | The admin panel gave no way to trigger the new local upload. | `src/admin/js/stream-upload.js` renders a «Локальный файл (без Mux)» block: file input, progress bar, on success the `/videos/…` URL is placed into the «URL видео» field and the user is told to click «Сохранить». `lessons.html` already derives `video_provider` from the filled URL (`video_provider: videoIdVal ? 'mux' : (videoUrlVal ? 'local' : null)`), so no HTML changes were required. Mux section untouched. | Build passes; lint 0. |
+
+## TDD record
+
+1. Wrote the local-upload tests first (auth, role, validation, happy path,
+   cleanup). RED: all endpoint calls returned 404/route-missing before
+   implementation. Implemented the route + multer storage. GREEN (21/21 in the
+   file, including the 13 pre-existing mux/status/delete tests).
+2. Ran the full randomized suite after the change: **1010/1010 tests, 20
+   suites** (1002 baseline + 8 new). `npm run lint`: 0 errors.
+
+## Decisions recorded
+
+- The catalog is now fully workable **without** Mux, Stripe, or SMTP:
+  upload `.mp4/.mov/.webm/.avi/.mkv` → `videos/`, lesson becomes
+  `provider='local'` with a stable `/videos/<имя файла>` URL. Filenames are
+  preserved as-is so the file name ↔ catalog number mapping the client works on
+  stays intact.
+- Test isolation is preserved: the upload test suite points `VIDEOS_DIR` at a
+  temp dir and removes it in `afterAll`, so no real `videos/` files are touched.
+- `payments.plan` CHECK, audit wiring, and the Mux/Stripe production steps are
+  untouched this round — they remain on the deferred list below.
+
+## Deferred (client-driven order)
+
+1. **Fill the catalog** (manual): upload files, compose lessons/complexes,
+   calendar dates, forms.
+2. **Debug on one video file**: player playback, access gates (trial/free/paid),
+   progress.
+3. **Test email** — client chose `console`-log for now; later Gmail App
+   Password / Mailpit (generic SMTP support in `mailer.js`) / Resend.
+4. **Mux** — client registers; fill `MUX_*` (all-or-none + signing pair), move
+   lessons to `provider='mux'`.
+5. **Payments** — deferred until the program is complete (Stripe Price IDs,
+   webhook).
+6. Audit candidates when resuming P2: OBS-001, admin `{error}` legacy, ARC-001,
+   CSP `unsafe-inline`, `hero-poster.jpg` 2.55 MiB.

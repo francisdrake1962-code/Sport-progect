@@ -1,4 +1,7 @@
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 function apiRequest(method, urlPath, body, token) {
   return new Promise((resolve, reject) => {
@@ -24,11 +27,42 @@ let testServer;
 const TEST_PORT = 3010;
 const originalFetch = global.fetch;
 
+const TEST_VIDEOS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qigong-local-video-'));
+
+function apiUpload(urlPath, file, filename, token) {
+  return new Promise((resolve, reject) => {
+    const boundary = '----qigongtestboundary' + Date.now();
+    const fileHeader = `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+      `Content-Type: video/mp4\r\n\r\n`;
+    const tail = `\r\n--${boundary}--\r\n`;
+    const body = Buffer.concat([
+      Buffer.from(fileHeader),
+      Buffer.isBuffer(file) ? file : Buffer.from(file),
+      Buffer.from(tail),
+    ]);
+    const headers = { 'Content-Type': `multipart/form-data; boundary=${boundary}` };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const req = http.request({ hostname: '127.0.0.1', port: TEST_PORT, path: urlPath, method: 'POST', headers }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(raw) }); }
+        catch { resolve({ status: res.statusCode, body: raw }); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 beforeAll(async () => {
   process.env.NODE_ENV = 'test';
   process.env.PORT = String(TEST_PORT);
   process.env.JWT_SECRET = 'test-admin-video-secret';
   process.env.ALLOWED_ORIGIN = 'http://localhost:' + TEST_PORT;
+  process.env.VIDEOS_DIR = TEST_VIDEOS_DIR;
 
   delete process.env.MUX_ACCESS_TOKEN_ID;
   delete process.env.MUX_ACCESS_TOKEN_SECRET;
@@ -46,11 +80,13 @@ afterAll(async () => {
   resetStreamConfig();
   delete process.env.MUX_ACCESS_TOKEN_ID;
   delete process.env.MUX_ACCESS_TOKEN_SECRET;
+  delete process.env.VIDEOS_DIR;
   if (testServer) {
     await new Promise(resolve => testServer.close(resolve));
   }
   const { resetDb } = require('../server/db');
   resetDb();
+  fs.rmSync(TEST_VIDEOS_DIR, { recursive: true, force: true });
 });
 
 async function loginAdmin() {
@@ -271,5 +307,89 @@ describe('Admin video endpoints — delete/unlink', () => {
     const adminToken = await loginAdmin();
     const res = await apiRequest('DELETE', '/api/admin/lessons/99999/video', null, adminToken);
     expect(res.status).toBe(404);
+  });
+});
+
+describe('Admin video endpoints — local upload (no Mux)', () => {
+  test('local upload requires authentication', async () => {
+    const res = await apiUpload('/api/admin/lessons/1/video/local-upload', Buffer.from('dummy'), 'a.mp4');
+    expect(res.status).toBe(401);
+  });
+
+  test('local upload requires admin role', async () => {
+    const subscriberToken = await loginSubscriber();
+    const res = await apiUpload('/api/admin/lessons/1/video/local-upload', Buffer.from('dummy'), 'a.mp4', subscriberToken);
+    expect(res.status).toBe(403);
+  });
+
+  test('rejects invalid lesson id', async () => {
+    const adminToken = await loginAdmin();
+    const res = await apiUpload('/api/admin/lessons/abc/video/local-upload', Buffer.from('dummy'), 'a.mp4', adminToken);
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects unsupported file extension', async () => {
+    const adminToken = await loginAdmin();
+    const res = await apiUpload('/api/admin/lessons/1/video/local-upload', Buffer.from('nope'), 'lesson.txt', adminToken);
+    expect(res.status).toBe(400);
+  });
+
+  test('uploads a local mp4 and links it to the lesson', async () => {
+    const { getDb } = require('../server/db');
+    const db = await getDb();
+    db.run(`UPDATE lessons SET video_id = NULL, video_url = NULL, video_provider = 'mux' WHERE id = 1`);
+    const { saveDb } = require('../server/db');
+    saveDb();
+
+    const adminToken = await loginAdmin();
+    const content = Buffer.from('fake-mp4-content');
+    const res = await apiUpload('/api/admin/lessons/1/video/local-upload', content, 'my lesson 1.mp4', adminToken);
+    expect(res.status).toBe(201);
+    expect(res.body.url).toBe('/videos/my lesson 1.mp4');
+    expect(res.body.provider).toBe('local');
+    expect(res.body.id).toBeGreaterThan(0);
+
+    const lesson = db.exec(`SELECT video_url, video_provider, video_id FROM lessons WHERE id = 1`);
+    expect(lesson[0].values[0][0]).toBe('/videos/my lesson 1.mp4');
+    expect(lesson[0].values[0][1]).toBe('local');
+    expect(lesson[0].values[0][2]).toBeNull();
+
+    const uploads = db.exec(`SELECT provider, status, original_filename, file_size FROM video_uploads WHERE id = ?`, [res.body.id]);
+    expect(uploads[0].values[0][0]).toBe('local');
+    expect(uploads[0].values[0][1]).toBe('ready');
+    expect(uploads[0].values[0][2]).toBe('my lesson 1.mp4');
+    expect(uploads[0].values[0][3]).toBe(content.length);
+
+    expect(fs.existsSync(path.join(TEST_VIDEOS_DIR, 'my lesson 1.mp4'))).toBe(true);
+  });
+
+  test('returns 404 for missing lesson', async () => {
+    const adminToken = await loginAdmin();
+    const res = await apiUpload('/api/admin/lessons/99999/video/local-upload', Buffer.from('dummy'), 'a.mp4', adminToken);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Lesson not found');
+  });
+
+  test('does not leave an orphan file when lesson is missing', async () => {
+    const adminToken = await loginAdmin();
+    const res = await apiUpload('/api/admin/lessons/99999/video/local-upload', Buffer.from('dummy'), 'orphan.mp4', adminToken);
+    expect(res.status).toBe(404);
+    expect(fs.existsSync(path.join(TEST_VIDEOS_DIR, 'orphan.mp4'))).toBe(false);
+  });
+
+  test('replaces previous local video fields on the lesson', async () => {
+    const { getDb, saveDb } = require('../server/db');
+    const db = await getDb();
+    db.run(`UPDATE lessons SET video_id = NULL, video_url = '/videos/old.mp4', video_provider = 'local' WHERE id = 1`);
+    saveDb();
+
+    const adminToken = await loginAdmin();
+    const res = await apiUpload('/api/admin/lessons/1/video/local-upload', Buffer.from('new-content'), 'new lesson.mp4', adminToken);
+    expect(res.status).toBe(201);
+
+    const lesson = db.exec(`SELECT video_url, video_provider FROM lessons WHERE id = 1`);
+    expect(lesson[0].values[0][0]).toBe('/videos/new lesson.mp4');
+    expect(lesson[0].values[0][1]).toBe('local');
+    expect(fs.existsSync(path.join(TEST_VIDEOS_DIR, 'new lesson.mp4'))).toBe(true);
   });
 });

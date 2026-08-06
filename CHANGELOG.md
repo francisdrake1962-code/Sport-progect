@@ -4,6 +4,20 @@
 
 ---
 
+## [5.23.0] - 2026-08-06
+
+### Added — local video upload (no Mux) for the catalog
+
+Работа с каталогом теперь возможна без внешних сервисов: загрузка `.mp4/.mov/.webm/.avi/.mkv` прямо из админки в папку `videos/`, урок получает `video_provider='local'` и `video_url='/videos/<файл>'`. Mux-загрузка и Stripe не требуются; почта остаётся на `console`-провайдере (подтверждения печатаются в лог).
+
+- `POST /api/admin/lessons/:id/video/local-upload` (multipart `file` + `language`): multer disk-storage → `videos/` (`VIDEOS_DIR` override для тестов), строка `video_uploads` (`provider='local'`, `status='ready'`, `original_filename`, `file_size`), `lessons.video_url`/`video_provider='local'`/`video_id=NULL`, `lesson_media` upsert (`status='ready'`), аудит-запись, чистка файла/строки при ошибках (в т.ч. отсутствующий урок не оставляет orphan-файл).
+- Admin UI (`src/admin/js/stream-upload.js`): отдельный блок «Локальный файл (без Mux)» — выбор файла, прогресс, после загрузки URL подставляется в поле «URL видео», сообщение «нажмите Сохранить». Существующая Mux-секция не тронута.
+- `videosDir` вынесен наверх (`server/index.js`) и используется и роутом загрузки, и роутом отдачи `/videos/{*splat}`.
+- `tests/admin-video-uploads.test.js`: +8 тестов (auth 401, role 403, invalid id, unsupported ext, upload+link, 404 lesson, no orphan file, replace previous fields) — `VIDEOS_DIR` указывает на временную директорию; всего 21 тест в файле.
+- Full suite: **1010/1010 tests, 20 suites** (randomized); eslint 0 errors.
+
+---
+
 ## [5.22.0] - 2026-08-06
 
 ### Fixed — Devil's Advocate Round 14 (test isolation / DB-002 / ARCH-001)

@@ -2,20 +2,21 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-06 v5.22.0 (Round 14 — test isolation, DB-002, ARCH-001)
+> Last updated: 2026-08-06 v5.23.0 (Round 15 — local video upload, no Mux)
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.22.0 (Devil's Advocate Round 14 — dedicated test port, payments.plan CHECK fix, FEATURE_REGISTRY integrity; see `AUDIT_REPORT_2026-08-06.md`)
-**Tests**: 1002/1002 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
+**Version**: 5.23.0 (Round 15 — local video upload in admin, no Mux/Stripe/email needed; see `AUDIT_REPORT_2026-08-06.md`)
+**Tests**: 1010/1010 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+v5.23.0: Round 15 — local video upload (POST /api/admin/lessons/:id/video/local-upload, multer→videos/, provider='local', admin UI block, VIDEOS_DIR override, 8 tests; catalog workable without Mux/Stripe/email) (1010/1010)
 v5.22.0: Devil's Advocate Round 14 — dedicated test port 3012 (isolation from dev :3001), trial→monthly map in handlePaymentFailed (payments.plan CHECK), FEATURE_REGISTRY reference-integrity test + F126 cleanup (1002/1002)
 v5.21.1: lessons.audience field (migration 018) — admin + catalog + player blocks
 v5.21.0: Cloudflare Stream removed, Mux-only video provider (migrations 014–017)
@@ -479,8 +480,17 @@ server/
 
 ## NEXT ACTIONS (resume point)
 
-Текущий статус: Round 14 готов — **v5.22.0** (тестовая изоляция порта, payments.plan CHECK, FEATURE_REGISTRY integrity). Цепочка P0/P1 из `docs/IMPROVEMENT_TZ.md` закрыта (Rounds 4–13). Следующий раунд — по P2; кандидаты:
+Текущий статус: Round 15 готов — **v5.23.0** (локальная загрузка видео в админке, каталог работает без Mux/Stripe/email). Цепочка P0/P1 из `docs/IMPROVEMENT_TZ.md` закрыта (Rounds 4–13); Round 15 — фича-работа по запросу клиента (каталог → одно видео → почта → Mux → оплата).
 
+### Текущий приоритет клиента (порядок работ)
+1. ✅ **Каталог без внешних сервисов (сделано в v5.23.0)** — загрузка `.mp4/.mov/.webm/.avi/.mkv` из админки → `videos/`, урок получает `provider='local'` + `video_url`. Имя файла сохраняется как есть (важно для соответствия «имя файла ↔ № в каталоге»).
+2. **Заполнение каталога** (ручная работа клиента): загрузить файлы, составить занятия/комплексы, календарь (`date`, `catalog_no`, `sort_order`, `free_order`), формы/описания.
+3. **Отладка на одном видеофайле** — просмотр плеером, гейты доступа (trial/free/paid), прогресс.
+4. **Тестовая почта** — клиент выбрал `console`-лог (уже дефолт, ничего настраивать не нужно). Позже: Gmail App Password / Mailpit (нужна поддержка generic SMTP) / Resend.
+5. **Mux** — клиент зарегистрируется; заполнить `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (+ signing pair), перевести уроки на `provider='mux'`.
+6. **Оплата** — отложена до полной готовности программы (Stripe Price IDs, webhook).
+
+### Кандидаты следующего раунда (devil's advocate P2, когда вернёмся к аудиту)
 1. **OBS-001 (аудит платежей)** — критичные payment-действия логируются только в app-лог, не попадают в `audit_log` (виден в `/api/admin/audit-logs`). Wiring внутри PAY-002-транзакции требует transaction-aware insert (безопасно, т.к. `saveDb()` в открытой транзакции рискованно).
 2. **Единый формат ошибок на admin-эндпоинтах** — `server/index.js` + admin CRUD ещё на legacy string `{error}` (вне скоупа API-001, покрыл только payment/auth/user).
 3. **ARC-001** — `auth/progress/feedback.service.js` + `repositories/` существуют, но `NOT WIRED`; перевести домены на service/repository по образцу payment.

@@ -2,20 +2,21 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-06 v5.23.0 (Round 15 — local video upload, no Mux)
+> Last updated: 2026-08-06 v5.24.0 (Round 16 — lesson features: zones + moods)
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.23.0 (Round 15 — local video upload in admin, no Mux/Stripe/email needed; see `AUDIT_REPORT_2026-08-06.md`)
-**Tests**: 1010/1010 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
-**Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
+**Version**: 5.24.0 (Round 16 — справочник признаков «Зона тела»/«Самочувствие», авто-классификация при импорте, фильтр подбора; см. `CHANGELOG.md`)
+**Tests**: 1021/1021 passing (21 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
+**Lint**: 0 errors, 0 warnings
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
+v5.24.0: Round 16 — lesson features (8 body zones + 4 moods): reference + inferLessonFeatures + lesson_moods migration 019, GET /api/lesson-features, PUT /api/lessons/:id/moods, admin list all statuses, import fills zones/moods, lessons-filter mood/zone, admin/lessons.html fixes empty list + «Самочувствие», lesson 1031 removed (1021/1021)
 v5.23.0: Round 15 — local video upload (POST /api/admin/lessons/:id/video/local-upload, multer→videos/, provider='local', admin UI block, VIDEOS_DIR override, 8 tests; catalog workable without Mux/Stripe/email) (1010/1010)
 v5.22.0: Devil's Advocate Round 14 — dedicated test port 3012 (isolation from dev :3001), trial→monthly map in handlePaymentFailed (payments.plan CHECK), FEATURE_REGISTRY reference-integrity test + F126 cleanup (1002/1002)
 v5.21.1: lessons.audience field (migration 018) — admin + catalog + player blocks
@@ -480,15 +481,16 @@ server/
 
 ## NEXT ACTIONS (resume point)
 
-Текущий статус: Round 15 готов — **v5.23.0** (локальная загрузка видео в админке, каталог работает без Mux/Stripe/email). Цепочка P0/P1 из `docs/IMPROVEMENT_TZ.md` закрыта (Rounds 4–13); Round 15 — фича-работа по запросу клиента (каталог → одно видео → почта → Mux → оплата).
+Текущий статус: Round 16 готов — **v5.24.0** (справочник признаков «Зона тела»/«Самочувствие», авто-классификация при импорте, фильтр подбора). Цепочка P0/P1 из `docs/IMPROVEMENT_TZ.md` закрыта (Rounds 4–13); Round 15 — каталог без внешних сервисов; Round 16 — фича-работа по запросу клиента (признаки занятий + фильтр + админка).
 
 ### Текущий приоритет клиента (порядок работ)
-1. ✅ **Каталог без внешних сервисов (сделано в v5.23.0)** — загрузка `.mp4/.mov/.webm/.avi/.mkv` из админки → `videos/`, урок получает `provider='local'` + `video_url`. Имя файла сохраняется как есть (важно для соответствия «имя файла ↔ № в каталоге»).
-2. **Заполнение каталога** (ручная работа клиента): загрузить файлы, составить занятия/комплексы, календарь (`date`, `catalog_no`, `sort_order`, `free_order`), формы/описания.
-3. **Отладка на одном видеофайле** — просмотр плеером, гейты доступа (trial/free/paid), прогресс.
-4. **Тестовая почта** — клиент выбрал `console`-лог (уже дефолт, ничего настраивать не нужно). Позже: Gmail App Password / Mailpit (нужна поддержка generic SMTP) / Resend.
-5. **Mux** — клиент зарегистрируется; заполнить `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (+ signing pair), перевести уроки на `provider='mux'`.
-6. **Оплата** — отложена до полной готовности программы (Stripe Price IDs, webhook).
+1. ✅ **Каталог без внешних сервисов (v5.23.0)** — загрузка `.mp4/.mov/.webm/.avi/.mkv` из админки → `videos/`, урок получает `provider='local'` + `video_url`.
+2. ✅ **Признаки занятий (v5.24.0)** — справочник зон (8) и настроений (4), авто-определение при импорте каталога, ручная правка чекбоксами в админке, фильтр «Подобрать занятие» по зоне/настроению, колонка «Самочувствие» в списке. Импорт `Батч_997_1035.xlsx` (№1031 удалён, 34 записи), №997/998/999 — локальные видео.
+3. **Заполнение каталога** (ручная работа клиента): загрузить файлы, составить занятия/комплексы, календарь (`date`, `catalog_no`, `sort_order`, `free_order`), формы/описания, проверить проставленные зоны/настроения.
+4. **Отладка на одном видеофайле** — просмотр плеером, гейты доступа (trial/free/paid), прогресс.
+5. **Тестовая почта** — клиент выбрал `console`-лог (уже дефолт, ничего настраивать не нужно). Позже: Gmail App Password / Mailpit (нужна поддержка generic SMTP) / Resend.
+6. **Mux** — клиент зарегистрируется; заполнить `MUX_ACCESS_TOKEN_ID`/`MUX_ACCESS_TOKEN_SECRET` (+ signing pair), перевести уроки на `provider='mux'`.
+7. **Оплата** — отложена до полной готовности программы (Stripe Price IDs, webhook).
 
 ### Кандидаты следующего раунда (devil's advocate P2, когда вернёмся к аудиту)
 1. **OBS-001 (аудит платежей)** — критичные payment-действия логируются только в app-лог, не попадают в `audit_log` (виден в `/api/admin/audit-logs`). Wiring внутри PAY-002-транзакции требует transaction-aware insert (безопасно, т.к. `saveDb()` в открытой транзакции рискованно).
@@ -498,7 +500,7 @@ server/
 5. **Ручные шаги продакшена** — Stripe Price IDs + Mux all-or-none; `quality-gate` как required status check; заново залить каталог (после миграции 015 пуст).
 
 ### Как продолжить сессию
-- Прочитать сначала: `docs/IMPROVEMENT_TZ.md` (цепочка P0→P2), `AUDIT_REPORT_2026-08-01.md` (раунды 4–13), `AUDIT_REPORT_2026-08-06.md` (Round 14), этот файл.
-- Прогнать перед работой: `npm run test:ci` (должно быть 1002/1002), `npm run lint`, `npm run build`.
+- Прочитать сначала: `docs/IMPROVEMENT_TZ.md` (цепочка P0→P2), `AUDIT_REPORT_2026-08-01.md` (раунды 4–13), `AUDIT_REPORT_2026-08-06.md` (Round 14), `CHANGELOG.md`, этот файл.
+- Прогнать перед работой: `npm run test:ci` (должно быть 1021/1021), `npm run lint`, `npm run build`.
 - ВАЖНО: не оставлять запущенный dev-сервер на порту `:3001` при прогоне тестов — `backend.test.js` теперь использует 3012, но другие процессы на 3001 могут мешать ручной работе.
 - После каждого раунда: обновить API.md/openapi.yaml + AUDIT_REPORT (новый DA-ID) + CHANGELOG + PROGRESS + package.json (minor bump) → коммит + push.

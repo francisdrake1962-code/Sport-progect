@@ -53,6 +53,15 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label>Самочувствие</label>
+                        <div id="f-moods" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-top:0.25rem;font-size:0.85rem;">
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="энергия"> Взбодриться</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="снятие стресса"> Успокоиться</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="баланс"> Баланс</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" value="поток"> Поток / Ощущения</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label for="f-goals">Цели занятия</label>
                         <textarea class="form-control" id="f-goals" rows="2" placeholder="Что развивается/восстанавливается на занятии"></textarea>
                     </div>
@@ -132,24 +141,26 @@
                 ${getTopbar('Уроки (справочник)')}
                 <div class="page-content"><div class="card">
                     <div class="card__header"><h2 class="card__title">Все занятия</h2><button class="btn btn--primary" data-modal-open="modal-lesson" onclick="openCreate()">+ Новый урок</button></div>
-                    <div class="table-wrapper"><table><caption>Справочник занятий</caption><thead><tr><th>ID</th><th>№</th><th>Название</th><th>Направление</th><th>Нагрузка</th><th>Длительность</th><th>Зоны</th><th>Статус</th><th>Дата</th><th>Действия</th></tr></thead>
+                    <div class="table-wrapper"><table><caption>Справочник занятий</caption><thead><tr><th>ID</th><th>№</th><th>Название</th><th>Направление</th><th>Нагрузка</th><th>Длительность</th><th>Зоны</th><th>Самочувствие</th><th>Статус</th><th>Дата</th><th>Действия</th></tr></thead>
                     <tbody id="lessons-tbody"></tbody></table></div>
                 </div></div>
             </div>`;
 
         try {
-            const lessons = await window.api.get('/api/lessons');
+            const lessons = await window.api.get('/api/admin/lessons');
             if (!lessons) return;
-            lessons.sort((a, b) => a.id - b.id);
+            lessons.sort((a, b) => (a.sort_order || a.catalog_no || 999999) - (b.sort_order || b.catalog_no || 999999) || a.id - b.id);
 
             const tbody = document.getElementById('lessons-tbody');
             tbody.innerHTML = lessons.map(l => {
                 const dirLabel = l.direction === 'суставная_разминка' ? 'Разминка' : l.direction === 'занятие_в_потоке' ? 'Поток' : '—';
                 const dirBadge = l.direction === 'суставная_разминка' ? 'info' : l.direction === 'занятие_в_потоке' ? 'warning' : 'secondary';
                 const intBadge = intensityBadge(l.intensity);
+                const zoneLabel = (l.zones_labels && l.zones_labels.length ? l.zones_labels.join(', ') : '—');
+                const moodLabel = (l.moods_labels && l.moods_labels.length ? l.moods_labels.join(', ') : '—');
                 return `<tr>
                     <td>${esc(l.id)}</td><td>${l.catalog_no ? esc(l.catalog_no) : '—'}</td><td>${esc(l.title)}</td><td><span class="badge badge--${dirBadge}">${dirLabel}</span></td>
-                    <td>${intBadge}</td><td>${esc(l.duration)} мин</td><td>—</td><td>${statusBadge(l.status)}</td><td>${formatDate(l.date)}</td>
+                    <td>${intBadge}</td><td>${esc(l.duration)} мин</td><td>${esc(zoneLabel)}</td><td>${esc(moodLabel)}</td><td>${statusBadge(l.status)}</td><td>${formatDate(l.date)}</td>
                     <td>
                         <button class="btn btn--secondary btn--sm" data-edit='${esc(JSON.stringify(l))}' onclick="openEdit(this)" aria-label="Редактировать ${esc(l.title)}">Редактировать</button>
                         <button class="btn btn--danger btn--sm" onclick="deleteLesson(${parseInt(l.id)})" aria-label="Удалить ${esc(l.title)}">Удалить</button>
@@ -185,6 +196,7 @@
         document.getElementById('f-image-preview').style.display = 'none';
         document.querySelectorAll('input[name="f-direction"]').forEach(r => r.checked = false);
         document.querySelectorAll('#f-zones input[type="checkbox"]').forEach(c => c.checked = false);
+        document.querySelectorAll('#f-moods input[type="checkbox"]').forEach(c => c.checked = false);
         var mediaList = document.getElementById('f-media-list');
         if (mediaList) mediaList.innerHTML = '<div style="color:var(--admin-text-muted);">Сначала сохраните урок</div>';
         showTab('tab-desc');
@@ -232,6 +244,17 @@
             }
         } catch (_) {}
 
+        document.querySelectorAll('#f-moods input[type="checkbox"]').forEach(c => c.checked = false);
+        try {
+            const moods = await window.api.get('/api/lesson-moods/' + lesson.id);
+            if (moods && Array.isArray(moods)) {
+                moods.forEach(m => {
+                    const cb = document.querySelector(`#f-moods input[value="${m}"]`);
+                    if (cb) cb.checked = true;
+                });
+            }
+        } catch (_) {}
+
         document.getElementById('modal-lesson').classList.add('is-open');
         loadLessonMedia(lesson.id);
         if (typeof initStreamUpload === 'function') {
@@ -267,6 +290,7 @@
             audience: document.getElementById('f-audience').value || null,
         };
         const selectedZones = Array.from(document.querySelectorAll('#f-zones input[type="checkbox"]:checked')).map(c => c.value);
+        const selectedMoods = Array.from(document.querySelectorAll('#f-moods input[type="checkbox"]:checked')).map(c => c.value);
 
         const imageFile = document.getElementById('f-image').files[0];
         if (imageFile) {
@@ -294,6 +318,7 @@
             }
             if (savedId) {
                 await window.api.put(`/api/lessons/${savedId}/zones`, { zones: selectedZones });
+                await window.api.put(`/api/lessons/${savedId}/moods`, { moods: selectedMoods });
             }
             document.querySelector('.modal-overlay.is-open')?.classList.remove('is-open');
             loadLessons();

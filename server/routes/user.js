@@ -717,7 +717,7 @@ router.get('/lessons-filter', demoUserForAdmin, async (req, res) => {
     const { page, limit } = parsePagination(req.query);
     const db = await getDb();
     const { zone, mood, duration } = req.query;
-    let query = `SELECT l.id, l.title, l.duration, l.description, l.video_url, l.video_id, l.is_free, l.tags, l.direction, l.effect_description FROM lessons l WHERE l.status = 'active'`;
+    let query = `SELECT l.id, l.title, l.duration, l.description, l.video_url, l.video_id, l.is_free, l.tags, l.direction, l.effect_description, l.catalog_no FROM lessons l WHERE l.status = 'active'`;
     const params = [];
     const result = db.exec(query, params);
     if (!result.length) return res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
@@ -725,7 +725,7 @@ router.get('/lessons-filter', demoUserForAdmin, async (req, res) => {
       id: row[0], title: row[1], duration: row[2], description: row[3],
       video_url: row[4], video_id: row[5], is_free: row[6],
       tags: (() => { try { return JSON.parse(row[7] || '[]'); } catch { return []; } })(),
-      direction: row[8], effect_description: row[9],
+      direction: row[8], effect_description: row[9], catalog_no: row[10],
     }));
 
     if (zone) {
@@ -743,7 +743,15 @@ router.get('/lessons-filter', demoUserForAdmin, async (req, res) => {
 
     if (mood) {
       const moodTags = mood.split(',').map(t => t.trim().toLowerCase());
-      lessons = lessons.filter(l => l.tags.some(t => moodTags.includes(t.toLowerCase())));
+      const placeholders = moodTags.map(() => '?').join(', ');
+      const moodResult = db.exec(
+        `SELECT DISTINCT lesson_id FROM lesson_moods WHERE mood IN (${placeholders})`,
+        moodTags
+      );
+      const moodIds = new Set(
+        moodResult.length ? moodResult[0].values.map(r => r[0]) : []
+      );
+      lessons = lessons.filter(l => moodIds.has(l.id) || l.tags.some(t => moodTags.includes(t.toLowerCase())));
     }
     if (duration) {
       const maxDur = parseInt(duration, 10);

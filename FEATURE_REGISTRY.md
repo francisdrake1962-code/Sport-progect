@@ -1,7 +1,7 @@
 # Feature Registry — Qigong Landing + Admin Panel
 
 > Canonical source of truth. Every feature with user story, implementation, tests, and status.
-> Last updated: v5.23.0
+> Last updated: v5.24.0
 
 ---
 
@@ -181,6 +181,12 @@
 | F128 | Base Repository | As API I access DB through generic CRUD repository | `server/repositories/base.repository.js` | — | NOT WIRED |
 | F129 | Specialized Repos | As API I access subscribers, lessons, users through dedicated repos | `server/repositories/index.js` + `subscriber.repository.js` | — | NOT WIRED |
 | F130 | Performance Indexes | As DB I have 20+ indexes on frequently queried columns | `server/migrations/001_performance_indexes.sql` | `backend.test.js` | OK |
+| F131 | Lesson Features Reference | As admin I have a reference of 8 body zones + 4 moods for lessons | `server/constants/lesson-features.js` + `GET /api/lesson-features` | `lesson-features.test.js` | OK |
+| F132 | Lesson Moods table | As DB I store per-lesson moods (mood tags) with cascade cleanup | `server/migrations/019_lesson_moods.sql` + `server/db.js` | `lesson-features.test.js` | OK |
+| F133 | Auto-classify features on import | As admin, importing a catalog preview/apply automatically fills zones/moods from title/theme/goals/effect | `server/services/lesson-features.js` (`inferLessonFeatures`) + `server/index.js` import | `lesson-features.test.js` | OK |
+| F134 | Admin lesson moods editing | As admin I manually set/clear lesson moods via checkboxes | `PUT /api/lessons/:id/moods` + `src/admin/lessons.html` | `lesson-features.test.js` | OK |
+| F135 | Admin list shows all statuses | As admin I see draft + active lessons in the admin list with zones/moods labels | `GET /api/admin/lessons` + `src/admin/lessons.html` | `lesson-features.test.js` | OK |
+| F136 | Picker filters by zone/mood | As subscriber I filter lessons by body zone and mood | `server/routes/user.js` (`/api/user/lessons-filter`) + `src/pages/picker.html` | `lesson-features.test.js` | OK |
 
 > **NOT WIRED** = Service/repo layer created but not yet called from routes. Inline DB calls in routes still active.
 
@@ -190,16 +196,28 @@
 
 | Suite | Tests | Coverage |
 |-------|-------|----------|
-| `landing.test.js` | 53 | All landing page sections |
+| `landing.test.js` | 52 | Landing page sections |
 | `pages.test.js` | 100 | Subscriber pages: structure, content, ARIA |
-| `components.test.js` | 76 | Trust + SEO + Legal pages: structure, content, ARIA |
-| `integrity.test.js` | 126 | CJK leaks, hardcoded tags, video fallback, typos, skip-links |
-| `admin.test.js` | 164 | 14 admin pages: structure, modals, CRUD |
+| `components.test.js` | 79 | Trust + SEO + Legal pages: structure, content, ARIA |
+| `integrity.test.js` | 137 | CJK leaks, hardcoded tags, video fallback, typos, skip-links, registry references |
+| `admin.test.js` | 192 | 14 admin pages: structure, modals, CRUD |
 | `build.test.js` | 13 | File existence, webpack, admin pages |
 | `seo.test.js` | 11 | Meta tags, sitemap, robots.txt |
-| `backend.test.js` | 132 | Auth, CRUD, user auth, progress, calendar, free enforcement, video security, feedback, FAQ, lessons |
-| `security.test.js` | 38 | Auth bypass, IDOR, input validation, rate limiting, token revocation, XSS |
-| **Total** | **715** | |
+| `backend.test.js` | 152 | Auth, CRUD, user auth, progress, calendar, free enforcement, video security, feedback, FAQ, lessons |
+| `security.test.js` | 75 | Auth bypass, IDOR, input validation, rate limiting, token revocation, XSS |
+| `admin-video-uploads.test.js` | 21 | Local video upload in admin (auth/role, format, disk+DB link, cleanup) |
+| `lesson-features.test.js` | 11 | Zones/moods reference, auto-classification, moods API, admin list, import, picker filter |
+| `db.test.js` | 4 | Migration runner, saveDb atomicity |
+| `config.test.js` | 8 | Environment config validation |
+| `payment.test.js` | 65 | Stripe checkout/webhooks, subscription state machine, admin grants |
+| `e2e.test.js` | 24 | Full-stack flows |
+| `error-format.test.js` | 10 | Unified error model contract |
+| `i18n.test.js` | 23 | Internationalization + lesson_media |
+| `password-reset.test.js` | 9 | AUTH-001 password reset flow |
+| `ratelimit.test.js` | 2 | Rate limiting |
+| `regression.test.js` | 22 | Regression guards |
+| `stream-mux.test.js` | 11 | Mux stream tokens + local video |
+| **Total** | **1021** | 21 suites |
 
 ---
 

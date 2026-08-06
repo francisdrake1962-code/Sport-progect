@@ -256,6 +256,15 @@ async function getDb() {
     `);
 
     db.run(`
+      CREATE TABLE IF NOT EXISTS lesson_moods (
+        lesson_id INTEGER NOT NULL,
+        mood TEXT NOT NULL,
+        PRIMARY KEY (lesson_id, mood),
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+      )
+    `);
+
+    db.run(`
       CREATE TABLE IF NOT EXISTS tickets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         subscriber_id INTEGER NOT NULL,

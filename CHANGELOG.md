@@ -4,6 +4,29 @@
 
 ---
 
+## [5.24.0] - 2026-08-06
+
+### Added — lesson features: body zones + moods (справочник, авто-классификация, фильтр)
+
+По запросу клиента добавлены признаки занятий «Зона тела» (8) и «Самочувствие» (4): справочник, авто-определение при импорте каталога, ручная правка в админке, фильтр подбора занятий, колонка в списке уроков. Также в админке исправлена пустота списка занятий (тянулся только публичный `active`-список) и удалён негодный урок №1031 из каталога (33→34 записи).
+
+- `server/constants/lesson-features.js` — справочник: 8 зон (`шея`, `плечи_руки`, `грудной_отдел`, `поясница`, `спина_осанка`, `колени`, `ноги_таз`, `баланс_общее`) и 4 настроения (`энергия`, `снятие стресса`, `баланс`, `поток`) с метками (single source of truth).
+- `server/services/lesson-features.js` — `inferLessonFeatures()` эвристическая авто-классификация по теме/цели/эффекту (zonе/mood keyword matching, фолбэк зоны `баланс_общее`).
+- `server/migrations/019_lesson_moods.sql` + базовая схема в `server/db.js` — таблица `lesson_moods` (lesson_id, mood, PK, FK `ON DELETE CASCADE`, индекс).
+- `server/index.js`:
+  - `GET /api/lesson-features` (публичный справочник);
+  - `GET /api/lesson-moods/:lessonId`, `PUT /api/lessons/:id/moods` (валидация `MOOD_IDS`, транзакция, saveDb);
+  - `GET /api/admin/lessons` — все статусы (вкл. `draft`) + `zones`/`moods`/`zones_labels`/`moods_labels`;
+  - импорт каталога preview/apply теперь пишет `zones`/`moods` через `inferLessonFeatures` в `lesson_zones`/`lesson_moods`.
+- `server/routes/user.js` — фильтр `mood` в `/api/user/lessons-filter` ищет и в `lesson_moods`, и в `tags` (fallback); `catalog_no` добавлен в ответ фильтра.
+- `src/admin/lessons.html` — список тянет `/api/admin/lessons` (все статусы), колонка «Самочувствие» (`zones_labels`/`moods_labels`), чекбоксы настроений в форме, сохранение через `PUT /api/lessons/:id/moods`.
+- `src/pages/picker.html` — подгрузка справочника с `/api/lesson-features` (fallback на захардкоженный), убран двойной рендер чипсов.
+- `tests/lesson-features.test.js` — новый файл, `TEST_PORT=3013`: unit справочника и `inferLessonFeatures`, API round-trip moods (вкл. 400/404), админ-список с draft, публичный список скрывает draft, импорт заполняет зоны/настроения, фильтр подбора по mood/zone. Picker-тесты самодостаточны (не зависят от порядка при `--randomize`).
+- Data: урок №1031 (id 31) удалён (CRUD DELETE), orphan-записей в `lesson_zones`/`video_uploads`/`lesson_media`/`lesson_versions`/`watched_lessons` нет.
+- Full suite: **1021/1021 tests, 21 suites** (randomized); eslint 0 errors; build passes (2 pre-existing asset-size warnings).
+
+---
+
 ## [5.23.0] - 2026-08-06
 
 ### Added — local video upload (no Mux) for the catalog

@@ -85,8 +85,6 @@
             { id: 'баланс', label: 'Баланс' },
             { id: 'поток', label: 'Поток / Ощущения' },
         ];
-        var activeZones = {};
-        var activeMoods = {};
         var token = localStorage.getItem('user_token');
 
         function renderChips(containerId, items, activeMap) {
@@ -148,8 +146,18 @@
         function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
         if (!token) { window.location.href = 'login.html'; return; }
-        renderChips('zone-chips', ZONES, activeZones);
-        renderChips('mood-chips', MOODS, activeMoods);
+        fetch('/api/lesson-features')
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(f) {
+                if (f && Array.isArray(f.zones) && f.zones.length) ZONES = f.zones;
+                if (f && Array.isArray(f.moods) && f.moods.length) MOODS = f.moods;
+                renderChips('zone-chips', ZONES, activeZones);
+                renderChips('mood-chips', MOODS, activeMoods);
+            })
+            .catch(function() {
+                renderChips('zone-chips', ZONES, activeZones);
+                renderChips('mood-chips', MOODS, activeMoods);
+            });
 
         document.getElementById('dur-slider').addEventListener('input', function() {
             document.getElementById('dur-val').textContent = this.value;

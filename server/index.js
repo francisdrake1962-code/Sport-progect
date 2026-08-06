@@ -23,6 +23,8 @@ const { formatError, AppError, PayloadTooLargeError } = require('./helpers/error
 const feedbackService = require('./services/feedback.service');
 const dashboardService = require('./services/dashboard.service');
 const auditService = require('./services/audit.service');
+const { BODY_ZONES, MOODS, MOOD_IDS, getFeatureLabels } = require('./constants/lesson-features');
+const { inferLessonFeatures } = require('./services/lesson-features');
 const AnalyticsService = require('./services/analytics.service');
 const analyticsService = new AnalyticsService(getDb);
 const RecommendationService = require('./services/recommendation.service');
@@ -360,6 +362,28 @@ app.get('/api/lesson-zones/:lessonId', async (req, res) => {
   }
 });
 
+/* ── Public: lesson moods (Самочувствие) for a specific lesson ── */
+app.get('/api/lesson-moods/:lessonId', async (req, res) => {
+  try {
+    const db = await getDb();
+    const lessonId = Number(req.params.lessonId);
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      return res.status(400).json({ error: 'Invalid lesson ID' });
+    }
+    const result = db.exec(`SELECT mood FROM lesson_moods WHERE lesson_id = ?`, [lessonId]);
+    const moods = result.length ? result[0].values.map(r => r[0]) : [];
+    res.json(moods);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/* ── Public: feature reference for the "Подобрать занятие" picker ── */
+app.get('/api/lesson-features', async (req, res) => {
+  res.json({ zones: BODY_ZONES, moods: MOODS });
+});
+
 app.get('/api/schedule', async (req, res) => {
   try {
     const { page, limit } = parsePagination(req.query);
@@ -611,20 +635,26 @@ api.post('/admin/lessons/import', importUpload.single('file'), async (req, res, 
     const existing = {};
     queryToObjects(existingResult).forEach((r) => { existing[r.catalog_no] = r.id; });
 
-    const preview = rows.map((r) => ({
-      catalogNo: r.catalogNo,
-      title: r.title,
-      theme: r.theme,
-      goals: r.goals,
-      effect: r.effect,
-      action: existing[r.catalogNo] ? 'update' : 'new',
-      lessonId: existing[r.catalogNo] || null,
-    }));
+    const preview = rows.map((r) => {
+      const features = inferLessonFeatures(r);
+      return {
+        catalogNo: r.catalogNo,
+        title: r.title,
+        theme: r.theme,
+        goals: r.goals,
+        effect: r.effect,
+        zones: features.zones,
+        moods: features.moods,
+        action: existing[r.catalogNo] ? 'update' : 'new',
+        lessonId: existing[r.catalogNo] || null,
+      };
+    });
 
     if (action === 'apply') {
       let created = 0;
       let updated = 0;
       for (const r of rows) {
+        const features = inferLessonFeatures(r);
         const id = existing[r.catalogNo];
         if (id) {
           db.run(`UPDATE lessons SET title = ?, theme = ?, goals = ?, effect_description = ?, sort_order = ? WHERE id = ?`,
@@ -635,6 +665,11 @@ api.post('/admin/lessons/import', importUpload.single('file'), async (req, res, 
             [r.catalogNo, r.title, r.theme, r.goals, r.effect, r.catalogNo]);
           created++;
         }
+        const lessonId = existing[r.catalogNo] || db.exec(`SELECT id FROM lessons WHERE catalog_no = ?`, [r.catalogNo])[0].values[0][0];
+        db.run(`DELETE FROM lesson_zones WHERE lesson_id = ?`, [lessonId]);
+        features.zones.forEach(zone => db.run(`INSERT INTO lesson_zones (lesson_id, zone) VALUES (?, ?)`, [lessonId, zone]));
+        db.run(`DELETE FROM lesson_moods WHERE lesson_id = ?`, [lessonId]);
+        features.moods.forEach(mood => db.run(`INSERT INTO lesson_moods (lesson_id, mood) VALUES (?, ?)`, [lessonId, mood]));
       }
       saveDb();
       auditService.logAction('import', 'lessons', null, req.user?.id, req.user?.role,
@@ -689,6 +724,37 @@ api.put('/lessons/:id/zones', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update zones' });
+  }
+});
+
+api.put('/lessons/:id/moods', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid lesson ID' });
+    }
+    const { moods } = req.body;
+    if (!Array.isArray(moods)) {
+      return res.status(400).json({ error: 'moods must be an array' });
+    }
+    const db = await getDb();
+    const check = db.exec(`SELECT id FROM lessons WHERE id = ?`, [id]);
+    if (!check.length || !check[0].values.length) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+    await transaction(async (tdb) => {
+      tdb.run(`DELETE FROM lesson_moods WHERE lesson_id = ?`, [id]);
+      moods.forEach(mood => {
+        if (MOOD_IDS.includes(mood)) {
+          tdb.run(`INSERT INTO lesson_moods (lesson_id, mood) VALUES (?, ?)`, [id, mood]);
+        }
+      });
+    });
+    saveDb();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update moods' });
   }
 });
 
@@ -1007,6 +1073,36 @@ api.get('/admin/recommendations/:subscriberId', async (req, res, next) => {
     const limit = Math.min(parseInt(req.query.limit) || 5, 20);
     const recommendations = await recommendationService.getRecommendations(parseInt(req.params.subscriberId), { limit });
     res.json({ subscriber_id: parseInt(req.params.subscriberId), recommendations });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* Admin: all lessons (any status) with zones and moods attached.
+   The public GET /api/lessons only returns status='active', which hides
+   drafts/catalog imports from the admin editor. */
+api.get('/admin/lessons', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const result = db.exec(`SELECT * FROM lessons ORDER BY COALESCE(sort_order, 999999) ASC, id ASC`);
+    const lessons = queryToObjects(result);
+    const zonesResult = db.exec(`SELECT lesson_id, zone FROM lesson_zones`);
+    const moodsResult = db.exec(`SELECT lesson_id, mood FROM lesson_moods`);
+    const zonesByLesson = {};
+    const moodsByLesson = {};
+    (zonesResult[0] ? zonesResult[0].values : []).forEach(([lessonId, zone]) => {
+      (zonesByLesson[lessonId] = zonesByLesson[lessonId] || []).push(zone);
+    });
+    (moodsResult[0] ? moodsResult[0].values : []).forEach(([lessonId, mood]) => {
+      (moodsByLesson[lessonId] = moodsByLesson[lessonId] || []).push(mood);
+    });
+    lessons.forEach((l) => {
+      l.zones = zonesByLesson[l.id] || [];
+      l.moods = moodsByLesson[l.id] || [];
+      l.zones_labels = getFeatureLabels(l.zones, BODY_ZONES);
+      l.moods_labels = getFeatureLabels(l.moods, MOODS);
+    });
+    res.json({ data: lessons });
   } catch (err) {
     next(err);
   }

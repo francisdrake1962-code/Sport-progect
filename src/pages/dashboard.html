@@ -207,7 +207,7 @@
             html+='<div class="dash-bottom">';
             html+='<a href="lessons.html" class="dash-link"><div class="dash-link__icon">📚</div><div class="dash-link__text">Все занятия</div></a>';
             html+='<a href="calendar.html" class="dash-link"><div class="dash-link__icon">📅</div><div class="dash-link__text">Календарь</div></a>';
-            html+='<a href="picker.html" class="dash-link"><div class="dash-link__icon">🔍</div><div class="dash-link__text">Подобрать</div></a>';
+            html+='<a href="picker.html" class="dash-link"><div class="dash-link__icon">🔍</div><div class="dash-link__text">Подобрать занятие</div></a>';
             html+='<a href="profile.html" class="dash-link"><div class="dash-link__icon">👤</div><div class="dash-link__text">Профиль</div></a>';
             html+='</div>';
 
@@ -224,7 +224,7 @@
             }catch(e){
                 profileLink='<a href="profile.html" style="color:#8a6f52;text-decoration:none;font-size:1.2rem">👤</a>';
             }
-            return '<div class="dash-header"><a href="/" class="dash-header__logo">🧘 Цигун</a><div class="dash-header__nav"><a href="lessons.html">Занятия</a><a href="calendar.html">Календарь</a><a href="picker.html">Подобрать</a>'+profileLink+'</div></div>';
+            return '<div class="dash-header"><a href="/" class="dash-header__logo">🧘 Цигун</a><div class="dash-header__nav"><a href="lessons.html">Занятия</a><a href="calendar.html">Календарь</a><a href="picker.html">Подобрать занятие</a>'+profileLink+'</div></div>';
         }
 
         function loadZones(){

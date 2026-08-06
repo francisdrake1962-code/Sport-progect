@@ -760,9 +760,22 @@ router.get('/lessons-filter', demoUserForAdmin, async (req, res) => {
     const userResult = db.exec(`SELECT plan, free_sessions_used FROM subscribers WHERE id = ?`, [req.user.id]);
     const plan = userResult.length && userResult[0].values.length ? userResult[0].values[0][0] : 'trial';
     const freeUsed = userResult.length && userResult[0].values.length ? userResult[0].values[0][1] || 0 : 0;
+
+    const ids = lessons.map(l => l.id);
+    const featuresByLesson = {};
+    if (ids.length) {
+      const idList = ids.map(() => '?').join(', ');
+      const zoneRes = db.exec(`SELECT lesson_id, zone FROM lesson_zones WHERE lesson_id IN (${idList})`, ids);
+      const moodRes = db.exec(`SELECT lesson_id, mood FROM lesson_moods WHERE lesson_id IN (${idList})`, ids);
+      ids.forEach(id => { featuresByLesson[id] = { zones: [], moods: [] }; });
+      (zoneRes.length ? zoneRes[0].values : []).forEach(r => { featuresByLesson[r[0]].zones.push(r[1]); });
+      (moodRes.length ? moodRes[0].values : []).forEach(r => { featuresByLesson[r[0]].moods.push(r[1]); });
+    }
+
     lessons = lessons.map(l => {
       let accessible = l.is_free || plan === 'annual' || plan === 'monthly' || freeUsed < FREE_LIMIT;
-      return { ...l, accessible };
+      const feats = featuresByLesson[l.id] || { zones: [], moods: [] };
+      return { ...l, accessible, zones: feats.zones, moods: feats.moods };
     });
     const total = lessons.length;
     const offset = (page - 1) * limit;

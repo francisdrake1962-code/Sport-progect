@@ -15,6 +15,7 @@
         .filter-header h1 { color:#2b2721; font-size:1.4rem; font-weight:700; margin:0; }
         .filter-section { margin-bottom:1.5rem; }
         .filter-section__title { color:#8a6f52; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.75rem; }
+        .filter-section__hint { color:#a2937f; font-size:0.8rem; margin:-0.5rem 0 0.75rem; }
         .filter-chips { display:flex; flex-wrap:wrap; gap:0.5rem; }
         .filter-chip { padding:0.5rem 1rem; border-radius:20px; border:1px solid #e3d8c3; background:#ffffff; color:#8a6f52; font-size:0.85rem; cursor:pointer; transition:all .15s; }
         .filter-chip:hover { border-color:#8a6f52; color:#2b2721; }
@@ -26,6 +27,10 @@
         .lesson-card__meta { color:#7c6f5d; font-size:0.8rem; margin-bottom:0.75rem; }
         .lesson-card__tags { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.75rem; }
         .lesson-card__tag { padding:0.2rem 0.6rem; border-radius:12px; background:#f1ece2; color:#8a6f52; font-size:0.7rem; }
+        .lesson-card__tag--zone { background:#ede6d8; color:#6b5a43; }
+        .lesson-card__tag--mood { background:#e2e7d8; color:#4f5f3a; }
+        .lesson-card__feats { display:flex; flex-wrap:wrap; gap:0.35rem; align-items:center; margin-bottom:0.6rem; }
+        .lesson-card__feat-label { color:#a2937f; font-size:0.7rem; }
         .lesson-card__btn { display:inline-block; padding:0.5rem 1.2rem; border-radius:6px; font-size:0.85rem; font-weight:600; text-decoration:none; border:none; cursor:pointer; }
         .lesson-card__btn--play { background:#8a6f52;color:#f5efe4; }
         .lesson-card__btn--play:hover { background:#a07f58; }
@@ -48,10 +53,12 @@
         </div>
         <div class="filter-section">
             <div class="filter-section__title">Зона тела</div>
+            <div class="filter-section__hint">Выберите, с какой зоной тела хотите поработать</div>
             <div class="filter-chips" id="zone-chips"></div>
         </div>
         <div class="filter-section">
-            <div class="filter-section__title">Самочувствие</div>
+            <div class="filter-section__title">Самочувствие после занятия</div>
+            <div class="filter-section__hint">Каким хотите себя чувствовать по завершении — бодрым, спокойным, в балансе</div>
             <div class="filter-chips" id="mood-chips"></div>
         </div>
         <div class="filter-section">
@@ -86,6 +93,11 @@
             { id: 'поток', label: 'Поток / Ощущения' },
         ];
         var token = localStorage.getItem('user_token');
+        var activeZones = {};
+        var activeMoods = {};
+        var urlParams = new URLSearchParams(window.location.search);
+        (urlParams.get('zone') || '').split(',').map(function(s){return s.trim();}).filter(Boolean).forEach(function(z){ activeZones[z] = true; });
+        (urlParams.get('mood') || '').split(',').map(function(s){return s.trim();}).filter(Boolean).forEach(function(m){ activeMoods[m] = true; });
 
         function renderChips(containerId, items, activeMap) {
             var el = document.getElementById(containerId);
@@ -111,12 +123,24 @@
             }
             container.innerHTML = '<div class="lessons-grid">' + lessons.map(function(l) {
                 var tagsHtml = (l.tags || []).map(function(t) { return '<span class="lesson-card__tag">' + esc(t) + '</span>'; }).join('');
+                var zoneLabels = (l.zones || []).map(function(z) {
+                    var found = ZONES.find(function(x) { return x.id === z; });
+                    return '<span class="lesson-card__tag lesson-card__tag--zone">' + esc(found ? found.label : z) + '</span>';
+                }).join('');
+                var moodLabels = (l.moods || []).map(function(m) {
+                    var found = MOODS.find(function(x) { return x.id === m; });
+                    return '<span class="lesson-card__tag lesson-card__tag--mood">' + esc(found ? found.label : m) + '</span>';
+                }).join('');
+                var featsHtml = (zoneLabels || moodLabels)
+                    ? '<div class="lesson-card__feats">' + (zoneLabels ? '<span class="lesson-card__feat-label">Зона:</span> ' + zoneLabels : '') + (moodLabels ? '<span class="lesson-card__feat-label" style="margin-left:.4rem">Эффект:</span> ' + moodLabels : '') + '</div>'
+                    : '';
                 var btnClass = l.accessible ? 'lesson-card__btn lesson-card__btn--play' : 'lesson-card__btn lesson-card__btn--locked';
                 var btnText = l.accessible ? 'Смотреть' : 'Подписка';
                 var freeBadge = l.is_free ? '<span class="lesson-card__free">Бесплатно</span>' : '';
                 return '<div class="lesson-card" data-id="' + l.id + '">' +
                     '<div class="lesson-card__title">' + esc(l.title) + freeBadge + '</div>' +
                     '<div class="lesson-card__meta">' + l.duration + ' мин</div>' +
+                    featsHtml +
                     '<div class="lesson-card__tags">' + tagsHtml + '</div>' +
                     '<button class="' + btnClass + '" data-lid="' + l.id + '">' + btnText + '</button>' +
                 '</div>';

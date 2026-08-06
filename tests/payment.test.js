@@ -693,6 +693,23 @@ describe('Payment Module — PAY-003 period source of truth', () => {
     const row = db.exec(`SELECT plan FROM payments WHERE provider_payment_intent_id = 'pi_pay003_plan'`);
     expect(row[0].values[0][0]).toBe('annual');
   });
+
+  test('invoice.payment_failed for a trial-plan subscriber maps to monthly (payments.plan CHECK)', async () => {
+    const db = await getDb();
+    db.run(`UPDATE subscribers SET plan = 'trial', status = 'trial', subscription_expires_at = datetime('now', '+7 days'), stripe_customer_id = 'cus_pay003_trial', email_confirmed = 1 WHERE email = 'maria@example.com'`);
+    saveDb();
+
+    const paymentService = require('../server/services/payment.service');
+    const result = await paymentService.handleWebhookEvent({
+      id: 'evt_pay003_trial_' + Date.now(),
+      type: 'invoice.payment_failed',
+      data: { object: { customer: 'cus_pay003_trial', amount_paid: 0, payment_intent: 'pi_pay003_trial', last_finalization_error: { message: 'card_declined' } } }
+    });
+    expect(result.processed).toBe(true);
+
+    const row = db.exec(`SELECT plan FROM payments WHERE provider_payment_intent_id = 'pi_pay003_trial'`);
+    expect(row[0].values[0][0]).toBe('monthly');
+  });
 });
 
 describe('Payment Module — Subscription cancel', () => {

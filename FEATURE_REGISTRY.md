@@ -1,7 +1,7 @@
 # Feature Registry — Qigong Landing + Admin Panel
 
 > Canonical source of truth. Every feature with user story, implementation, tests, and status.
-> Last updated: v4.1.0
+> Last updated: v5.21.1
 
 ---
 
@@ -176,7 +176,6 @@
 | F123 | Structured Logging | As a developer I see JSON logs with timestamp, level, component | `server/helpers/logger.js` | — | NOT TESTED |
 | F124 | Auth Service | As API I route auth through business logic layer | `server/services/auth.service.js` | — | NOT WIRED |
 | F125 | Progress Service | As API I route progress/feedback through business logic layer | `server/services/progress.service.js` | — | NOT WIRED |
-| F126 | Schedule Service | As API I route calendar/timeline through business logic layer | `server/services/schedule.service.js` | — | NOT WIRED |
 | F127 | Feedback Service | As API I route ticket system through business logic layer | `server/services/feedback.service.js` | — | NOT WIRED |
 | F128 | Base Repository | As API I access DB through generic CRUD repository | `server/repositories/base.repository.js` | — | NOT WIRED |
 | F129 | Specialized Repos | As API I access subscribers, lessons, users through dedicated repos | `server/repositories/index.js` + `subscriber.repository.js` | — | NOT WIRED |

@@ -201,7 +201,7 @@ function apiRequest(method, urlPath, body, token) {
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const data = body ? JSON.stringify(body) : null;
     if (data) headers['Content-Length'] = Buffer.byteLength(data);
-    const req = http.request({ hostname: '127.0.0.1', port: 3001, path: urlPath, method, headers }, (res) => {
+    const req = http.request({ hostname: '127.0.0.1', port: TEST_PORT, path: urlPath, method, headers }, (res) => {
       let raw = '';
       res.on('data', c => raw += c);
       res.on('end', () => {
@@ -216,7 +216,7 @@ function apiRequest(method, urlPath, body, token) {
 }
 
 let testServer;
-const TEST_PORT = 3001;
+const TEST_PORT = 3012;
 
 beforeAll(async () => {
   const { resetDb } = require('../server/db');
@@ -236,6 +236,12 @@ afterAll(async () => {
   }
   const { resetDb } = require('../server/db');
   resetDb();
+});
+
+describe('API Integration — Port isolation', () => {
+  test('test server must use a dedicated port, not the default dev port 3001', () => {
+    expect(TEST_PORT).not.toBe(3001);
+  });
 });
 
 describe('API Integration — Health', () => {

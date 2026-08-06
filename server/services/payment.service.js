@@ -282,6 +282,7 @@ function handlePaymentFailed(db, invoice) {
   const subscriberId = subResult[0].values[0][0];
   const currentStatus = subResult[0].values[0][1];
   const plan = subResult[0].values[0][2];
+  const recordPlan = plan === 'trial' ? 'monthly' : plan;
 
   // PAY-001: a failed recurring payment moves an active subscriber to past_due
   // (access is blocked by the can-watch gate). A cancelled/expired subscriber is
@@ -293,7 +294,7 @@ function handlePaymentFailed(db, invoice) {
   db.run(
     `INSERT INTO payments (subscriber_id, amount, currency, status, provider_payment_intent_id, provider_customer_id, plan, failure_reason)
      VALUES (?, ?, 'usd', 'failed', ?, ?, ?, ?)`,
-    [subscriberId, (invoice.amount_paid || 0) / 100, invoice.payment_intent, customerId, plan, invoice.last_finalization_error?.message || 'Unknown']
+    [subscriberId, (invoice.amount_paid || 0) / 100, invoice.payment_intent, customerId, recordPlan, invoice.last_finalization_error?.message || 'Unknown']
   );
 
   logger.warn('Payment failed', { subscriberId, invoiceId: invoice.id });

@@ -1,8 +1,36 @@
 # СЕССИОННЫЕ ЗАМЕТКИ — qigong-landing.com
 
-Последнее обновление: 2026-08-05
+Последнее обновление: 2026-08-06
 
-## Сессия 2026-08-05 — Cloudflare Stream удалён; Mux-only; каталог очищен
+## Сессия 2026-08-06 — Devil's Advocate Round 14 (тестовая изоляция, DB-002, ARCH-001)
+
+## Objective
+Продолжить цепочку аудита по `docs/IMPROVEMENT_TZ.md` (P0/P1 закрыты в Rounds 4–13). Начать с baseline `npm run test:ci` → оказалось **51 падение**. Докопаться до корневой причины, исправить по TDD, обновить документацию, закоммитить и запушить. Версия: **5.22.0**.
+
+## Important Details
+- **Ложный red**: baseline упал 51 тестом (пустой каталог, 401 логин admin). Корневая причина — **стейл dev-сервер (PID 20648) из прошлой сессии на `:3001`**: `backend.test.js` ходил на `127.0.0.1:3001` (жёстко зашитый дефолтный порт), попадал на старый сервер (пустой каталог после миграции 015, admin с другим паролем). Убил процесс → `npm run test:ci` = **998/998**.
+- **DA-56**: перенёс `backend.test.js` на выделенный порт **3012** (конвенция: payment 3004, i18n 3005, mux 3008, uploads 3010), `apiRequest` читает `TEST_PORT`; регресс-тест «Port isolation» (не 3001). Это единственный тест-файл, который использовал дефолтный порт.
+- **DA-58 (DB-002/PAY-001)**: `handlePaymentFailed` писал `plan` подписчика в `payments.plan`, а CHECK там только `('monthly','annual')`. У подписчика с `plan='trial'` событие `invoice.payment_failed` падало с `CHECK constraint failed` внутри webhook-транзакции → откат → вечный retry Stripe. Фикс: маппинг `trial→monthly` (как в `adminGrantAccess`).
+- **DA-57 (ARCH-001)**: `FEATURE_REGISTRY.md` ссылался на удалённый `server/services/schedule.service.js` (удалён в v5.10.0) и писал «Last updated: v4.1.0». Добавлен тест целостности ссылок (каждый `server/**/*.js`-референс должен существовать), удалена строка F126, шапка → v5.21.1.
+- Итог: **1002/1002 тестов** (998 + 1 порт + 1 trial + 2 registry), lint 0.
+
+## Work State
+### Completed
+- Round 0 baseline: `npm run test:ci` 998/998 (после остановки стейл-сервера).
+- DA-56 (порт 3012 + тест изоляции), DA-58 (trial→monthly в `payment.service.js:283-299`), DA-57 (integrity-тест + чистка реестра).
+- Документация: новый `AUDIT_REPORT_2026-08-06.md` (Round 14), `CHANGELOG.md` [5.22.0], `PROGRESS.md` (шапка + git log + NEXT ACTIONS), `SESSION_NOTES.md`, `package.json` 5.20.0→5.22.0.
+
+### Pending / Next
+1. **OBS-001**: payment-действия (checkout/оплата/подписка) не пишутся в `audit_log` — только app-лог; нужен transaction-aware insert внутри webhook-транзакции (не вызывать `saveDb()` в открытой транзакции).
+2. **API-001 остаточный**: admin/CRUD эндпоинты `server/index.js` на legacy string `{error}`.
+3. **ARC-001**: `auth/progress/feedback.service.js` + `repositories/` существуют, но `NOT WIRED`.
+4. **Долги**: CSP `unsafe-inline`; `hero-poster.jpg` 2.55 MiB; NFR-001 метрики (p95/RTO/build budget).
+5. **Продакшн**: Stripe Price IDs + Mux keys; залить каталог заново (после 015 пуст).
+6. **Осторожно**: не оставлять dev-сервер на `:3001` при тестах.
+
+---
+
+## Прошлые сессии — 2026-08-05 (Mux-only)
 
 ## Objective
 Полностью вычеркнуть Cloudflare Stream из кода, БД, админки и документации. `cf_video_uid` → `video_id` во всех таблицах. Mux — единственный стриминг-провайдер. Каталог занятий очищен (миграция 015) для перезапуска.

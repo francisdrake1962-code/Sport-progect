@@ -4,6 +4,17 @@
 
 ---
 
+## [5.22.0] - 2026-08-06
+
+### Fixed — Devil's Advocate Round 14 (test isolation / DB-002 / ARCH-001)
+
+- **DA-56 (test isolation)**: `tests/backend.test.js` hard-coded `TEST_PORT = 3001` (the default dev port). A leftover dev server on `:3001` silently hijacked the whole suite (51 false failures: empty catalog, 401 admin login). The suite now uses a dedicated `TEST_PORT = 3012` (convention: 3004/3005/3008/3010) and `apiRequest` reads `TEST_PORT`; a port-isolation regression test asserts the suite never uses the dev port.
+- **DA-58 (DB-002 / PAY-001)**: `handlePaymentFailed` wrote the subscriber `plan` into `payments.plan`, whose CHECK allows only `monthly`/`annual`. A trial-plan subscriber hitting `invoice.payment_failed` violated the CHECK inside the webhook transaction — the event rolled back and stayed retryable forever. Now maps `trial → monthly` (same rule as `adminGrantAccess`).
+- **DA-57 (ARCH-001)**: `FEATURE_REGISTRY.md` referenced the removed `server/services/schedule.service.js` and claimed v4.1.0. Added a reference-integrity test (every `server/…` reference must point to an existing file), removed the obsolete F126 row, bumped the header.
+- Full suite: **1002/1002 tests, 20 suites** (randomized); eslint 0 errors.
+
+---
+
 ## [5.21.1] - 2026-08-06
 
 ### Added — «Кому подойдёт занятие» (`lessons.audience`)

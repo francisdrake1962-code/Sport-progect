@@ -227,4 +227,20 @@ describe('Content Integrity', () => {
       expect(m[1].trim()).not.toBe('_');
     });
   });
+
+  describe('Round 14 — FEATURE_REGISTRY reference integrity (ARCH-001)', () => {
+    const projectRoot = path.join(__dirname, '..');
+    const registry = fs.readFileSync(path.join(projectRoot, 'FEATURE_REGISTRY.md'), 'utf8');
+
+    test('code references must point to existing files', () => {
+      const refs = [...registry.matchAll(/server\/[A-Za-z0-9_./-]+\.js/g)].map(m => m[0]);
+      expect(refs.length).toBeGreaterThan(0);
+      const missing = refs.filter(ref => !fs.existsSync(path.join(projectRoot, ref)));
+      expect(missing).toEqual([]);
+    });
+
+    test('must not reference removed modules (schedule.service.js removed in v5.10.0)', () => {
+      expect(registry).not.toMatch(/schedule\.service\.js/);
+    });
+  });
 });

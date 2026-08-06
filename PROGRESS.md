@@ -2,21 +2,23 @@
 
 > This file is a resume-point for the next AI session.
 > Read this file first, then continue from "NEXT ACTIONS".
-> Last updated: 2026-08-01 v5.20.0 (Round 13 — stream-token per-code frontend, pushed)
+> Last updated: 2026-08-06 v5.22.0 (Round 14 — test isolation, DB-002, ARCH-001)
 
 ---
 
 ## CURRENT STATE
 
-**Version**: 5.20.0 (Devil's Advocate Round 13 — API-003 residual: stream-token per-code actions in player.html; see `AUDIT_REPORT_2026-08-01.md`)
-**Tests**: 949/949 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
+**Version**: 5.22.0 (Devil's Advocate Round 14 — dedicated test port, payments.plan CHECK fix, FEATURE_REGISTRY integrity; see `AUDIT_REPORT_2026-08-06.md`)
+**Tests**: 1002/1002 passing (20 suites), order-independent (verified with `jest --randomize`; CI runs `npm run test:ci`)
 **Lint**: 0 errors, 13 warnings (pre-existing: Jest globals in ESLint config)
 **Build**: passes (2 existing warnings — hero-poster.jpg 2.55MiB size)
 **GitHub**: All commits pushed to `francisdrake1962-code/Sport-progect`
 
 ### Git Log (recent)
 ```
-v5.20.0: Devil's Advocate Round 13 — stream-token per-code frontend (api() attaches err.status/code, shared renderDenied, EMAIL_CONFIRMATION_REQUIRED + gate 403 + STREAMING_NOT_CONFIGURED actions replace catch(_){}, 3 integrity tests)
+v5.22.0: Devil's Advocate Round 14 — dedicated test port 3012 (isolation from dev :3001), trial→monthly map in handlePaymentFailed (payments.plan CHECK), FEATURE_REGISTRY reference-integrity test + F126 cleanup (1002/1002)
+v5.21.1: lessons.audience field (migration 018) — admin + catalog + player blocks
+v5.21.0: Cloudflare Stream removed, Mux-only video provider (migrations 014–017)
 v5.19.1: CI fix — ESLint 10 requires Node >=20.19, GitHub Actions matrix 18 -> 22/24, engines + DEPLOYMENT.md updated (GitHub 'project not successful' notifications were failing lint on Node 18)
 v5.19.0: Devil's Advocate Round 12 — AUTH-001 password reset (request-reset always {success:true}, one-time 1h SHA-256 token, reset-password, token_version session revocation of all old JWTs, reset page + login link, 9 tests)
 v5.18.0: Devil's Advocate Round 11 — API-001 unified error format `{success:false, error:{code,message}, requestId}` across payment/auth/user (sendError helper, all inline errors converted, frontend errText, 10 contract tests, 6 tests updated)
@@ -477,14 +479,16 @@ server/
 
 ## NEXT ACTIONS (resume point)
 
-Текущий статус: Round 12 (AUTH-001) готов — **v5.19.0**, всё запушено. Следующий раунд — по цепочке из `docs/IMPROVEMENT_TZ.md`; кандидаты:
+Текущий статус: Round 14 готов — **v5.22.0** (тестовая изоляция порта, payments.plan CHECK, FEATURE_REGISTRY integrity). Цепочка P0/P1 из `docs/IMPROVEMENT_TZ.md` закрыта (Rounds 4–13). Следующий раунд — по P2; кандидаты:
 
-1. **API-003 остаточный** — `player.html` сейчас глотает ошибки `stream-token` (`catch(_){}`); по коду показать действие и для stream-token-отказов.
-2. **Единый формат ошибок на admin-эндпоинтах** — `server/index.js` + admin CRUD ещё на legacy string `{error}` (вне скоупа API-001, который покрыл только payment/auth/user).
-3. **Долги из аудита** — CSP `unsafe-inline`; `hero-poster.jpg` 2.55 MiB (перенос в webp/сжатие).
-4. **Ручные шаги продакшена** — Stripe Price IDs + Mux all-or-none; `quality-gate` как required status check в branch protection.
+1. **OBS-001 (аудит платежей)** — критичные payment-действия логируются только в app-лог, не попадают в `audit_log` (виден в `/api/admin/audit-logs`). Wiring внутри PAY-002-транзакции требует transaction-aware insert (безопасно, т.к. `saveDb()` в открытой транзакции рискованно).
+2. **Единый формат ошибок на admin-эндпоинтах** — `server/index.js` + admin CRUD ещё на legacy string `{error}` (вне скоупа API-001, покрыл только payment/auth/user).
+3. **ARC-001** — `auth/progress/feedback.service.js` + `repositories/` существуют, но `NOT WIRED`; перевести домены на service/repository по образцу payment.
+4. **Долги из аудита** — CSP `unsafe-inline`; `hero-poster.jpg` 2.55 MiB (webp/сжатие); проверить NFR-001 метрики (p95, RTO, build budget).
+5. **Ручные шаги продакшена** — Stripe Price IDs + Mux all-or-none; `quality-gate` как required status check; заново залить каталог (после миграции 015 пуст).
 
 ### Как продолжить сессию
-- Прочитать сначала: `docs/IMPROVEMENT_TZ.md` (цепочка P0→P2), `AUDIT_REPORT_2026-08-01.md` (история раундов), этот файл.
-- Прогнать перед работой: `npm run test:ci` (должно быть 946/946), `npm run lint`, `npm run build`.
+- Прочитать сначала: `docs/IMPROVEMENT_TZ.md` (цепочка P0→P2), `AUDIT_REPORT_2026-08-01.md` (раунды 4–13), `AUDIT_REPORT_2026-08-06.md` (Round 14), этот файл.
+- Прогнать перед работой: `npm run test:ci` (должно быть 1002/1002), `npm run lint`, `npm run build`.
+- ВАЖНО: не оставлять запущенный dev-сервер на порту `:3001` при прогоне тестов — `backend.test.js` теперь использует 3012, но другие процессы на 3001 могут мешать ручной работе.
 - После каждого раунда: обновить API.md/openapi.yaml + AUDIT_REPORT (новый DA-ID) + CHANGELOG + PROGRESS + package.json (minor bump) → коммит + push.

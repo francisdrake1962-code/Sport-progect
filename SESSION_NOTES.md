@@ -19,6 +19,7 @@
 ## Work State
 ### Completed
 - Миграции: `014_video_id.sql` (rename `cf_video_uid`→`video_id` на `lessons`/`lesson_media`/`video_uploads`/`lesson_versions` + индекс `idx_video_uploads_video_id`), `015_clear_catalog.sql` (очистка каталога + сброс `sqlite_sequence`).
+- Сессия 2026-08-06: `016_provider_default_mux.sql` — пересоздание `lessons`/`lesson_media`/`video_uploads` с DEFAULT `'mux'` (был `'cloudflare'`, т.к. 006/007 применились до решения). ВАЖНО: первая редакция 016 потеряла колонку `theme` в `lessons` (свежие БД и прод падали с «no such column: theme») — исправлено `017_restore_lessons_theme.sql` (+ добавлен `theme` в саму 016). Применены к проду, прод-схема проверена.
 - `server/services/stream.js` — только Mux (без CF-модуля, `processReadyVideo`, ES256). `server/index.js` / `server/routes/user.js` / `content-version.service.js` — `video_id`, `test-mux` вместо `test-stream`, ключи настроек без `cf_stream_*`.
 - Админка: `settings.html` (только блок Mux), `lessons.html` (`f-video-id`, селект «Хостинг» удалён), `stream-upload.js` (Mux-only).
 - Тесты обновлены: `backend.test.js` (503-кейс stream-token для mux-урока), `stream-mux.test.js` (503 без конфига + подписанный URL + local → null), `admin-video-uploads.test.js`, `i18n.test.js`. **998/998** (`npm run test:ci`), lint 0, build OK.
@@ -28,7 +29,7 @@
 ### Pending / Next
 1. При настройке Mux: вписать `MUX_*` в `.env` (или settings-админку) и проверить `POST /api/settings/test-mux` → `configured:true`, затем залить реальное видео (Direct Upload) и проверить подписанный HLS в плеере.
 2. Залить каталог заново (админка / `import.html` / скрипт `server/scripts/import-catalog.js`).
-3. `video_uploads.provider` на проде имеет старый DEFAULT 'cloudflare' (007 применён до правки) — коду безразлично (провайдер пишется явно), но при желании пересобрать таблицу.
+3. УРОК ИЗ 016: при пересоздании таблиц миграциями проверять ПОЛНУЮ паритетность колонок (не только дефолты/индексы) — потеря `theme` всплыла только в тестах.
 4. Из прошлых сессий: картинки упражнений (комплекс на стуле) — ждёт решения пользователя.
 
 ---

@@ -4,6 +4,21 @@
 
 ---
 
+## [5.21.1] - 2026-08-06
+
+### Added — «Кому подойдёт занятие» (`lessons.audience`)
+
+Поле для информационного блока об аудитории занятия (не показывается в каталоге как обязательное; выводится при выборе занятия и на странице плеера).
+
+- Migration `018_lesson_audience.sql`: `ALTER TABLE lessons ADD COLUMN audience TEXT` (на свежих БД колонка уже есть в базовой схеме `server/db.js`, миграция — no-op через «duplicate column»).
+- `server/db.js`: `audience TEXT` в базовую схему `lessons`.
+- `server/index.js`: `audience` в публичном списке `/api/lessons` и в полях CRUD.
+- Админка `src/admin/lessons.html`: поле «Кому подойдёт» (текстовая область) — создание и редактирование.
+- `src/pages/player.html`: на странице занятия (перед запуском видео) — блоки «Цель» и «Кому подойдёт» рядом с эффектом.
+- `src/pages/lessons.html`: в карточке каталога — колонка «Кому подойдёт»; в карточке «Сегодня» — строка «👥 …».
+
+---
+
 ## [5.21.0] - 2026-08-05
 
 ### Changed — Cloudflare Stream removed; Mux-only video provider

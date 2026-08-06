@@ -56,6 +56,7 @@
 
 ## Work State
 ### Completed
+- 2026-08-06: поле `lessons.audience` («Кому подойдёт занятие»): миграция `018_lesson_audience.sql` (применена к проду), `audience` в базовой схеме `db.js`, в `/api/lessons` и CRUD-полях (`server/index.js`). Админка `src/admin/lessons.html` — поле «Кому подойдёт». `src/pages/player.html` — на странице занятия (до запуска видео) блоки «Цель» + «Кому подойдёт» рядом с эффектом. `src/pages/lessons.html` — колонка «Кому подойдёт» в карточке каталога + строка «👥 …» в карточке «Сегодня». **998/998**, lint/build OK. Структура описаний урока: наименование → `title`/`theme`, цель → `goals`, эффект → `effect_description`, кому → `audience`; «как проходит практика» отдельным полем НЕ заводили (дублирует эффект).
 - Лендинг (src/index.html + main.css + fonts) — готов, одобрен.
 - Последний коммит: `e61f8aec2 feat(ui): mindful warm redesign — landing approved, cabinet light theme`. Рабочее дерево чистое (мои новые файлы пока не коммитились).
 - ВАЖНО (сегодня): `npm run test:ci` дал 44 failed (backend.test.js: Stripe not configured, 429 rate-limit). Проверено на чистом HEAD — падает и без изменений (102 failed) → флейк/среда, НЕ связано с витриной. Раньше было 999/999 — вероятно, изменился .env (STRIPE_SECRET_KEY=sk_test_placeholder) или состояние rate-limit.

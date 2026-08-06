@@ -46,7 +46,7 @@
         .complex-lesson__num { color:#7c6f5d; font-weight:600; font-size:0.85rem; min-width:1.5rem; }
         .complex-lesson__duration { color:#7c6f5d; font-size:0.8rem; }
         .complex-lesson__play { color:#8a6f52; font-size:1.1rem; }
-        .lesson-cols { flex:1; display:grid; grid-template-columns:1.3fr 1.2fr 1.5fr; gap:1rem; min-width:0; }
+        .lesson-cols { flex:1; display:grid; grid-template-columns:1.3fr 1.2fr 1.5fr 1.3fr; gap:1rem; min-width:0; }
         .lesson-col { min-width:0; font-size:0.85rem; color:#6f675c; line-height:1.35; }
         .lesson-col__title { color:#2b2721; font-weight:600; font-size:0.95rem; }
         .lesson-col__theme { color:#8a6f52; font-size:0.78rem; margin-top:0.15rem; }
@@ -115,6 +115,7 @@
                 intensityPill(l) + '</div>' +
                 '<div class="lesson-col">' + (l.goals ? '<div class="lesson-col__label">Цель</div><div>' + esc(l.goals) + '</div>' : '<div class="lesson-col__label" style="opacity:0.45;">Цель —</div>') + '</div>' +
                 '<div class="lesson-col">' + (effect || '<div class="lesson-col__label" style="opacity:0.45;">Эффект —</div>') + '</div>' +
+                '<div class="lesson-col">' + (l.audience ? '<div class="lesson-col__label">Кому подойдёт</div><div>' + esc(l.audience) + '</div>' : '<div class="lesson-col__label" style="opacity:0.45;">Кому подойдёт —</div>') + '</div>' +
                 '</div>';
         }
         let isTrialUser = false;
@@ -237,6 +238,7 @@
                 (lesson.theme ? '<div class="lesson-col__theme" style="margin:0.2rem 0;">' + esc(lesson.theme) + '</div>' : '') +
                 (lesson.goals ? '<div style="color:#6f675c;font-size:0.85rem;margin-top:0.4rem;">🎯 ' + esc(lesson.goals) + '</div>' : '') +
                 (lesson.effect_description && !lesson.effect_is_draft ? '<div style="color:#6f675c;font-size:0.85rem;margin-top:0.4rem;">✨ ' + esc(lesson.effect_description) + '</div>' : '') +
+                (lesson.audience ? '<div style="color:#6f675c;font-size:0.85rem;margin-top:0.4rem;">👥 ' + esc(lesson.audience) + '</div>' : '') +
                 '<div class="lessons-today__meta">' +
                 (lesson.duration ? '<span>⏱ ' + esc(lesson.duration) + ' мин</span>' : '') +
                 (lesson.intensity ? '<span>' + ({ low: 'Щадящая', medium: 'Средняя', high: 'Интенсивная' }[lesson.intensity]) + '</span>' : '') +

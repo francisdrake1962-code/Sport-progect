@@ -459,7 +459,9 @@
             if (lesson.status) html += '<span class="badge">' + esc(lesson.status) + '</span>';
             html += '</div>';
             html += '<h1 class="player-info__title">' + esc(lesson.title) + '</h1>';
+            if (lesson.goals) html += '<p class="player-info__desc"><strong>Цель:</strong> ' + esc(lesson.goals) + '</p>';
             if (lesson.effect_description) html += '<p class="player-info__desc">' + esc(lesson.effect_description) + '</p>';
+            if (lesson.audience) html += '<p class="player-info__desc"><strong>Кому подойдёт:</strong> ' + esc(lesson.audience) + '</p>';
 
             if (zones.length) {
                 html += '<div class="player-info__exercises"><h3>Зоны воздействия</h3>';

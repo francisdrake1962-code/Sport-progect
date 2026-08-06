@@ -63,6 +63,10 @@
                         <input type="hidden" id="f-effect-is-draft">
                     </div>
                     <div class="form-group"><label for="f-description">Описание</label><textarea class="form-control" id="f-description"></textarea></div>
+                    <div class="form-group">
+                        <label for="f-audience">Кому подойдёт</label>
+                        <textarea class="form-control" id="f-audience" rows="2" placeholder="Например: людям старшего возраста, особенно 60+, тем, кто хочет мягко поддерживать здоровье суставов"></textarea>
+                    </div>
                 </div>
                 <div class="form-tab-panel" id="tab-video" style="display:none">
                     <div class="form-group"><label for="f-video-url">URL видео</label><input type="text" class="form-control" id="f-video-url" placeholder="/videos/filename.mp4"></div>
@@ -174,6 +178,7 @@
         document.getElementById('f-intensity').value = '';
         document.getElementById('f-effect').value = '';
         document.getElementById('f-goals').value = '';
+        document.getElementById('f-audience').value = '';
         document.getElementById('f-effect-is-draft').value = '0';
         document.getElementById('f-draft-badge').style.display = 'none';
         document.getElementById('f-image').value = '';
@@ -204,6 +209,7 @@
         document.getElementById('f-intensity').value = lesson.intensity || '';
         document.getElementById('f-effect').value = lesson.effect_description || '';
         document.getElementById('f-goals').value = lesson.goals || '';
+        document.getElementById('f-audience').value = lesson.audience || '';
         document.getElementById('f-effect-is-draft').value = String(lesson.effect_is_draft || 0);
         document.getElementById('f-draft-badge').style.display = lesson.effect_is_draft ? 'block' : 'none';
 
@@ -258,6 +264,7 @@
             goals: document.getElementById('f-goals').value || null,
             effect_description: document.getElementById('f-effect').value || null,
             effect_is_draft: parseInt(document.getElementById('f-effect-is-draft').value) || 0,
+            audience: document.getElementById('f-audience').value || null,
         };
         const selectedZones = Array.from(document.querySelectorAll('#f-zones input[type="checkbox"]:checked')).map(c => c.value);
 

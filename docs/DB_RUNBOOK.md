@@ -46,6 +46,7 @@
 | `015_clear_catalog.sql` | очистка каталога: `complex_lessons`, `lesson_media`, `lesson_versions`, `video_uploads`, `lesson_zones`, `lessons` + сброс `sqlite_sequence` | forward-only (восстановление из бэкапа) | **удаляет все уроки и медиа** (разовый перенос); подписчики, комплексы и пользовательские данные не трогаются; перед применением обязателен бэкап (создаётся раннером) |
 | `016_provider_default_mux.sql` | пересоздание `lessons`/`lesson_media`/`video_uploads` с DEFAULT `'mux'` вместо `'cloudflare'` (006/007 применялись до решения Mux-only; SQLite не меняет дефолт колонки) | forward-only (восстановление из бэкапа) | паттерн `_new` + rename; каталог к тому моменту пуст (015), поэтому данные не копируются; FK-ссылки остаются валидными |
 | `017_restore_lessons_theme.sql` | `ALTER TABLE lessons ADD COLUMN theme TEXT` | forward-only | возвращает `theme` (пропущенную в первой редакции 016) на БД, где 016 уже применена; на свежих БД (016 с `theme`) — no-op через «duplicate column» |
+| `018_lesson_audience.sql` | `ALTER TABLE lessons ADD COLUMN audience TEXT` | forward-only | «Кому подойдёт занятие»; на свежих БД колонка уже в базовой схеме `db.js` — no-op через «duplicate column» |
 
 Правила для существующих пользователей (общие):
 

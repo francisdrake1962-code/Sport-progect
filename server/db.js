@@ -94,6 +94,7 @@ async function getDb() {
         effect_description TEXT,
         effect_is_draft INTEGER DEFAULT 0 CHECK(effect_is_draft IN (0, 1)),
         intensity TEXT,
+        audience TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);

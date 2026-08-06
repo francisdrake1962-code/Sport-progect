@@ -218,7 +218,7 @@ app.get('/api/lessons', async (req, res) => {
     const countResult = db.exec(`SELECT COUNT(*) FROM lessons WHERE status = 'active'`);
     const total = (countResult.length > 0 && countResult[0].values.length > 0) ? countResult[0].values[0][0] : 0;
     const result = db.exec(
-      `SELECT id, title, theme, duration, status, description, video_url, video_id, image_url, is_free, free_order, sort_order, catalog_no, date, tags, direction, goals, effect_description, effect_is_draft, video_provider, intensity FROM lessons WHERE status = 'active' ORDER BY COALESCE(sort_order, 999999) ASC, date DESC LIMIT ? OFFSET ?`,
+      `SELECT id, title, theme, duration, status, description, video_url, video_id, image_url, is_free, free_order, sort_order, catalog_no, date, tags, direction, goals, effect_description, effect_is_draft, video_provider, intensity, audience FROM lessons WHERE status = 'active' ORDER BY COALESCE(sort_order, 999999) ASC, date DESC LIMIT ? OFFSET ?`,
       [limit, offset]
     );
     res.json({
@@ -437,7 +437,7 @@ const api = express.Router();
 api.use(authMiddleware);
 api.use(requireAdmin);
 
-  api.use('/lessons', createCrudRoutes('lessons', ['title', 'theme', 'duration', 'status', 'description', 'video_url', 'video_id', 'image_url', 'is_free', 'free_order', 'sort_order', 'catalog_no', 'date', 'tags', 'direction', 'direction_source', 'goals', 'effect_description', 'effect_is_draft', 'video_provider', 'intensity']));
+  api.use('/lessons', createCrudRoutes('lessons', ['title', 'theme', 'duration', 'status', 'description', 'video_url', 'video_id', 'image_url', 'is_free', 'free_order', 'sort_order', 'catalog_no', 'date', 'tags', 'direction', 'direction_source', 'goals', 'effect_description', 'effect_is_draft', 'video_provider', 'intensity', 'audience']));
 api.use('/complexes', createCrudRoutes('complexes', ['name', 'description', 'image_url', 'status']));
 
 // complex_lessons — custom routes (composite PK)
